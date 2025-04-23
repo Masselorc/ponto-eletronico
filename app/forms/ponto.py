@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, TextAreaField, SubmitField, TimeField, DateField
 from wtforms.validators import DataRequired, Length
-from datetime import datetime, date
+from datetime import datetime, date, time
 
 class RegistroPontoForm(FlaskForm):
     tipo = SelectField('Tipo de Registro', choices=[
@@ -12,7 +12,9 @@ class RegistroPontoForm(FlaskForm):
     ], validators=[DataRequired()])
     
     data = DateField('Data', format='%Y-%m-%d', default=date.today, validators=[DataRequired()])
-    hora = TimeField('Hora', format='%H:%M', default=datetime.now, validators=[DataRequired()])
+    
+    # Usando time() para obter apenas o componente de hora do datetime.now()
+    hora = TimeField('Hora', format='%H:%M', default=lambda: datetime.now().time(), validators=[DataRequired()])
     
     submit = SubmitField('Registrar')
 

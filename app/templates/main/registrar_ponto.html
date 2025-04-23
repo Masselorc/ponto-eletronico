@@ -6,7 +6,7 @@
 <div class="row mb-4">
     <div class="col-md-6">
         <h2>Registrar Ponto</h2>
-        <p class="text-muted">Data: {{ registro.data.strftime('%d/%m/%Y') if registro else hoje.strftime('%d/%m/%Y') }}</p>
+        <p class="text-muted">Selecione a data e hora para o registro</p>
     </div>
     <div class="col-md-6 text-end">
         <div class="card">
@@ -97,6 +97,23 @@
                                 <div class="text-danger">{{ error }}</div>
                                 {% endfor %}
                             </div>
+                            
+                            <div class="mb-3">
+                                {{ form.data.label(class="form-label") }}
+                                {{ form.data(class="form-control", type="date") }}
+                                {% for error in form.data.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.hora.label(class="form-label") }}
+                                {{ form.hora(class="form-control", type="time") }}
+                                {% for error in form.hora.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
                             <div class="d-grid">
                                 {{ form.submit(class="btn btn-primary btn-lg btn-registrar-ponto") }}
                             </div>
@@ -105,9 +122,45 @@
                 </form>
             </div>
             <div class="card-footer text-center">
-                <p class="text-muted mb-0">Selecione o tipo de registro e clique em "Registrar"</p>
+                <p class="text-muted mb-0">Selecione o tipo de registro, a data e a hora desejada, e clique em "Registrar"</p>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Atualiza o relógio a cada segundo
+    function atualizarRelogio() {
+        const agora = new Date();
+        const horas = agora.getHours().toString().padStart(2, '0');
+        const minutos = agora.getMinutes().toString().padStart(2, '0');
+        const segundos = agora.getSeconds().toString().padStart(2, '0');
+        document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
+    }
+    
+    // Atualiza o relógio imediatamente e depois a cada segundo
+    atualizarRelogio();
+    setInterval(atualizarRelogio, 1000);
+    
+    // Botão para preencher com horário atual
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adiciona botão para preencher com horário atual
+        const horaField = document.querySelector('input[type="time"]');
+        if (horaField) {
+            const btnAtual = document.createElement('button');
+            btnAtual.type = 'button';
+            btnAtual.className = 'btn btn-sm btn-outline-secondary mt-2';
+            btnAtual.textContent = 'Usar horário atual';
+            btnAtual.onclick = function() {
+                const agora = new Date();
+                const horas = agora.getHours().toString().padStart(2, '0');
+                const minutos = agora.getMinutes().toString().padStart(2, '0');
+                horaField.value = `${horas}:${minutos}`;
+            };
+            horaField.parentNode.appendChild(btnAtual);
+        }
+    });
+</script>
 {% endblock %}

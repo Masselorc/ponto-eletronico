@@ -60,15 +60,21 @@ def registrar_ponto():
         if not registro:
             registro = Ponto(user_id=current_user.id, data=data_selecionada)
         
+        # Extrai apenas o componente time do objeto datetime ou converte para time se necessário
+        if isinstance(hora_selecionada, datetime):
+            hora_time = hora_selecionada.time()
+        else:
+            hora_time = hora_selecionada
+            
         # Usa a hora selecionada pelo usuário
         if tipo == 'entrada':
-            registro.entrada = hora_selecionada
+            registro.entrada = hora_time
         elif tipo == 'saida_almoco':
-            registro.saida_almoco = hora_selecionada
+            registro.saida_almoco = hora_time
         elif tipo == 'retorno_almoco':
-            registro.retorno_almoco = hora_selecionada
+            registro.retorno_almoco = hora_time
         elif tipo == 'saida':
-            registro.saida = hora_selecionada
+            registro.saida = hora_time
             
         # Calcula horas trabalhadas se tiver todos os registros
         if (registro.entrada and registro.saida_almoco and 
@@ -84,12 +90,16 @@ def registrar_ponto():
             total_segundos = t1.total_seconds() + t2.total_seconds()
             registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
         
-        if not registro.id:
-            db.session.add(registro)
-        
-        db.session.commit()
-        flash(f'Registro de {tipo} realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")} às {hora_selecionada.strftime("%H:%M")}!', 'success')
-        return redirect(url_for('main.dashboard'))
+        try:
+            if not registro.id:
+                db.session.add(registro)
+            
+            db.session.commit()
+            flash(f'Registro de {tipo} realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")} às {hora_time.strftime("%H:%M")}!', 'success')
+            return redirect(url_for('main.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao registrar ponto: {str(e)}', 'danger')
     
     return render_template('main/registrar_ponto.html', form=form, hoje=hoje)
 
