@@ -65,6 +65,18 @@
         font-size: 0.8rem;
         margin-bottom: 2px;
     }
+    
+    .afastamento-badge {
+        display: inline-block;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        margin-bottom: 5px;
+        background-color: #6f42c1;
+        color: white;
+        width: 100%;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
@@ -125,34 +137,36 @@
                     {% if data_atual in registros %}
                         {% set registro = registros[data_atual] %}
                         {% if registro.afastamento %}
-                            <div class="horas-badge bg-info text-white">
+                            <div class="afastamento-badge">
                                 {% if registro.tipo_afastamento == 'ferias' %}
-                                    Férias
-                                {% elif registro.tipo_afastamento == 'atestado' %}
-                                    Atestado
-                                {% elif registro.tipo_afastamento == 'licenca' %}
-                                    Licença
+                                    <i class="fas fa-umbrella-beach me-1"></i> Férias
+                                {% elif registro.tipo_afastamento == 'licenca_medica' %}
+                                    <i class="fas fa-procedures me-1"></i> Licença Médica
+                                {% elif registro.tipo_afastamento == 'licenca_maternidade' %}
+                                    <i class="fas fa-baby me-1"></i> Licença Maternidade/Paternidade
+                                {% elif registro.tipo_afastamento == 'abono' %}
+                                    <i class="fas fa-calendar-check me-1"></i> Abono
                                 {% else %}
-                                    Afastamento
+                                    <i class="fas fa-user-clock me-1"></i> Afastamento
                                 {% endif %}
                             </div>
                         {% elif registro.horas_trabalhadas %}
                             <div class="horas-badge 
-                                {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
-                                {{ "%.1f"|format(registro.horas_trabalhadas) }}h
+                                {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %} text-white">
+                                <i class="fas fa-clock me-1"></i> {{ "%.1f"|format(registro.horas_trabalhadas) }}h
                             </div>
-                        {% endif %}
-                        
-                        {% if registro.entrada %}
-                            <div class="horario-item">
-                                <i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}
-                            </div>
-                        {% endif %}
-                        
-                        {% if registro.saida %}
-                            <div class="horario-item">
-                                <i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}
-                            </div>
+                            
+                            {% if registro.entrada %}
+                                <div class="horario-item">
+                                    <i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}
+                                </div>
+                            {% endif %}
+                            
+                            {% if registro.saida %}
+                                <div class="horario-item">
+                                    <i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}
+                                </div>
+                            {% endif %}
                         {% endif %}
                         
                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary mt-2">
@@ -191,22 +205,46 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Dias Trabalhados</h6>
-                                <h3 class="card-title">{{ registros|length }}</h3>
+                                <h3 class="card-title">
+                                    {% set dias_trabalhados = namespace(valor=0) %}
+                                    {% for registro in registros.values() %}
+                                        {% if registro.horas_trabalhadas and not registro.afastamento %}
+                                            {% set dias_trabalhados.valor = dias_trabalhados.valor + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {{ dias_trabalhados.valor }}
+                                </h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Dias de Afastamento</h6>
+                                <h3 class="card-title">
+                                    {% set dias_afastamento = namespace(valor=0) %}
+                                    {% for registro in registros.values() %}
+                                        {% if registro.afastamento %}
+                                            {% set dias_afastamento.valor = dias_afastamento.valor + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {{ dias_afastamento.valor }}
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Total de Horas</h6>
                                 <h3 class="card-title">
                                     {% set total_horas = namespace(valor=0) %}
                                     {% for registro in registros.values() %}
-                                        {% if registro.horas_trabalhadas %}
+                                        {% if registro.horas_trabalhadas and not registro.afastamento %}
                                             {% set total_horas.valor = total_horas.valor + registro.horas_trabalhadas %}
                                         {% endif %}
                                     {% endfor %}
@@ -215,13 +253,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Média Diária</h6>
                                 <h3 class="card-title">
-                                    {% if registros|length > 0 %}
-                                        {{ "%.1f"|format(total_horas.valor / registros|length) }}h
+                                    {% if dias_trabalhados.valor > 0 %}
+                                        {{ "%.1f"|format(total_horas.valor / dias_trabalhados.valor) }}h
                                     {% else %}
                                         0h
                                     {% endif %}
