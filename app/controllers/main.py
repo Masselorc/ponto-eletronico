@@ -44,6 +44,7 @@ def dashboard():
 @login_required
 def registrar_ponto():
     form = RegistroPontoForm()
+    hoje = datetime.now().date()
     
     if form.validate_on_submit():
         data_selecionada = form.data.data
@@ -90,7 +91,7 @@ def registrar_ponto():
         flash(f'Registro de {tipo} realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")} às {hora_selecionada.strftime("%H:%M")}!', 'success')
         return redirect(url_for('main.dashboard'))
     
-    return render_template('main/registrar_ponto.html', form=form)
+    return render_template('main/registrar_ponto.html', form=form, hoje=hoje)
 
 @main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
