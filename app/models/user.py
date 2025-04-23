@@ -1,6 +1,7 @@
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -13,9 +14,14 @@ class User(db.Model, UserMixin):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     matricula = db.Column(db.String(20), unique=True, nullable=False)
-    vinculo = db.Column(db.String(100), nullable=False)
+    cargo = db.Column(db.String(100), nullable=False)
+    uf = db.Column(db.String(2), nullable=False)
+    telefone = db.Column(db.String(20), nullable=False)
+    vinculo = db.Column(db.String(50), nullable=False)
+    foto_path = db.Column(db.String(255), nullable=False)
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relacionamentos
     pontos = db.relationship('Ponto', backref='user', lazy=True)
