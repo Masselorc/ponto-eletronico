@@ -1,0 +1,13 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./instance:/app/instance
+    environment:
+      - SECRET_KEY=chave_secreta_do_aplicativo
+      - DATABASE_URI=sqlite:///ponto_eletronico.db
+      - DEBUG=False
+    restart: always

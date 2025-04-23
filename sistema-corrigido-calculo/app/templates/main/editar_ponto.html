@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Registro de Ponto{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2>Editar Registro de Ponto</h2>
+        <p class="text-muted">Data: {{ ponto.data.strftime('%d/%m/%Y') }}</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Horários Registrados</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="form-group">
+                                <label for="entrada" class="form-label">Entrada</label>
+                                <input type="time" class="form-control" id="entrada" name="entrada" value="{{ ponto.entrada.strftime('%H:%M') if ponto.entrada else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="form-group">
+                                <label for="saida_almoco" class="form-label">Saída Almoço</label>
+                                <input type="time" class="form-control" id="saida_almoco" name="saida_almoco" value="{{ ponto.saida_almoco.strftime('%H:%M') if ponto.saida_almoco else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="form-group">
+                                <label for="retorno_almoco" class="form-label">Retorno Almoço</label>
+                                <input type="time" class="form-control" id="retorno_almoco" name="retorno_almoco" value="{{ ponto.retorno_almoco.strftime('%H:%M') if ponto.retorno_almoco else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="form-group">
+                                <label for="saida" class="form-label">Saída</label>
+                                <input type="time" class="form-control" id="saida" name="saida" value="{{ ponto.saida.strftime('%H:%M') if ponto.saida else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-12 text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Salvar Alterações
+                            </button>
+                            
+                            <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+                                <i class="fas fa-trash me-2"></i>Excluir Registro
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalExcluirLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este registro de ponto do dia <strong>{{ ponto.data.strftime('%d/%m/%Y') }}</strong>?</p>
+                <p class="text-danger"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if ponto.horas_trabalhadas %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Informações Adicionais</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Horas Trabalhadas:</h5>
+                        <h3 class="{% if ponto.horas_trabalhadas >= 8 %}text-success{% else %}text-warning{% endif %}">
+                            {{ "%.2f"|format(ponto.horas_trabalhadas) }} horas
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -4,7 +4,8 @@ from app.models.user import User
 from app.models.ponto import Ponto, Atividade, Feriado
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
-from datetime import datetime
+from app.forms.ponto import RegistroPontoForm, AtividadeForm
+from datetime import datetime, date
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -34,9 +35,18 @@ def novo_usuario():
             name=form.name.data,
             email=form.email.data,
             matricula=form.matricula.data,
+            cargo=form.cargo.data,
+            uf=form.uf.data,
+            telefone=form.telefone.data,
             vinculo=form.vinculo.data,
             is_admin=form.is_admin.data
         )
+        
+        # Processar foto se enviada
+        if form.foto.data:
+            # Lógica para salvar a foto será implementada aqui
+            pass
+            
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
@@ -55,9 +65,17 @@ def editar_usuario(user_id):
         user.name = form.name.data
         user.email = form.email.data
         user.matricula = form.matricula.data
+        user.cargo = form.cargo.data
+        user.uf = form.uf.data
+        user.telefone = form.telefone.data
         user.vinculo = form.vinculo.data
         user.is_admin = form.is_admin.data
         
+        # Processar foto se enviada
+        if form.foto.data:
+            # Lógica para salvar a foto será implementada aqui
+            pass
+            
         if form.password.data:
             user.set_password(form.password.data)
             
@@ -207,3 +225,97 @@ def editar_ponto(ponto_id):
         return redirect(url_for('admin.relatorio_usuario', user_id=ponto.user_id))
     
     return render_template('admin/editar_ponto.html', ponto=ponto)
+
+@admin.route('/ponto/novo/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def novo_ponto(user_id):
+    user = User.query.get_or_404(user_id)
+    form = RegistroPontoForm()
+    
+    if form.validate_on_submit():
+        data_selecionada = form.data.data
+        hora_selecionada = form.hora.data
+        tipo = form.tipo.data
+        
+        # Verifica se já existe registro para a data selecionada
+        registro = Ponto.query.filter_by(
+            user_id=user_id,
+            data=data_selecionada
+        ).first()
+        
+        if not registro:
+            registro = Ponto(user_id=user_id, data=data_selecionada)
+        
+        # Usa a hora selecionada pelo usuário
+        if tipo == 'entrada':
+            registro.entrada = hora_selecionada
+        elif tipo == 'saida_almoco':
+            registro.saida_almoco = hora_selecionada
+        elif tipo == 'retorno_almoco':
+            registro.retorno_almoco = hora_selecionada
+        elif tipo == 'saida':
+            registro.saida = hora_selecionada
+            
+        # Calcula horas trabalhadas se tiver todos os registros
+        if (registro.entrada and registro.saida_almoco and 
+            registro.retorno_almoco and registro.saida):
+            
+            # Tempo antes do almoço
+            t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
+            
+            # Tempo depois do almoço
+            t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
+            
+            # Total de horas trabalhadas
+            total_segundos = t1.total_seconds() + t2.total_seconds()
+            registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+        
+        if not registro.id:
+            db.session.add(registro)
+        
+        db.session.commit()
+        flash(f'Registro de {tipo} adicionado com sucesso para o usuário {user.name}!', 'success')
+        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
+    
+    return render_template('admin/novo_ponto.html', form=form, user=user)
+
+@admin.route('/ponto/excluir/<int:ponto_id>', methods=['POST'])
+@login_required
+def excluir_ponto(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    user_id = ponto.user_id
+    
+    db.session.delete(ponto)
+    db.session.commit()
+    flash('Registro de ponto excluído com sucesso!', 'success')
+    return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
+
+@admin.route('/atividade/nova/<int:ponto_id>', methods=['GET', 'POST'])
+@login_required
+def nova_atividade(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    form = AtividadeForm()
+    
+    if form.validate_on_submit():
+        atividade = Atividade(
+            ponto_id=ponto_id,
+            descricao=form.descricao.data
+        )
+        db.session.add(atividade)
+        db.session.commit()
+        flash('Atividade registrada com sucesso!', 'success')
+        return redirect(url_for('admin.relatorio_usuario', user_id=ponto.user_id))
+    
+    return render_template('admin/nova_atividade.html', form=form, ponto=ponto)
+
+@admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
+@login_required
+def excluir_atividade(atividade_id):
+    atividade = Atividade.query.get_or_404(atividade_id)
+    ponto = Ponto.query.get(atividade.ponto_id)
+    user_id = ponto.user_id
+    
+    db.session.delete(atividade)
+    db.session.commit()
+    flash('Atividade excluída com sucesso!', 'success')
+    return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
