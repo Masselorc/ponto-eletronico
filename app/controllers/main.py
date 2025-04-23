@@ -19,14 +19,33 @@ def index():
     return redirect(url_for('auth.login'))
 
 @main.route('/dashboard')
+@main.route('/dashboard/<int:user_id>')
 @login_required
-def dashboard():
+def dashboard(user_id=None):
+    # Verifica se o usuário atual é o cadastrador (admin) e está tentando ver outro usuário
+    if user_id and user_id != current_user.id:
+        if not current_user.is_admin:
+            flash('Você não tem permissão para acessar o dashboard de outros usuários.', 'danger')
+            return redirect(url_for('main.dashboard'))
+        
+        # Busca o usuário solicitado
+        usuario = User.query.get_or_404(user_id)
+    else:
+        # Usa o usuário atual
+        usuario = current_user
+        user_id = current_user.id
+    
+    # Lista de usuários para o seletor (apenas para admin)
+    usuarios = []
+    if current_user.is_admin:
+        usuarios = User.query.order_by(User.name).all()
+    
     # Obtém a data atual
     hoje = datetime.now().date()
     
     # Verifica se já existe registro para hoje
     registro_hoje = Ponto.query.filter_by(
-        user_id=current_user.id,
+        user_id=user_id,
         data=hoje
     ).first()
     
@@ -42,7 +61,7 @@ def dashboard():
         ultimo_dia = date(ano_atual, mes_atual + 1, 1) - timedelta(days=1)
     
     registros_mes = Ponto.query.filter(
-        Ponto.user_id == current_user.id,
+        Ponto.user_id == user_id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data.desc()).all()
@@ -54,12 +73,63 @@ def dashboard():
     ]
     nome_mes = nomes_meses[mes_atual - 1]
     
+    # Obter feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    feriados_datas = [feriado.data for feriado in feriados]
+    
+    # Calcular estatísticas do mês
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Mapear dias com registros para cálculos
+    registros_por_data = {registro.data: registro for registro in registros_mes}
+    
+    # Calcular dias úteis e estatísticas
+    for dia in range(1, ultimo_dia.day + 1):
+        data = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (seg-sex e não é feriado)
+        if data.weekday() < 5 and data not in feriados_datas:
+            dias_uteis += 1
+            
+            # Verifica se tem registro para este dia
+            if data in registros_por_data:
+                registro = registros_por_data[data]
+                
+                # Verifica se é afastamento
+                if registro.afastamento:
+                    dias_afastamento += 1
+                # Se não for afastamento e tiver horas trabalhadas, conta como dia trabalhado
+                elif registro.horas_trabalhadas:
+                    dias_trabalhados += 1
+                    horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcular carga horária devida (8h por dia útil, excluindo afastamentos)
+    dias_uteis_efetivos = dias_uteis - dias_afastamento
+    carga_horaria_devida = dias_uteis_efetivos * 8
+    
+    # Calcular saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
     return render_template('main/dashboard.html', 
                           registro_hoje=registro_hoje,
                           registros_mes=registros_mes,
                           hoje=hoje,
                           nome_mes=nome_mes,
-                          ano_atual=ano_atual)
+                          ano_atual=ano_atual,
+                          usuario=usuario,
+                          usuarios=usuarios,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          horas_trabalhadas=horas_trabalhadas,
+                          carga_horaria_devida=carga_horaria_devida,
+                          saldo_horas=saldo_horas)
 
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
@@ -258,7 +328,7 @@ def registrar_multiplo_ponto():
 def editar_ponto(ponto_id):
     ponto = Ponto.query.get_or_404(ponto_id)
     
-    # Verifica se o ponto pertence ao usuário atual
+    # Verifica se o ponto pertence ao usuário atual ou se é admin
     if ponto.user_id != current_user.id and not current_user.is_admin:
         flash('Você não tem permissão para editar este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -385,7 +455,7 @@ def editar_ponto(ponto_id):
 def excluir_ponto(ponto_id):
     ponto = Ponto.query.get_or_404(ponto_id)
     
-    # Verifica se o ponto pertence ao usuário atual
+    # Verifica se o ponto pertence ao usuário atual ou se é admin
     if ponto.user_id != current_user.id and not current_user.is_admin:
         flash('Você não tem permissão para excluir este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -406,7 +476,7 @@ def excluir_ponto(ponto_id):
 def registrar_atividade(ponto_id):
     ponto = Ponto.query.get_or_404(ponto_id)
     
-    # Verifica se o ponto pertence ao usuário atual
+    # Verifica se o ponto pertence ao usuário atual ou se é admin
     if ponto.user_id != current_user.id and not current_user.is_admin:
         flash('Você não tem permissão para acessar este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -450,9 +520,6 @@ def perfil():
     # Obtém o total de registros
     total_registros = Ponto.query.filter_by(user_id=current_user.id).count()
     
-    # Calcula as horas trabalhadas no mês
-    horas_mes = sum(registro.horas_trabalhadas or 0 for registro in registros_mes)
-    
     # Obtém feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
@@ -460,19 +527,49 @@ def perfil():
     ).all()
     feriados_datas = [feriado.data for feriado in feriados]
     
-    # Calcula o saldo de horas do mês
+    # Calcular estatísticas do mês
     dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Mapear dias com registros para cálculos
+    registros_por_data = {registro.data: registro for registro in registros_mes}
+    
+    # Calcular dias úteis e estatísticas
     for dia in range(1, ultimo_dia.day + 1):
         data = date(ano_atual, mes_atual, dia)
-        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
+        
+        # Verifica se é dia útil (seg-sex e não é feriado)
+        if data.weekday() < 5 and data not in feriados_datas:
             dias_uteis += 1
+            
+            # Verifica se tem registro para este dia
+            if data in registros_por_data:
+                registro = registros_por_data[data]
+                
+                # Verifica se é afastamento
+                if registro.afastamento:
+                    dias_afastamento += 1
+                # Se não for afastamento e tiver horas trabalhadas, conta como dia trabalhado
+                elif registro.horas_trabalhadas:
+                    dias_trabalhados += 1
+                    horas_trabalhadas += registro.horas_trabalhadas
     
-    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
-    saldo_horas = horas_mes - horas_esperadas
+    # Calcular carga horária devida (8h por dia útil, excluindo afastamentos)
+    dias_uteis_efetivos = dias_uteis - dias_afastamento
+    carga_horaria_devida = dias_uteis_efetivos * 8
+    
+    # Calcular saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
     
     return render_template('main/perfil.html', 
                           total_registros=total_registros,
-                          horas_mes=horas_mes,
+                          horas_trabalhadas=horas_trabalhadas,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          carga_horaria_devida=carga_horaria_devida,
                           saldo_horas=saldo_horas)
 
 @main.route('/editar-perfil', methods=['GET', 'POST'])
@@ -490,8 +587,27 @@ def alterar_senha():
     return redirect(url_for('main.perfil'))
 
 @main.route('/calendario')
+@main.route('/calendario/<int:user_id>')
 @login_required
-def calendario():
+def calendario(user_id=None):
+    # Verifica se o usuário atual é o cadastrador (admin) e está tentando ver outro usuário
+    if user_id and user_id != current_user.id:
+        if not current_user.is_admin:
+            flash('Você não tem permissão para acessar o calendário de outros usuários.', 'danger')
+            return redirect(url_for('main.calendario'))
+        
+        # Busca o usuário solicitado
+        usuario = User.query.get_or_404(user_id)
+    else:
+        # Usa o usuário atual
+        usuario = current_user
+        user_id = current_user.id
+    
+    # Lista de usuários para o seletor (apenas para admin)
+    usuarios = []
+    if current_user.is_admin:
+        usuarios = User.query.order_by(User.name).all()
+    
     # Obtém o mês atual ou o mês selecionado
     hoje = datetime.now().date()
     mes_atual = request.args.get('mes', hoje.month, type=int)
@@ -506,7 +622,7 @@ def calendario():
     
     # Obtém todos os registros do mês atual
     registros = Ponto.query.filter(
-        Ponto.user_id == current_user.id,
+        Ponto.user_id == user_id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).all()
@@ -533,6 +649,39 @@ def calendario():
     ]
     nome_mes = nomes_meses[mes_atual - 1]  # Ajuste para índice 0-based
     
+    # Calcular estatísticas do mês
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Calcular dias úteis e estatísticas
+    for dia in range(1, ultimo_dia.day + 1):
+        data = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (seg-sex e não é feriado)
+        if data.weekday() < 5 and data not in feriados_datas:
+            dias_uteis += 1
+            
+            # Verifica se tem registro para este dia
+            if data in registros_por_data:
+                registro = registros_por_data[data]
+                
+                # Verifica se é afastamento
+                if registro.afastamento:
+                    dias_afastamento += 1
+                # Se não for afastamento e tiver horas trabalhadas, conta como dia trabalhado
+                elif registro.horas_trabalhadas:
+                    dias_trabalhados += 1
+                    horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcular carga horária devida (8h por dia útil, excluindo afastamentos)
+    dias_uteis_efetivos = dias_uteis - dias_afastamento
+    carga_horaria_devida = dias_uteis_efetivos * 8
+    
+    # Calcular saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
     return render_template('main/calendario.html', 
                           registros=registros_por_data,
                           mes_atual=mes_atual,
@@ -543,7 +692,15 @@ def calendario():
                           ultimo_dia=ultimo_dia,
                           feriados_datas=feriados_datas,
                           timedelta=timedelta,
-                          date=date)
+                          date=date,
+                          usuario=usuario,
+                          usuarios=usuarios,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          horas_trabalhadas=horas_trabalhadas,
+                          carga_horaria_devida=carga_horaria_devida,
+                          saldo_horas=saldo_horas)
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
@@ -558,7 +715,10 @@ def visualizar_ponto(ponto_id):
     # Obtém as atividades relacionadas a este ponto
     atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
     
-    return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades)
+    # Obtém o usuário dono do registro
+    usuario = User.query.get(ponto.user_id)
+    
+    return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades, usuario=usuario)
 
 # Rota para verificar o status de um registro (para debug)
 @main.route('/debug/verificar-registro/<int:ponto_id>')

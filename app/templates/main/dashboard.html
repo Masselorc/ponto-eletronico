@@ -6,7 +6,13 @@
 <div class="row mb-4">
     <div class="col-md-6">
         <h2>Dashboard</h2>
-        <p class="text-muted">Bem-vindo(a), {{ current_user.name }}</p>
+        <p class="text-muted">
+            {% if current_user.id == usuario.id %}
+                Bem-vindo(a), {{ usuario.name }}
+            {% else %}
+                Visualizando dados de: {{ usuario.name }}
+            {% endif %}
+        </p>
     </div>
     <div class="col-md-6 text-end">
         <div class="card">
@@ -18,6 +24,35 @@
     </div>
 </div>
 
+{% if current_user.is_admin and usuarios %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Selecionar Usuário</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <select id="usuario-select" class="form-select">
+                            <option value="{{ current_user.id }}" {% if usuario.id == current_user.id %}selected{% endif %}>Meus Registros</option>
+                            {% for user in usuarios %}
+                                {% if user.id != current_user.id %}
+                                <option value="{{ user.id }}" {% if usuario.id == user.id %}selected{% endif %}>{{ user.name }} ({{ user.matricula }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button id="btn-visualizar" class="btn btn-primary w-100">Visualizar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card registro-ponto-card">
@@ -26,94 +61,192 @@
             </div>
             <div class="card-body">
                 {% if registro_hoje %}
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
-                                <h4 class="card-title {% if registro_hoje.entrada %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro_hoje.entrada %}
-                                    {{ registro_hoje.entrada.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
+                    {% if registro_hoje.afastamento %}
+                        <div class="alert alert-purple">
+                            <h4 class="alert-heading">
+                                {% if registro_hoje.tipo_afastamento == 'ferias' %}
+                                    <i class="fas fa-umbrella-beach me-2"></i> Férias
+                                {% elif registro_hoje.tipo_afastamento == 'licenca_medica' %}
+                                    <i class="fas fa-procedures me-2"></i> Licença Médica
+                                {% elif registro_hoje.tipo_afastamento == 'licenca_maternidade' %}
+                                    <i class="fas fa-baby me-2"></i> Licença Maternidade/Paternidade
+                                {% elif registro_hoje.tipo_afastamento == 'abono' %}
+                                    <i class="fas fa-calendar-check me-2"></i> Abono
+                                {% else %}
+                                    <i class="fas fa-user-clock me-2"></i> Afastamento
+                                {% endif %}
+                            </h4>
+                            <p class="mb-0">Este dia foi registrado como um período de afastamento.</p>
+                        </div>
+                    {% else %}
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="card card-dashboard">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
+                                        <h4 class="card-title {% if registro_hoje.entrada %}text-success{% else %}text-muted{% endif %}">
+                                            {% if registro_hoje.entrada %}
+                                            {{ registro_hoje.entrada.strftime('%H:%M') }}
+                                            {% else %}
+                                            --:--
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card card-dashboard">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
+                                        <h4 class="card-title {% if registro_hoje.saida_almoco %}text-success{% else %}text-muted{% endif %}">
+                                            {% if registro_hoje.saida_almoco %}
+                                            {{ registro_hoje.saida_almoco.strftime('%H:%M') }}
+                                            {% else %}
+                                            --:--
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card card-dashboard">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
+                                        <h4 class="card-title {% if registro_hoje.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
+                                            {% if registro_hoje.retorno_almoco %}
+                                            {{ registro_hoje.retorno_almoco.strftime('%H:%M') }}
+                                            {% else %}
+                                            --:--
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card card-dashboard">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
+                                        <h4 class="card-title {% if registro_hoje.saida %}text-success{% else %}text-muted{% endif %}">
+                                            {% if registro_hoje.saida %}
+                                            {{ registro_hoje.saida.strftime('%H:%M') }}
+                                            {% else %}
+                                            --:--
+                                            {% endif %}
+                                        </h4>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
-                                <h4 class="card-title {% if registro_hoje.saida_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro_hoje.saida_almoco %}
-                                    {{ registro_hoje.saida_almoco.strftime('%H:%M') }}
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h5>Horas Trabalhadas Hoje:</h5>
+                                <h3 class="{% if registro_hoje.horas_trabalhadas and registro_hoje.horas_trabalhadas >= 8 %}text-success{% elif registro_hoje.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
+                                    {% if registro_hoje.horas_trabalhadas %}
+                                        {{ "%.2f"|format(registro_hoje.horas_trabalhadas) }} horas
                                     {% else %}
-                                    --:--
+                                        Pendente
                                     {% endif %}
-                                </h4>
+                                </h3>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                {% if current_user.id == usuario.id %}
+                                <a href="{{ url_for('main.registrar_ponto') }}" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-fingerprint me-2"></i>Registrar Ponto
+                                </a>
+                                {% if registro_hoje %}
+                                <a href="{{ url_for('main.registrar_atividade', ponto_id=registro_hoje.id) }}" class="btn btn-outline-primary btn-lg ms-2">
+                                    <i class="fas fa-tasks me-2"></i>Registrar Atividade
+                                </a>
+                                {% endif %}
+                                {% endif %}
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
-                                <h4 class="card-title {% if registro_hoje.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro_hoje.retorno_almoco %}
-                                    {{ registro_hoje.retorno_almoco.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
-                                <h4 class="card-title {% if registro_hoje.saida %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro_hoje.saida %}
-                                    {{ registro_hoje.saida.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <h5>Horas Trabalhadas Hoje:</h5>
-                        <h3 class="{% if registro_hoje.horas_trabalhadas and registro_hoje.horas_trabalhadas >= 8 %}text-success{% elif registro_hoje.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
-                            {% if registro_hoje.horas_trabalhadas %}
-                                {{ "%.2f"|format(registro_hoje.horas_trabalhadas) }} horas
-                            {% else %}
-                                Pendente
-                            {% endif %}
-                        </h3>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <a href="{{ url_for('main.registrar_ponto') }}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-fingerprint me-2"></i>Registrar Ponto
-                        </a>
-                        {% if registro_hoje %}
-                        <a href="{{ url_for('main.registrar_atividade', ponto_id=registro_hoje.id) }}" class="btn btn-outline-primary btn-lg ms-2">
-                            <i class="fas fa-tasks me-2"></i>Registrar Atividade
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
+                    {% endif %}
                 {% else %}
                 <div class="text-center py-4">
                     <h4 class="text-muted mb-4">Nenhum registro para hoje</h4>
+                    {% if current_user.id == usuario.id %}
                     <a href="{{ url_for('main.registrar_ponto') }}" class="btn btn-primary btn-lg">
                         <i class="fas fa-fingerprint me-2"></i>Registrar Ponto
                     </a>
+                    {% endif %}
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumo do Mês -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Resumo do Mês ({{ nome_mes }} de {{ ano_atual }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Dias Úteis</h6>
+                                <h3 class="card-title">{{ dias_uteis }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Dias Trabalhados</h6>
+                                <h3 class="card-title">{{ dias_trabalhados }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Dias de Afastamento</h6>
+                                <h3 class="card-title">{{ dias_afastamento }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Dias Pendentes</h6>
+                                <h3 class="card-title">{{ dias_uteis - dias_trabalhados - dias_afastamento }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-4 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Horas Trabalhadas</h6>
+                                <h3 class="card-title">{{ "%.1f"|format(horas_trabalhadas) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Carga Horária Devida</h6>
+                                <h3 class="card-title">{{ "%.1f"|format(carga_horaria_devida) }}</h3>
+                                <small class="text-muted">8h × {{ dias_uteis - dias_afastamento }} dias úteis efetivos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card {% if saldo_horas >= 0 %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 {% if saldo_horas >= 0 %}text-white{% else %}text-white{% endif %}">Saldo de Horas</h6>
+                                <h3 class="card-title">{{ "%.1f"|format(saldo_horas) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -143,29 +276,52 @@
                             {% for registro in registros_mes %}
                             <tr>
                                 <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
-                                <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--' }}</td>
-                                <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--' }}</td>
-                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
-                                <td>
-                                    {% if registro.horas_trabalhadas %}
-                                        <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
-                                            {{ "%.2f"|format(registro.horas_trabalhadas) }} horas
+                                {% if registro.afastamento %}
+                                    <td colspan="4" class="text-center">
+                                        <span class="badge bg-purple">
+                                            {% if registro.tipo_afastamento == 'ferias' %}
+                                                <i class="fas fa-umbrella-beach me-1"></i> Férias
+                                            {% elif registro.tipo_afastamento == 'licenca_medica' %}
+                                                <i class="fas fa-procedures me-1"></i> Licença Médica
+                                            {% elif registro.tipo_afastamento == 'licenca_maternidade' %}
+                                                <i class="fas fa-baby me-1"></i> Licença Maternidade/Paternidade
+                                            {% elif registro.tipo_afastamento == 'abono' %}
+                                                <i class="fas fa-calendar-check me-1"></i> Abono
+                                            {% else %}
+                                                <i class="fas fa-user-clock me-1"></i> Afastamento
+                                            {% endif %}
                                         </span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Pendente</span>
-                                    {% endif %}
-                                </td>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-purple">Afastamento</span>
+                                    </td>
+                                {% else %}
+                                    <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
+                                    <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--' }}</td>
+                                    <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--' }}</td>
+                                    <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
+                                    <td>
+                                        {% if registro.horas_trabalhadas %}
+                                            <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
+                                                {{ "%.2f"|format(registro.horas_trabalhadas) }} horas
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Pendente</span>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
                                 <td>
                                     <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-info" title="Visualizar">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {% if current_user.id == usuario.id or current_user.is_admin %}
                                     <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-warning" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="{{ url_for('main.registrar_atividade', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary" title="Registrar Atividade">
                                         <i class="fas fa-tasks"></i>
                                     </a>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% else %}
@@ -178,7 +334,7 @@
                 </div>
             </div>
             <div class="card-footer text-end">
-                <a href="{{ url_for('main.calendario') }}" class="btn btn-outline-primary">
+                <a href="{{ url_for('main.calendario', user_id=usuario.id) }}" class="btn btn-outline-primary">
                     <i class="fas fa-calendar-alt me-2"></i>Ver Calendário Completo
                 </a>
             </div>
@@ -186,3 +342,42 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    // Atualiza o relógio a cada segundo
+    function atualizarRelogio() {
+        const agora = new Date();
+        const horas = agora.getHours().toString().padStart(2, '0');
+        const minutos = agora.getMinutes().toString().padStart(2, '0');
+        const segundos = agora.getSeconds().toString().padStart(2, '0');
+        document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
+    }
+    
+    // Atualiza o relógio imediatamente e depois a cada segundo
+    atualizarRelogio();
+    setInterval(atualizarRelogio, 1000);
+    
+    // Seletor de usuário para administradores
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnVisualizar = document.getElementById('btn-visualizar');
+        if (btnVisualizar) {
+            btnVisualizar.addEventListener('click', function() {
+                const usuarioId = document.getElementById('usuario-select').value;
+                window.location.href = `/dashboard/${usuarioId}`;
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+<style>
+    .bg-purple {
+        background-color: #6f42c1;
+    }
+    .alert-purple {
+        background-color: #e2d9f3;
+        border-color: #d4c6ea;
+        color: #6f42c1;
+    }
+</style>
