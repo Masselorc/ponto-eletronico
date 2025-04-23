@@ -57,6 +57,53 @@ class RegistroMultiploPontoForm(FlaskForm):
             
         return True
 
+class EditarPontoForm(FlaskForm):
+    data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
+    
+    afastamento = BooleanField('Férias ou outros afastamentos')
+    tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
+        ('', 'Selecione o tipo de afastamento'),
+        ('ferias', 'Férias'),
+        ('licenca_medica', 'Licença Médica'),
+        ('licenca_maternidade', 'Licença Maternidade/Paternidade'),
+        ('abono', 'Abono'),
+        ('outro', 'Outro Afastamento')
+    ], validators=[Optional()])
+    
+    entrada = StringField('Hora de Entrada', validators=[Optional()])
+    saida_almoco = StringField('Hora de Saída para Almoço', validators=[Optional()])
+    retorno_almoco = StringField('Hora de Retorno do Almoço', validators=[Optional()])
+    saida = StringField('Hora de Saída', validators=[Optional()])
+    
+    observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
+    
+    submit = SubmitField('Atualizar Registro')
+    
+    def validate(self, extra_validators=None):
+        if not super().validate():
+            return False
+        
+        # Se for afastamento, não precisa validar os horários
+        if self.afastamento.data:
+            if not self.tipo_afastamento.data:
+                self.tipo_afastamento.errors = ['Selecione o tipo de afastamento.']
+                return False
+            return True
+            
+        # Validação de formato de hora (HH:MM)
+        for field in [self.entrada, self.saida_almoco, self.retorno_almoco, self.saida]:
+            if field.data:
+                try:
+                    hora, minuto = map(int, field.data.split(':'))
+                    if hora < 0 or hora > 23 or minuto < 0 or minuto > 59:
+                        field.errors = ['Formato de hora inválido. Use HH:MM (00-23:00-59).']
+                        return False
+                except (ValueError, TypeError):
+                    field.errors = ['Formato de hora inválido. Use HH:MM.']
+                    return False
+            
+        return True
+
 class AtividadeForm(FlaskForm):
     descricao = TextAreaField('Descrição da Atividade', validators=[
         DataRequired(),
