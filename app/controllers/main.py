@@ -302,9 +302,12 @@ def registrar_multiplo_ponto():
         # Cria um novo registro
         novo_registro = Ponto(
             user_id=current_user.id,
-            data=data_selecionada,
-            observacoes=form.observacoes.data
+            data=data_selecionada
         )
+        
+        # Adiciona observações se o campo existir no formulário
+        if hasattr(form, 'observacoes'):
+            novo_registro.observacoes = form.observacoes.data
         
         # Verifica se é um registro de afastamento
         if form.afastamento.data:

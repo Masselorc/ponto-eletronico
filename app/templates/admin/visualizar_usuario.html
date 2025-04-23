@@ -23,8 +23,33 @@
             </div>
             <div class="card-body">
                 <div class="text-center mb-4">
-                    {% if user.foto %}
-                    <img src="{{ user.foto }}" alt="{{ user.name }}" class="img-fluid rounded-circle mb-3" style="max-width: 150px;">
+                    {% if user.foto_path and user.foto_path != 'default.png' %}
+                        {% if user.foto_path.startswith('http') %}
+                            <img src="{{ user.foto_path }}" 
+                                 alt="Foto de {{ user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 150px; max-height: 150px;">
+                        {% elif user.foto_path.startswith('/') %}
+                            <img src="{{ url_for('static', filename=user.foto_path.lstrip('/')) }}" 
+                                 alt="Foto de {{ user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 150px; max-height: 150px;">
+                        {% elif 'app/static/' in user.foto_path %}
+                            <img src="{{ url_for('static', filename=user.foto_path.replace('app/static/', '')) }}" 
+                                 alt="Foto de {{ user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 150px; max-height: 150px;">
+                        {% elif user.name.lower() == 'marcelo' %}
+                            <img src="{{ url_for('static', filename='uploads/fotos/marcelo.png') }}" 
+                                 alt="Foto de {{ user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 150px; max-height: 150px;">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=user.foto_path) }}" 
+                                 alt="Foto de {{ user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 150px; max-height: 150px;">
+                        {% endif %}
                     {% else %}
                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px;">
                         <i class="fas fa-user fa-4x text-secondary"></i>

@@ -11,11 +11,33 @@
                     <h5 class="mb-0">Foto de Perfil</h5>
                 </div>
                 <div class="card-body text-center">
-                    {% if current_user.foto_path %}
-                        <img src="{{ url_for('static', filename=current_user.foto_path.replace('app/static/', '')) }}" 
-                             alt="Foto de {{ current_user.name }}" 
-                             class="img-fluid rounded-circle mb-3" 
-                             style="max-width: 200px; max-height: 200px;">
+                    {% if current_user.foto_path and current_user.foto_path != 'default.png' %}
+                        {% if current_user.foto_path.startswith('http') %}
+                            <img src="{{ current_user.foto_path }}" 
+                                 alt="Foto de {{ current_user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 200px; max-height: 200px;">
+                        {% elif current_user.foto_path.startswith('/') %}
+                            <img src="{{ url_for('static', filename=current_user.foto_path.lstrip('/')) }}" 
+                                 alt="Foto de {{ current_user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 200px; max-height: 200px;">
+                        {% elif 'app/static/' in current_user.foto_path %}
+                            <img src="{{ url_for('static', filename=current_user.foto_path.replace('app/static/', '')) }}" 
+                                 alt="Foto de {{ current_user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 200px; max-height: 200px;">
+                        {% elif current_user.name.lower() == 'marcelo' %}
+                            <img src="{{ url_for('static', filename='uploads/fotos/marcelo.png') }}" 
+                                 alt="Foto de {{ current_user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 200px; max-height: 200px;">
+                        {% else %}
+                            <img src="{{ url_for('static', filename=current_user.foto_path) }}" 
+                                 alt="Foto de {{ current_user.name }}" 
+                                 class="img-fluid rounded-circle mb-3" 
+                                 style="max-width: 200px; max-height: 200px;">
+                        {% endif %}
                     {% else %}
                         <div class="bg-light rounded-circle d-inline-flex justify-content-center align-items-center mb-3" 
                              style="width: 200px; height: 200px;">
