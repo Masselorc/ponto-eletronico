@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.models.ponto import Ponto, Atividade, Feriado
 from app.models.user import User
 from app import db
-from app.forms.ponto import RegistroPontoForm, AtividadeForm
+from app.forms.ponto import RegistroPontoForm, AtividadeForm, RegistroMultiploPontoForm
 from datetime import datetime, timedelta, date
 
 main = Blueprint('main', __name__)
@@ -102,6 +102,91 @@ def registrar_ponto():
             flash(f'Erro ao registrar ponto: {str(e)}', 'danger')
     
     return render_template('main/registrar_ponto.html', form=form, hoje=hoje)
+
+@main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
+@login_required
+def registrar_multiplo_ponto():
+    form = RegistroMultiploPontoForm()
+    hoje = datetime.now().date()
+    
+    if form.validate_on_submit():
+        data_selecionada = form.data.data
+        
+        # Verifica se já existe registro para a data selecionada
+        registro = Ponto.query.filter_by(
+            user_id=current_user.id,
+            data=data_selecionada
+        ).first()
+        
+        if not registro:
+            registro = Ponto(user_id=current_user.id, data=data_selecionada)
+        
+        # Processa cada campo de hora se estiver preenchido
+        campos_atualizados = []
+        
+        if form.hora_entrada.data:
+            registro.entrada = form.hora_entrada.data
+            campos_atualizados.append('entrada')
+            
+        if form.hora_saida_almoco.data:
+            registro.saida_almoco = form.hora_saida_almoco.data
+            campos_atualizados.append('saída para almoço')
+            
+        if form.hora_retorno_almoco.data:
+            registro.retorno_almoco = form.hora_retorno_almoco.data
+            campos_atualizados.append('retorno do almoço')
+            
+        if form.hora_saida.data:
+            registro.saida = form.hora_saida.data
+            campos_atualizados.append('saída')
+            
+        # Calcula horas trabalhadas se tiver todos os registros
+        if (registro.entrada and registro.saida_almoco and 
+            registro.retorno_almoco and registro.saida):
+            
+            # Tempo antes do almoço
+            t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
+            
+            # Tempo depois do almoço
+            t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
+            
+            # Total de horas trabalhadas
+            total_segundos = t1.total_seconds() + t2.total_seconds()
+            registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+        
+        try:
+            if not registro.id:
+                db.session.add(registro)
+            
+            db.session.commit()
+            
+            if campos_atualizados:
+                flash(f'Registros de {", ".join(campos_atualizados)} realizados com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
+            else:
+                flash('Nenhum horário foi preenchido. Por favor, informe pelo menos um horário.', 'warning')
+                return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+                
+            return redirect(url_for('main.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao registrar pontos: {str(e)}', 'danger')
+    
+    return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+
+@main.route('/visualizar-ponto/<int:ponto_id>')
+@login_required
+def visualizar_ponto(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Verifica se o ponto pertence ao usuário atual ou se é admin
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para acessar este registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Obtém as atividades relacionadas a este ponto
+    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
+    
+    return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades)
 
 @main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
