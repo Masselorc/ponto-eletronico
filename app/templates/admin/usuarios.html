@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Usuários{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2>Gerenciamento de Usuários</h2>
+        <p class="text-muted">Cadastre e gerencie os funcionários e cadastradores do sistema</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('admin.novo_usuario') }}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-2"></i>Novo Usuário
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Lista de Usuários</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Matrícula</th>
+                                <th>Vínculo</th>
+                                <th>Tipo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usuario in usuarios %}
+                            <tr>
+                                <td>{{ usuario.name }}</td>
+                                <td>{{ usuario.email }}</td>
+                                <td>{{ usuario.matricula }}</td>
+                                <td>{{ usuario.vinculo }}</td>
+                                <td>
+                                    {% if usuario.is_admin %}
+                                    <span class="badge bg-danger">Cadastrador</span>
+                                    {% else %}
+                                    <span class="badge bg-info">Funcionário</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.editar_usuario', user_id=usuario.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('admin.excluir_usuario', user_id=usuario.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-danger btn-excluir" data-confirm-message="Tem certeza que deseja excluir este usuário?">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                    <a href="{{ url_for('admin.relatorio_usuario', user_id=usuario.id) }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">Nenhum usuário cadastrado</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar para o Painel
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

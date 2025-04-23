@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualizar Ponto{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Detalhes do Registro</h2>
+        <p class="text-muted">Data: {{ ponto.data.strftime('%d/%m/%Y') }}</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Horários Registrados</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="card card-dashboard">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
+                                <h4 class="card-title {% if ponto.entrada %}text-success{% else %}text-muted{% endif %}">
+                                    {% if ponto.entrada %}
+                                    {{ ponto.entrada.strftime('%H:%M') }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card card-dashboard">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
+                                <h4 class="card-title {% if ponto.saida_almoco %}text-success{% else %}text-muted{% endif %}">
+                                    {% if ponto.saida_almoco %}
+                                    {{ ponto.saida_almoco.strftime('%H:%M') }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card card-dashboard">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
+                                <h4 class="card-title {% if ponto.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
+                                    {% if ponto.retorno_almoco %}
+                                    {{ ponto.retorno_almoco.strftime('%H:%M') }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card card-dashboard">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
+                                <h4 class="card-title {% if ponto.saida %}text-success{% else %}text-muted{% endif %}">
+                                    {% if ponto.saida %}
+                                    {{ ponto.saida.strftime('%H:%M') }}
+                                    {% else %}
+                                    --:--
+                                    {% endif %}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h5>Horas Trabalhadas:</h5>
+                        <h3 class="{% if ponto.horas_trabalhadas and ponto.horas_trabalhadas >= 8 %}text-success{% elif ponto.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
+                            {% if ponto.horas_trabalhadas %}
+                                {{ "%.2f"|format(ponto.horas_trabalhadas) }} horas
+                            {% else %}
+                                Pendente
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Atividades Registradas</h5>
+                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-plus me-1"></i>Nova Atividade
+                </a>
+            </div>
+            <div class="card-body">
+                {% if atividades %}
+                    {% for atividade in atividades %}
+                    <div class="atividade-item mb-4">
+                        <div class="d-flex justify-content-between">
+                            <h6 class="mb-2">Atividade #{{ loop.index }}</h6>
+                            <small class="text-muted">{{ atividade.created_at.strftime('%H:%M') }}</small>
+                        </div>
+                        <p class="mb-0">{{ atividade.descricao }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted mb-0">Nenhuma atividade registrada para este dia</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer text-end">
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar para Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
