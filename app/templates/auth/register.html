@@ -110,9 +110,9 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                {{ form.confirm_password.label(class="form-label") }}
-                                {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
-                                {% for error in form.confirm_password.errors %}
+                                {{ form.password2.label(class="form-label") }}
+                                {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else "")) }}
+                                {% for error in form.password2.errors %}
                                     <div class="invalid-feedback">{{ error }}</div>
                                 {% endfor %}
                             </div>
