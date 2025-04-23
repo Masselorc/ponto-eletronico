@@ -43,65 +43,8 @@ def dashboard():
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
 def registrar_ponto():
-    form = RegistroPontoForm()
-    hoje = datetime.now().date()
-    
-    if form.validate_on_submit():
-        data_selecionada = form.data.data
-        hora_selecionada = form.hora.data
-        tipo = form.tipo.data
-        
-        # Verifica se já existe registro para a data selecionada
-        registro = Ponto.query.filter_by(
-            user_id=current_user.id,
-            data=data_selecionada
-        ).first()
-        
-        if not registro:
-            registro = Ponto(user_id=current_user.id, data=data_selecionada)
-        
-        # Extrai apenas o componente time do objeto datetime ou converte para time se necessário
-        if isinstance(hora_selecionada, datetime):
-            hora_time = hora_selecionada.time()
-        else:
-            hora_time = hora_selecionada
-            
-        # Usa a hora selecionada pelo usuário
-        if tipo == 'entrada':
-            registro.entrada = hora_time
-        elif tipo == 'saida_almoco':
-            registro.saida_almoco = hora_time
-        elif tipo == 'retorno_almoco':
-            registro.retorno_almoco = hora_time
-        elif tipo == 'saida':
-            registro.saida = hora_time
-            
-        # Calcula horas trabalhadas se tiver todos os registros
-        if (registro.entrada and registro.saida_almoco and 
-            registro.retorno_almoco and registro.saida):
-            
-            # Tempo antes do almoço
-            t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
-            
-            # Tempo depois do almoço
-            t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
-            
-            # Total de horas trabalhadas
-            total_segundos = t1.total_seconds() + t2.total_seconds()
-            registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
-        
-        try:
-            if not registro.id:
-                db.session.add(registro)
-            
-            db.session.commit()
-            flash(f'Registro de {tipo} realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")} às {hora_time.strftime("%H:%M")}!', 'success')
-            return redirect(url_for('main.dashboard'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erro ao registrar ponto: {str(e)}', 'danger')
-    
-    return render_template('main/registrar_ponto.html', form=form, hoje=hoje)
+    # Redireciona para a nova rota de registro de ponto
+    return redirect(url_for('main.registrar_multiplo_ponto'))
 
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
@@ -316,4 +259,5 @@ def calendario():
                           primeiro_dia=primeiro_dia,
                           ultimo_dia=ultimo_dia,
                           feriados_datas=feriados_datas,
-                          timedelta=timedelta)
+                          timedelta=timedelta,
+                          date=date)

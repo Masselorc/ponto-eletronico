@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Registro Múltiplo de Ponto{% endblock %}
+{% block title %}Registro de Ponto{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-6">
-        <h2>Registro Múltiplo de Ponto</h2>
-        <p class="text-muted">Preencha múltiplos horários para um mesmo dia</p>
+        <h2>Registro de Ponto</h2>
+        <p class="text-muted">Preencha os horários para um mesmo dia</p>
     </div>
     <div class="col-md-6 text-end">
         <div class="card">
@@ -22,7 +22,7 @@
     <div class="col-md-10 mx-auto">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Registro Múltiplo de Horários</h5>
+                <h5 class="mb-0">Registro de Horários</h5>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}">
