@@ -10,7 +10,7 @@ class Feriado(db.Model):
     # Mapeando a coluna 'descricao' do banco para o atributo 'nome' no modelo
     _nome = db.Column('descricao', db.String(255), nullable=True)
     data = db.Column(db.Date, nullable=False, unique=True)
-    tipo = db.Column(db.String(20), default='nacional')  # nacional, estadual, municipal
+    # Removendo a definição direta da coluna 'tipo' que não existe no banco
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -22,6 +22,11 @@ class Feriado(db.Model):
     @nome.setter
     def nome(self, value):
         self._nome = value
+    
+    # Propriedade para 'tipo' que retorna um valor padrão já que não existe no banco
+    @property
+    def tipo(self):
+        return 'nacional'  # Valor padrão para todos os feriados
     
     def __repr__(self):
         return f'<Feriado {self.nome} - {self.data}>'
