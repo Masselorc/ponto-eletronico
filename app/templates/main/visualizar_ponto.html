@@ -6,136 +6,204 @@
 <div class="row mb-4">
     <div class="col-md-6">
         <h2>Detalhes do Registro</h2>
-        <p class="text-muted">Data: {{ ponto.data.strftime('%d/%m/%Y') }}</p>
+        <p class="text-muted">{{ ponto.data.strftime('%d/%m/%Y') }}</p>
     </div>
     <div class="col-md-6 text-end">
         <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+            <i class="fas fa-arrow-left me-2"></i>Voltar para Dashboard
         </a>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Horários Registrados</h5>
+                <h5 class="mb-0">Informações do Registro</h5>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
-                                <h4 class="card-title {% if ponto.entrada %}text-success{% else %}text-muted{% endif %}">
-                                    {% if ponto.entrada %}
-                                    {{ ponto.entrada.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
-                                <h4 class="card-title {% if ponto.saida_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if ponto.saida_almoco %}
-                                    {{ ponto.saida_almoco.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
-                                <h4 class="card-title {% if ponto.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if ponto.retorno_almoco %}
-                                    {{ ponto.retorno_almoco.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
-                                <h4 class="card-title {% if ponto.saida %}text-success{% else %}text-muted{% endif %}">
-                                    {% if ponto.saida %}
-                                    {{ ponto.saida.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <h5>Horas Trabalhadas:</h5>
-                        <h3 class="{% if ponto.horas_trabalhadas and ponto.horas_trabalhadas >= 8 %}text-success{% elif ponto.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
-                            {% if ponto.horas_trabalhadas %}
-                                {{ "%.2f"|format(ponto.horas_trabalhadas) }} horas
+                {% if ponto.afastamento %}
+                    <div class="alert alert-purple">
+                        <h4 class="alert-heading">
+                            {% if ponto.tipo_afastamento == 'ferias' %}
+                                <i class="fas fa-umbrella-beach me-2"></i> Férias
+                            {% elif ponto.tipo_afastamento == 'licenca_medica' %}
+                                <i class="fas fa-procedures me-2"></i> Licença Médica
+                            {% elif ponto.tipo_afastamento == 'licenca_maternidade' %}
+                                <i class="fas fa-baby me-2"></i> Licença Maternidade/Paternidade
+                            {% elif ponto.tipo_afastamento == 'abono' %}
+                                <i class="fas fa-calendar-check me-2"></i> Abono
                             {% else %}
-                                Pendente
+                                <i class="fas fa-user-clock me-2"></i> Afastamento
                             {% endif %}
-                        </h3>
+                        </h4>
+                        <p class="mb-0">Este dia foi registrado como um período de afastamento.</p>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-primary">
-                            <i class="fas fa-edit me-2"></i>Editar Horários
-                        </a>
-                        <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-outline-primary ms-2">
-                            <i class="fas fa-tasks me-2"></i>Registrar Atividade
-                        </a>
+                {% else %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Horário de Entrada</h6>
+                            <p class="mb-3">
+                                {% if ponto.entrada %}
+                                    <span class="badge bg-success">{{ ponto.entrada.strftime('%H:%M') }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Não registrado</span>
+                                {% endif %}
+                            </p>
+                            
+                            <h6 class="fw-bold">Saída para Almoço</h6>
+                            <p class="mb-3">
+                                {% if ponto.saida_almoco %}
+                                    <span class="badge bg-warning">{{ ponto.saida_almoco.strftime('%H:%M') }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Não registrado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Retorno do Almoço</h6>
+                            <p class="mb-3">
+                                {% if ponto.retorno_almoco %}
+                                    <span class="badge bg-info">{{ ponto.retorno_almoco.strftime('%H:%M') }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Não registrado</span>
+                                {% endif %}
+                            </p>
+                            
+                            <h6 class="fw-bold">Horário de Saída</h6>
+                            <p class="mb-3">
+                                {% if ponto.saida %}
+                                    <span class="badge bg-danger">{{ ponto.saida.strftime('%H:%M') }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Não registrado</span>
+                                {% endif %}
+                            </p>
+                        </div>
                     </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <h6 class="fw-bold">Horas Trabalhadas</h6>
+                            <p class="mb-0">
+                                {% if ponto.horas_trabalhadas %}
+                                    <span class="badge {% if ponto.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %} p-2">
+                                        <i class="fas fa-clock me-1"></i> {{ "%.1f"|format(ponto.horas_trabalhadas) }} horas
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Não calculado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-warning">
+                        <i class="fas fa-edit me-1"></i> Editar
+                    </a>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalExcluir">
+                        <i class="fas fa-trash-alt me-1"></i> Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Atividades Realizadas</h5>
+            </div>
+            <div class="card-body">
+                {% if atividades %}
+                    <div class="list-group">
+                        {% for atividade in atividades %}
+                            <div class="list-group-item">
+                                <p class="mb-1">{{ atividade.descricao }}</p>
+                                <small class="text-muted">Registrado em {{ atividade.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">Nenhuma atividade registrada para este dia.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Adicionar Atividade
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Informações Adicionais</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold">Data do Registro</h6>
+                <p class="mb-3">{{ ponto.data.strftime('%d/%m/%Y') }}</p>
+                
+                <h6 class="fw-bold">Dia da Semana</h6>
+                <p class="mb-3">
+                    {% set dias_semana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'] %}
+                    {{ dias_semana[ponto.data.weekday()] }}
+                </p>
+                
+                <h6 class="fw-bold">Criado em</h6>
+                <p class="mb-3">{{ ponto.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                
+                <h6 class="fw-bold">Última Atualização</h6>
+                <p class="mb-0">{{ ponto.updated_at.strftime('%d/%m/%Y %H:%M') }}</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Ações Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('main.calendario') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-calendar-alt me-1"></i> Ver Calendário
+                    </a>
+                    <a href="{{ url_for('main.registrar_multiplo_ponto') }}" class="btn btn-outline-success">
+                        <i class="fas fa-plus-circle me-1"></i> Novo Registro
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Atividades Registradas</h5>
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalExcluir" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalExcluirLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="card-body">
-                {% if atividades %}
-                <div class="list-group">
-                    {% for atividade in atividades %}
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">Atividade #{{ loop.index }}</h5>
-                            <small>{{ atividade.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
-                        </div>
-                        <p class="mb-1">{{ atividade.descricao }}</p>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="alert alert-info">
-                    Nenhuma atividade registrada para este dia.
-                </div>
-                {% endif %}
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este registro de ponto?</p>
+                <p class="mb-0 text-danger"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
             </div>
-            <div class="card-footer text-end">
-                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-primary">
-                    <i class="fas fa-plus me-2"></i>Nova Atividade
-                </a>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                </form>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .alert-purple {
+        background-color: #e2d9f3;
+        border-color: #d4c6ea;
+        color: #6f42c1;
+    }
+</style>
 {% endblock %}

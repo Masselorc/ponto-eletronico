@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.models.ponto import Ponto, Atividade, Feriado
 from app.models.user import User
@@ -73,8 +73,17 @@ def registrar_multiplo_ponto():
     form = RegistroMultiploPontoForm()
     hoje = datetime.now().date()
     
-    if form.validate_on_submit():
-        data_selecionada = form.data.data
+    if request.method == 'POST':
+        data_selecionada = request.form.get('data')
+        if not data_selecionada:
+            flash('A data é obrigatória.', 'danger')
+            return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+        
+        try:
+            data_selecionada = datetime.strptime(data_selecionada, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Formato de data inválido.', 'danger')
+            return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
         
         # Verifica se já existe registro para a data selecionada
         registro = Ponto.query.filter_by(
@@ -86,12 +95,32 @@ def registrar_multiplo_ponto():
             registro = Ponto(user_id=current_user.id, data=data_selecionada)
         
         # Log para debug
-        logger.info(f"Processando registro para {data_selecionada} - Afastamento: {form.afastamento.data}")
+        logger.info(f"Processando registro para {data_selecionada} - Usuário: {current_user.id}")
         
-        # Verifica se é um registro de afastamento
-        if form.afastamento.data:
+        # Verifica se é um registro de afastamento - VERIFICAÇÃO RIGOROSA
+        afastamento_checkbox = request.form.get('afastamento')
+        is_afastamento = afastamento_checkbox is not None and afastamento_checkbox.lower() in ['on', 'true', '1', 'yes']
+        
+        logger.info(f"Valor do checkbox afastamento: '{afastamento_checkbox}', interpretado como: {is_afastamento}")
+        
+        if is_afastamento:
+            tipo_afastamento = request.form.get('tipo_afastamento')
+            
+            if not tipo_afastamento:
+                flash('O tipo de afastamento é obrigatório quando a opção de afastamento está marcada.', 'danger')
+                return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+            
+            # Validação rigorosa do tipo de afastamento
+            tipos_validos = ['ferias', 'licenca_medica', 'licenca_maternidade', 'abono', 'outro']
+            if tipo_afastamento not in tipos_validos:
+                flash('Tipo de afastamento inválido.', 'danger')
+                return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+            
+            # Definição explícita dos campos
             registro.afastamento = True
-            registro.tipo_afastamento = form.tipo_afastamento.data
+            registro.tipo_afastamento = tipo_afastamento
+            
+            # Limpeza explícita dos campos de horário
             registro.entrada = None
             registro.saida_almoco = None
             registro.retorno_almoco = None
@@ -99,14 +128,22 @@ def registrar_multiplo_ponto():
             registro.horas_trabalhadas = None
             
             # Log para debug
-            logger.info(f"Salvando afastamento: tipo={form.tipo_afastamento.data}")
-            
-            if not registro.id:
-                db.session.add(registro)
+            logger.info(f"Salvando afastamento: tipo={tipo_afastamento}")
             
             try:
+                if not registro.id:
+                    db.session.add(registro)
+                
                 db.session.commit()
-                flash(f'Registro de afastamento ({dict(form.tipo_afastamento.choices).get(form.tipo_afastamento.data)}) realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
+                
+                # Verificação pós-commit para garantir que os dados foram salvos corretamente
+                db.session.refresh(registro)
+                if not registro.afastamento or registro.tipo_afastamento != tipo_afastamento:
+                    logger.error(f"Verificação pós-commit falhou: afastamento={registro.afastamento}, tipo={registro.tipo_afastamento}")
+                    flash('Erro ao salvar afastamento. Por favor, tente novamente.', 'danger')
+                    return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
+                
+                flash(f'Registro de afastamento realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
                 return redirect(url_for('main.dashboard'))
             except Exception as e:
                 db.session.rollback()
@@ -115,27 +152,55 @@ def registrar_multiplo_ponto():
                 return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
         
         # Se não for afastamento, processa como registro normal de ponto
-        campos_atualizados = []
-        
-        if form.hora_entrada.data:
-            registro.entrada = form.hora_entrada.data
-            campos_atualizados.append('entrada')
-            
-        if form.hora_saida_almoco.data:
-            registro.saida_almoco = form.hora_saida_almoco.data
-            campos_atualizados.append('saída para almoço')
-            
-        if form.hora_retorno_almoco.data:
-            registro.retorno_almoco = form.hora_retorno_almoco.data
-            campos_atualizados.append('retorno do almoço')
-            
-        if form.hora_saida.data:
-            registro.saida = form.hora_saida.data
-            campos_atualizados.append('saída')
-        
-        # Marca como não sendo um afastamento
+        # Marca explicitamente como não sendo um afastamento
         registro.afastamento = False
         registro.tipo_afastamento = None
+        
+        campos_atualizados = []
+        
+        # Processamento dos campos de horário com validação rigorosa
+        hora_entrada = request.form.get('hora_entrada')
+        hora_saida_almoco = request.form.get('hora_saida_almoco')
+        hora_retorno_almoco = request.form.get('hora_retorno_almoco')
+        hora_saida = request.form.get('hora_saida')
+        
+        # Função para validar e converter horário
+        def validar_horario(horario_str):
+            if not horario_str:
+                return None
+            try:
+                return datetime.strptime(horario_str, '%H:%M').time()
+            except ValueError:
+                return None
+        
+        # Validação e atribuição dos horários
+        entrada_time = validar_horario(hora_entrada)
+        if entrada_time:
+            registro.entrada = entrada_time
+            campos_atualizados.append('entrada')
+        else:
+            registro.entrada = None
+            
+        saida_almoco_time = validar_horario(hora_saida_almoco)
+        if saida_almoco_time:
+            registro.saida_almoco = saida_almoco_time
+            campos_atualizados.append('saída para almoço')
+        else:
+            registro.saida_almoco = None
+            
+        retorno_almoco_time = validar_horario(hora_retorno_almoco)
+        if retorno_almoco_time:
+            registro.retorno_almoco = retorno_almoco_time
+            campos_atualizados.append('retorno do almoço')
+        else:
+            registro.retorno_almoco = None
+            
+        saida_time = validar_horario(hora_saida)
+        if saida_time:
+            registro.saida = saida_time
+            campos_atualizados.append('saída')
+        else:
+            registro.saida = None
             
         # Calcula horas trabalhadas com base nos registros disponíveis
         if registro.entrada and registro.saida:
@@ -157,12 +222,21 @@ def registrar_multiplo_ponto():
                 total_segundos = (datetime.combine(data_selecionada, registro.saida) - 
                                  datetime.combine(data_selecionada, registro.entrada)).total_seconds()
                 registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+        else:
+            registro.horas_trabalhadas = None
         
         try:
             if not registro.id:
                 db.session.add(registro)
             
             db.session.commit()
+            
+            # Verificação pós-commit para garantir que os dados foram salvos corretamente
+            db.session.refresh(registro)
+            if registro.afastamento:
+                logger.error(f"Verificação pós-commit falhou: registro marcado como afastamento quando deveria ser normal")
+                flash('Erro ao salvar registro. Por favor, tente novamente.', 'danger')
+                return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
             
             if campos_atualizados:
                 flash(f'Registros de {", ".join(campos_atualizados)} realizados com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
@@ -175,6 +249,7 @@ def registrar_multiplo_ponto():
             db.session.rollback()
             logger.error(f"Erro ao salvar registro normal: {str(e)}")
             flash(f'Erro ao registrar pontos: {str(e)}', 'danger')
+            return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
     
     return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
 
@@ -189,52 +264,78 @@ def editar_ponto(ponto_id):
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
-        # Verifica se é um registro de afastamento
-        afastamento = request.form.get('afastamento') == 'on'
+        # Verifica se é um registro de afastamento - VERIFICAÇÃO RIGOROSA
+        afastamento_checkbox = request.form.get('afastamento')
+        is_afastamento = afastamento_checkbox is not None and afastamento_checkbox.lower() in ['on', 'true', '1', 'yes']
         
-        if afastamento:
+        logger.info(f"Edição - Valor do checkbox afastamento: '{afastamento_checkbox}', interpretado como: {is_afastamento}")
+        
+        if is_afastamento:
             tipo_afastamento = request.form.get('tipo_afastamento')
+            
+            if not tipo_afastamento:
+                flash('O tipo de afastamento é obrigatório quando a opção de afastamento está marcada.', 'danger')
+                return render_template('main/editar_ponto.html', ponto=ponto)
+            
+            # Validação rigorosa do tipo de afastamento
+            tipos_validos = ['ferias', 'licenca_medica', 'licenca_maternidade', 'abono', 'outro']
+            if tipo_afastamento not in tipos_validos:
+                flash('Tipo de afastamento inválido.', 'danger')
+                return render_template('main/editar_ponto.html', ponto=ponto)
+            
+            # Definição explícita dos campos
             ponto.afastamento = True
             ponto.tipo_afastamento = tipo_afastamento
+            
+            # Limpeza explícita dos campos de horário
             ponto.entrada = None
             ponto.saida_almoco = None
             ponto.retorno_almoco = None
             ponto.saida = None
             ponto.horas_trabalhadas = None
             
-            db.session.commit()
-            flash('Registro de afastamento atualizado com sucesso!', 'success')
-            return redirect(url_for('main.dashboard'))
+            try:
+                db.session.commit()
+                
+                # Verificação pós-commit para garantir que os dados foram salvos corretamente
+                db.session.refresh(ponto)
+                if not ponto.afastamento or ponto.tipo_afastamento != tipo_afastamento:
+                    logger.error(f"Edição - Verificação pós-commit falhou: afastamento={ponto.afastamento}, tipo={ponto.tipo_afastamento}")
+                    flash('Erro ao salvar afastamento. Por favor, tente novamente.', 'danger')
+                    return render_template('main/editar_ponto.html', ponto=ponto)
+                
+                flash('Registro de afastamento atualizado com sucesso!', 'success')
+                return redirect(url_for('main.dashboard'))
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Edição - Erro ao salvar afastamento: {str(e)}")
+                flash(f'Erro ao atualizar afastamento: {str(e)}', 'danger')
+                return render_template('main/editar_ponto.html', ponto=ponto)
         else:
+            # Marca explicitamente como não sendo um afastamento
+            ponto.afastamento = False
+            ponto.tipo_afastamento = None
+            
+            # Função para validar e converter horário
+            def validar_horario(horario_str):
+                if not horario_str:
+                    return None
+                try:
+                    return datetime.strptime(horario_str, '%H:%M').time()
+                except ValueError:
+                    return None
+            
+            # Processamento dos campos de horário com validação rigorosa
             entrada = request.form.get('entrada')
             saida_almoco = request.form.get('saida_almoco')
             retorno_almoco = request.form.get('retorno_almoco')
             saida = request.form.get('saida')
             
-            # Marca como não sendo um afastamento
-            ponto.afastamento = False
-            ponto.tipo_afastamento = None
-            
-            # Converte strings para objetos time
-            if entrada:
-                ponto.entrada = datetime.strptime(entrada, '%H:%M').time()
-            else:
-                ponto.entrada = None
-                
-            if saida_almoco:
-                ponto.saida_almoco = datetime.strptime(saida_almoco, '%H:%M').time()
-            else:
-                ponto.saida_almoco = None
-                
-            if retorno_almoco:
-                ponto.retorno_almoco = datetime.strptime(retorno_almoco, '%H:%M').time()
-            else:
-                ponto.retorno_almoco = None
-                
-            if saida:
-                ponto.saida = datetime.strptime(saida, '%H:%M').time()
-            else:
-                ponto.saida = None
+            # Validação e atribuição dos horários
+            ponto.entrada = validar_horario(entrada)
+            ponto.saida_almoco = validar_horario(saida_almoco)
+            ponto.retorno_almoco = validar_horario(retorno_almoco)
+            ponto.saida = validar_horario(saida)
             
             # Calcula horas trabalhadas com base nos registros disponíveis
             if ponto.entrada and ponto.saida:
@@ -259,9 +360,23 @@ def editar_ponto(ponto_id):
             else:
                 ponto.horas_trabalhadas = None
             
-            db.session.commit()
-            flash('Registro de ponto atualizado com sucesso!', 'success')
-            return redirect(url_for('main.dashboard'))
+            try:
+                db.session.commit()
+                
+                # Verificação pós-commit para garantir que os dados foram salvos corretamente
+                db.session.refresh(ponto)
+                if ponto.afastamento:
+                    logger.error(f"Edição - Verificação pós-commit falhou: registro marcado como afastamento quando deveria ser normal")
+                    flash('Erro ao salvar registro. Por favor, tente novamente.', 'danger')
+                    return render_template('main/editar_ponto.html', ponto=ponto)
+                
+                flash('Registro de ponto atualizado com sucesso!', 'success')
+                return redirect(url_for('main.dashboard'))
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Edição - Erro ao salvar registro normal: {str(e)}")
+                flash(f'Erro ao atualizar registro: {str(e)}', 'danger')
+                return render_template('main/editar_ponto.html', ponto=ponto)
     
     return render_template('main/editar_ponto.html', ponto=ponto)
 
@@ -275,9 +390,15 @@ def excluir_ponto(ponto_id):
         flash('Você não tem permissão para excluir este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
     
-    db.session.delete(ponto)
-    db.session.commit()
-    flash('Registro de ponto excluído com sucesso!', 'success')
+    try:
+        db.session.delete(ponto)
+        db.session.commit()
+        flash('Registro de ponto excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erro ao excluir ponto: {str(e)}")
+        flash(f'Erro ao excluir registro: {str(e)}', 'danger')
+    
     return redirect(url_for('main.dashboard'))
 
 @main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
@@ -461,3 +582,36 @@ def verificar_registro(ponto_id):
         'saida': ponto.saida.strftime('%H:%M') if ponto.saida else None,
         'horas_trabalhadas': ponto.horas_trabalhadas
     })
+
+# Rota para forçar a atualização de um registro de afastamento (para correção)
+@main.route('/admin/corrigir-afastamento/<int:ponto_id>', methods=['GET'])
+@login_required
+def corrigir_afastamento(ponto_id):
+    if not current_user.is_admin:
+        flash('Acesso não autorizado.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Força a atualização do registro como afastamento
+    ponto.afastamento = True
+    
+    # Garante que o tipo de afastamento seja válido
+    if not ponto.tipo_afastamento or ponto.tipo_afastamento not in ['ferias', 'licenca_medica', 'licenca_maternidade', 'abono', 'outro']:
+        ponto.tipo_afastamento = 'outro'
+    
+    # Limpa os campos de horário
+    ponto.entrada = None
+    ponto.saida_almoco = None
+    ponto.retorno_almoco = None
+    ponto.saida = None
+    ponto.horas_trabalhadas = None
+    
+    try:
+        db.session.commit()
+        flash(f'Registro ID {ponto_id} corrigido com sucesso como afastamento.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao corrigir registro: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
