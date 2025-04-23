@@ -80,7 +80,7 @@
                             {% set dia_semana_primeiro = (dia_semana_primeiro + 1) % 7 %}  <!-- Ajuste para domingo = 0 -->
                             {% set total_dias = ultimo_dia.day %}
                             
-                            {% set linha_atual = 0 %}
+                            <!-- Primeira linha - dias do mês anterior e primeiros dias do mês atual -->
                             <tr>
                                 {% for i in range(7) %}
                                     {% if i < dia_semana_primeiro %}
@@ -95,7 +95,7 @@
                                             {% if data_atual in registros %}
                                                 {% set registro = registros[data_atual] %}
                                                 
-                                                {% if registro.afastamento == True %}
+                                                {% if registro.afastamento %}
                                                     {% set tipo_classe = "" %}
                                                     {% if registro.tipo_afastamento == "ferias" %}
                                                         {% set tipo_classe = "ferias-badge" %}
@@ -172,10 +172,11 @@
                                 {% endfor %}
                             </tr>
                             
+                            <!-- Inicializa o contador de dias mostrados após a primeira linha -->
                             {% set dias_mostrados = 7 - dia_semana_primeiro %}
-                            {% set linha_atual = linha_atual + 1 %}
                             
-                            {% for linha in range(5) %}  <!-- Máximo de 6 linhas no calendário (incluindo a primeira) -->
+                            <!-- Linhas seguintes - restante dos dias do mês atual e início do próximo mês -->
+                            {% for linha in range(5) %}  <!-- Máximo de 5 linhas adicionais -->
                                 {% if dias_mostrados < total_dias %}
                                     <tr>
                                         {% for i in range(7) %}
@@ -188,7 +189,7 @@
                                                     {% if data_atual in registros %}
                                                         {% set registro = registros[data_atual] %}
                                                         
-                                                        {% if registro.afastamento == True %}
+                                                        {% if registro.afastamento %}
                                                             {% set tipo_classe = "" %}
                                                             {% if registro.tipo_afastamento == "ferias" %}
                                                                 {% set tipo_classe = "ferias-badge" %}
@@ -267,8 +268,8 @@
                                             {% endif %}
                                         {% endfor %}
                                     </tr>
+                                    <!-- Atualiza o contador de dias mostrados após cada linha -->
                                     {% set dias_mostrados = dias_mostrados + 7 %}
-                                    {% set linha_atual = linha_atual + 1 %}
                                 {% endif %}
                             {% endfor %}
                         </tbody>
