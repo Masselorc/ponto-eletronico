@@ -4,9 +4,14 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-md-12">
+    <div class="col-md-6">
         <h2>Detalhes do Registro</h2>
         <p class="text-muted">Data: {{ ponto.data.strftime('%d/%m/%Y') }}</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+        </a>
     </div>
 </div>
 
@@ -76,7 +81,7 @@
                     </div>
                 </div>
                 <div class="row mt-3">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <h5>Horas Trabalhadas:</h5>
                         <h3 class="{% if ponto.horas_trabalhadas and ponto.horas_trabalhadas >= 8 %}text-success{% elif ponto.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
                             {% if ponto.horas_trabalhadas %}
@@ -85,6 +90,14 @@
                                 Pendente
                             {% endif %}
                         </h3>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i>Editar Horários
+                        </a>
+                        <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-outline-primary ms-2">
+                            <i class="fas fa-tasks me-2"></i>Registrar Atividade
+                        </a>
                     </div>
                 </div>
             </div>
@@ -95,32 +108,31 @@
 <div class="row">
     <div class="col-md-12">
         <div class="card">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Atividades Registradas</h5>
-                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-light btn-sm">
-                    <i class="fas fa-plus me-1"></i>Nova Atividade
-                </a>
             </div>
             <div class="card-body">
                 {% if atividades %}
+                <div class="list-group">
                     {% for atividade in atividades %}
-                    <div class="atividade-item mb-4">
-                        <div class="d-flex justify-content-between">
-                            <h6 class="mb-2">Atividade #{{ loop.index }}</h6>
-                            <small class="text-muted">{{ atividade.created_at.strftime('%H:%M') }}</small>
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Atividade #{{ loop.index }}</h5>
+                            <small>{{ atividade.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
                         </div>
-                        <p class="mb-0">{{ atividade.descricao }}</p>
+                        <p class="mb-1">{{ atividade.descricao }}</p>
                     </div>
                     {% endfor %}
+                </div>
                 {% else %}
-                <div class="text-center py-4">
-                    <p class="text-muted mb-0">Nenhuma atividade registrada para este dia</p>
+                <div class="alert alert-info">
+                    Nenhuma atividade registrada para este dia.
                 </div>
                 {% endif %}
             </div>
             <div class="card-footer text-end">
-                <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>Voltar para Dashboard
+                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Nova Atividade
                 </a>
             </div>
         </div>

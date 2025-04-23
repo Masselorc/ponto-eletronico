@@ -30,8 +30,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.registrar_ponto') }}">
-                            <i class="fas fa-fingerprint me-1"></i>Registrar Ponto
+                        <a class="nav-link" href="{{ url_for('main.registrar_multiplo_ponto') }}">
+                            <i class="fas fa-tasks me-1"></i>Registro de Ponto
                         </a>
                     </li>
                     <li class="nav-item">
@@ -71,7 +71,7 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{{ url_for('main.perfil') }}">
                                     <i class="fas fa-id-card me-1"></i>Perfil
                                 </a>
                             </li>

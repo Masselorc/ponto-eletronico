@@ -72,7 +72,7 @@
 <div class="row mb-4">
     <div class="col-md-6">
         <h2>Calendário</h2>
-        <p class="text-muted">{{ mes_atual }}/{{ ano_atual }}</p>
+        <p class="text-muted">{{ nome_mes }} de {{ ano_atual }}</p>
     </div>
     <div class="col-md-6 text-end">
         <div class="btn-group">
@@ -97,13 +97,12 @@
         <div class="dia-semana">Sexta</div>
         <div class="dia-semana">Sábado</div>
         
-        {% set primeiro_dia = namespace(data=primeiro_dia) %}
-        {% set ultimo_dia = namespace(data=ultimo_dia) %}
+        {# Não precisamos de namespace, pois primeiro_dia e ultimo_dia já são objetos date #}
         
-        {# Dias do mês anterior para preencher a primeira semana #}
-        {% set primeiro_dia_semana = primeiro_dia.data.weekday() %}
+        {# Dias do mês anterior para preencher a primeira semana - ajustado para domingo como primeiro dia #}
+        {% set primeiro_dia_semana = (primeiro_dia.weekday() + 1) % 7 %}
         {% for i in range(primeiro_dia_semana) %}
-            {% set dia_anterior = primeiro_dia.data - timedelta(days=primeiro_dia_semana-i) %}
+            {% set dia_anterior = primeiro_dia - timedelta(days=primeiro_dia_semana-i) %}
             <div class="dia dia-outro-mes">
                 <div class="dia-numero">{{ dia_anterior.day }}</div>
                 <div class="dia-conteudo"></div>
@@ -111,7 +110,7 @@
         {% endfor %}
         
         {# Dias do mês atual #}
-        {% for dia in range(1, ultimo_dia.data.day + 1) %}
+        {% for dia in range(1, ultimo_dia.day + 1) %}
             {% set data_atual = date(ano_atual, mes_atual, dia) %}
             {% set eh_hoje = data_atual == hoje %}
             {% set eh_fim_semana = data_atual.weekday() >= 5 %}
@@ -160,10 +159,10 @@
             </div>
         {% endfor %}
         
-        {# Dias do próximo mês para completar a última semana #}
-        {% set ultimo_dia_semana = ultimo_dia.data.weekday() %}
+        {# Dias do próximo mês para completar a última semana - ajustado para domingo como primeiro dia #}
+        {% set ultimo_dia_semana = (ultimo_dia.weekday() + 1) % 7 %}
         {% for i in range(6 - ultimo_dia_semana) %}
-            {% set dia_seguinte = ultimo_dia.data + timedelta(days=i+1) %}
+            {% set dia_seguinte = ultimo_dia + timedelta(days=i+1) %}
             <div class="dia dia-outro-mes">
                 <div class="dia-numero">{{ dia_seguinte.day }}</div>
                 <div class="dia-conteudo"></div>
