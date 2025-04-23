@@ -7,6 +7,7 @@ class Feriado(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    descricao = db.Column(db.String(255), nullable=True)  # Adicionado para compatibilidade
     data = db.Column(db.Date, nullable=False, unique=True)
     tipo = db.Column(db.String(20), default='nacional')  # nacional, estadual, municipal
     created_at = db.Column(db.DateTime, default=datetime.now)
