@@ -11,6 +11,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from app.utils.excel_generator import generate_excel_report
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -447,75 +448,148 @@ def relatorio_usuario_pdf(user_id):
     elements.append(Paragraph(f"Relatório de Banco de Horas", title_style))
     elements.append(Paragraph(f"Funcionário: {user.name} ({user.matricula})", subtitle_style))
     elements.append(Paragraph(f"Período: {nome_mes} de {ano}", subtitle_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 12))
     
     # Resumo
     elements.append(Paragraph("Resumo do Banco de Horas", subtitle_style))
+    
     resumo_data = [
         ["Horas Esperadas", "Horas Trabalhadas", "Saldo de Horas"],
-        [f"{horas_esperadas:.1f}h", f"{horas_trabalhadas:.1f}h", f"{saldo_horas:.1f}h"]
+        [f"{horas_esperadas:.1f}", f"{horas_trabalhadas:.1f}", f"{saldo_horas:.1f}"]
     ]
-    resumo_table = Table(resumo_data, colWidths=[150, 150, 150])
+    
+    resumo_table = Table(resumo_data)
     resumo_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
-    elements.append(resumo_table)
-    elements.append(Spacer(1, 20))
     
-    # Registros Detalhados
+    elements.append(resumo_table)
+    elements.append(Spacer(1, 24))
+    
+    # Registros detalhados
     elements.append(Paragraph("Registros Detalhados", subtitle_style))
     
-    if registros:
-        registros_data = [
-            ["Data", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horas"]
-        ]
-        
-        for registro in registros:
-            data_formatada = registro.data.strftime('%d/%m/%Y')
-            entrada = registro.entrada.strftime('%H:%M') if registro.entrada else '--:--'
-            saida_almoco = registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--'
-            retorno_almoco = registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--'
-            saida = registro.saida.strftime('%H:%M') if registro.saida else '--:--'
-            
-            if registro.afastamento:
-                horas = "Afastamento"
-            elif registro.horas_trabalhadas:
-                horas = f"{registro.horas_trabalhadas:.1f}h"
-            else:
-                horas = "Pendente"
-                
-            registros_data.append([
-                data_formatada, entrada, saida_almoco, retorno_almoco, saida, horas
-            ])
-        
-        registros_table = Table(registros_data, colWidths=[70, 70, 90, 90, 70, 60])
-        registros_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(registros_table)
-    else:
-        elements.append(Paragraph("Nenhum registro encontrado para o período selecionado.", normal_style))
+    # Cabeçalhos da tabela
+    registros_data = [
+        ["Data", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horas"]
+    ]
     
-    # Gerar PDF
+    # Dados dos registros
+    for registro in registros:
+        data_formatada = registro.data.strftime("%d/%m/%Y")
+        
+        entrada = registro.entrada.strftime("%H:%M") if registro.entrada else "--:--"
+        saida_almoco = registro.saida_almoco.strftime("%H:%M") if registro.saida_almoco else "--:--"
+        retorno_almoco = registro.retorno_almoco.strftime("%H:%M") if registro.retorno_almoco else "--:--"
+        saida = registro.saida.strftime("%H:%M") if registro.saida else "--:--"
+        
+        if registro.afastamento:
+            horas = "Afastamento"
+        elif registro.horas_trabalhadas:
+            horas = f"{registro.horas_trabalhadas:.1f}"
+        else:
+            horas = "Pendente"
+        
+        registros_data.append([
+            data_formatada, entrada, saida_almoco, retorno_almoco, saida, horas
+        ])
+    
+    registros_table = Table(registros_data)
+    registros_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 8)
+    ]))
+    
+    elements.append(registros_table)
+    
+    # Construir PDF
     doc.build(elements)
-    pdf = buffer.getvalue()
+    
+    # Preparar resposta
+    pdf_data = buffer.getvalue()
     buffer.close()
     
-    # Criar resposta
-    response = make_response(pdf)
+    response = make_response(pdf_data)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.matricula}_{mes}_{ano}.pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name.replace(" ", "_")}_{mes}_{ano}.pdf'
+    
+    return response
+
+@admin.route('/relatorio/<int:user_id>/excel')
+@login_required
+def relatorio_usuario_excel(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Obtém o mês e ano da URL ou usa o mês atual
+    mes = request.args.get('mes', datetime.now().month, type=int)
+    ano = request.args.get('ano', datetime.now().year, type=int)
+    
+    # Obtém todos os registros do mês selecionado
+    primeiro_dia = datetime(ano, mes, 1).date()
+    if mes == 12:
+        ultimo_dia = datetime(ano + 1, 1, 1).date()
+    else:
+        ultimo_dia = datetime(ano, mes + 1, 1).date()
+    
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data < ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data < ultimo_dia
+    ).all()
+    feriados_datas = [feriado.data for feriado in feriados]
+    
+    # Calcula o saldo de horas do mês
+    dias_uteis = 0
+    for dia in range(1, ultimo_dia.day if mes != 12 else 32):
+        data = datetime(ano, mes, dia).date()
+        if data.month != mes:  # Para meses com menos de 31 dias
+            break
+        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
+            dias_uteis += 1
+    
+    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
+    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
+    saldo_horas = horas_trabalhadas - horas_esperadas
+    
+    # Gerar Excel
+    excel_data = generate_excel_report(
+        user, 
+        registros, 
+        mes, 
+        ano, 
+        horas_esperadas, 
+        horas_trabalhadas, 
+        saldo_horas
+    )
+    
+    # Nomes dos meses em português
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes - 1]
+    
+    # Preparar resposta
+    response = make_response(excel_data)
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name.replace(" ", "_")}_{mes}_{ano}.xlsx'
     
     return response
