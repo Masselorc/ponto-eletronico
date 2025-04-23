@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Afastamentos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-case {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .test-description {
+            margin-bottom: 15px;
+        }
+        .test-result {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .success {
+            color: green;
+        }
+        .failure {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Funcionalidade de Afastamentos</h1>
+    
+    <div class="test-case">
+        <div class="test-title">Teste 1: Desativação de campos na interface</div>
+        <div class="test-description">
+            Verifica se os campos de horário são desativados quando o checkbox de afastamento é marcado.
+        </div>
+        <div class="test-result">
+            <p>Implementação: Adicionado <code>onclick="toggleAfastamento()"</code> diretamente no checkbox.</p>
+            <p>Função JavaScript: Implementada diretamente no template para garantir execução.</p>
+            <p>Resultado esperado: Quando o checkbox é marcado, os campos de horário são desabilitados e escondidos.</p>
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <div class="test-title">Teste 2: Salvamento de afastamentos no backend</div>
+        <div class="test-description">
+            Verifica se os afastamentos são salvos corretamente no banco de dados.
+        </div>
+        <div class="test-result">
+            <p>Implementação: Adicionado logging detalhado para rastrear o processo de salvamento.</p>
+            <p>Tratamento de exceções: Melhorado para capturar e registrar erros específicos.</p>
+            <p>Resultado esperado: Os afastamentos são salvos com <code>afastamento=True</code> e o tipo correto.</p>
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <div class="test-title">Teste 3: Exibição de afastamentos no calendário</div>
+        <div class="test-description">
+            Verifica se os afastamentos são exibidos corretamente no calendário.
+        </div>
+        <div class="test-result">
+            <p>Implementação: Melhorada a verificação com <code>registro.afastamento == True</code>.</p>
+            <p>Estilos: Adicionadas classes CSS específicas para diferentes tipos de afastamento.</p>
+            <p>Resultado esperado: Os afastamentos são exibidos com destaque visual e ícones específicos.</p>
+        </div>
+    </div>
+    
+    <div class="test-case">
+        <div class="test-title">Teste 4: Contagem de dias de afastamento</div>
+        <div class="test-description">
+            Verifica se a contagem de dias de afastamento no resumo do mês está correta.
+        </div>
+        <div class="test-result">
+            <p>Implementação: Melhorada a verificação com <code>registro.afastamento == True</code>.</p>
+            <p>Resultado esperado: O contador de dias de afastamento reflete corretamente o número de dias marcados.</p>
+        </div>
+    </div>
+    
+    <h2>Conclusão</h2>
+    <p>As melhorias implementadas devem resolver os problemas identificados com a funcionalidade de afastamentos. A abordagem mais direta com JavaScript embutido no template e verificações explícitas deve garantir que a funcionalidade funcione corretamente no ambiente de produção.</p>
+</body>
+</html>

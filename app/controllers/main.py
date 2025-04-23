@@ -1,10 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app.models.ponto import Ponto, Atividade, Feriado
 from app.models.user import User
 from app import db
 from app.forms.ponto import RegistroPontoForm, AtividadeForm, RegistroMultiploPontoForm
 from datetime import datetime, timedelta, date
+import logging
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 main = Blueprint('main', __name__)
 
@@ -81,6 +85,9 @@ def registrar_multiplo_ponto():
         if not registro:
             registro = Ponto(user_id=current_user.id, data=data_selecionada)
         
+        # Log para debug
+        logger.info(f"Processando registro para {data_selecionada} - Afastamento: {form.afastamento.data}")
+        
         # Verifica se é um registro de afastamento
         if form.afastamento.data:
             registro.afastamento = True
@@ -91,12 +98,21 @@ def registrar_multiplo_ponto():
             registro.saida = None
             registro.horas_trabalhadas = None
             
+            # Log para debug
+            logger.info(f"Salvando afastamento: tipo={form.tipo_afastamento.data}")
+            
             if not registro.id:
                 db.session.add(registro)
             
-            db.session.commit()
-            flash(f'Registro de afastamento ({dict(form.tipo_afastamento.choices).get(form.tipo_afastamento.data)}) realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
-            return redirect(url_for('main.dashboard'))
+            try:
+                db.session.commit()
+                flash(f'Registro de afastamento ({dict(form.tipo_afastamento.choices).get(form.tipo_afastamento.data)}) realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
+                return redirect(url_for('main.dashboard'))
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Erro ao salvar afastamento: {str(e)}")
+                flash(f'Erro ao registrar afastamento: {str(e)}', 'danger')
+                return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
         
         # Se não for afastamento, processa como registro normal de ponto
         campos_atualizados = []
@@ -157,6 +173,7 @@ def registrar_multiplo_ponto():
             return redirect(url_for('main.dashboard'))
         except Exception as e:
             db.session.rollback()
+            logger.error(f"Erro ao salvar registro normal: {str(e)}")
             flash(f'Erro ao registrar pontos: {str(e)}', 'danger')
     
     return render_template('main/registrar_multiplo_ponto.html', form=form, hoje=hoje)
@@ -172,58 +189,79 @@ def editar_ponto(ponto_id):
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
-        entrada = request.form.get('entrada')
-        saida_almoco = request.form.get('saida_almoco')
-        retorno_almoco = request.form.get('retorno_almoco')
-        saida = request.form.get('saida')
+        # Verifica se é um registro de afastamento
+        afastamento = request.form.get('afastamento') == 'on'
         
-        # Converte strings para objetos time
-        if entrada:
-            ponto.entrada = datetime.strptime(entrada, '%H:%M').time()
-        else:
+        if afastamento:
+            tipo_afastamento = request.form.get('tipo_afastamento')
+            ponto.afastamento = True
+            ponto.tipo_afastamento = tipo_afastamento
             ponto.entrada = None
-            
-        if saida_almoco:
-            ponto.saida_almoco = datetime.strptime(saida_almoco, '%H:%M').time()
-        else:
             ponto.saida_almoco = None
-            
-        if retorno_almoco:
-            ponto.retorno_almoco = datetime.strptime(retorno_almoco, '%H:%M').time()
-        else:
             ponto.retorno_almoco = None
-            
-        if saida:
-            ponto.saida = datetime.strptime(saida, '%H:%M').time()
-        else:
             ponto.saida = None
-        
-        # Calcula horas trabalhadas com base nos registros disponíveis
-        if ponto.entrada and ponto.saida:
-            # Caso 1: Todos os campos preenchidos (com almoço)
-            if ponto.saida_almoco and ponto.retorno_almoco:
-                # Tempo antes do almoço
-                t1 = datetime.combine(ponto.data, ponto.saida_almoco) - datetime.combine(ponto.data, ponto.entrada)
-                
-                # Tempo depois do almoço
-                t2 = datetime.combine(ponto.data, ponto.saida) - datetime.combine(ponto.data, ponto.retorno_almoco)
-                
-                # Total de horas trabalhadas
-                total_segundos = t1.total_seconds() + t2.total_seconds()
-                ponto.horas_trabalhadas = total_segundos / 3600  # Converte para horas
-            
-            # Caso 2: Apenas entrada e saída (sem almoço)
-            else:
-                # Calcula diretamente da entrada até a saída
-                total_segundos = (datetime.combine(ponto.data, ponto.saida) - 
-                                 datetime.combine(ponto.data, ponto.entrada)).total_seconds()
-                ponto.horas_trabalhadas = total_segundos / 3600  # Converte para horas
-        else:
             ponto.horas_trabalhadas = None
-        
-        db.session.commit()
-        flash('Registro de ponto atualizado com sucesso!', 'success')
-        return redirect(url_for('main.dashboard'))
+            
+            db.session.commit()
+            flash('Registro de afastamento atualizado com sucesso!', 'success')
+            return redirect(url_for('main.dashboard'))
+        else:
+            entrada = request.form.get('entrada')
+            saida_almoco = request.form.get('saida_almoco')
+            retorno_almoco = request.form.get('retorno_almoco')
+            saida = request.form.get('saida')
+            
+            # Marca como não sendo um afastamento
+            ponto.afastamento = False
+            ponto.tipo_afastamento = None
+            
+            # Converte strings para objetos time
+            if entrada:
+                ponto.entrada = datetime.strptime(entrada, '%H:%M').time()
+            else:
+                ponto.entrada = None
+                
+            if saida_almoco:
+                ponto.saida_almoco = datetime.strptime(saida_almoco, '%H:%M').time()
+            else:
+                ponto.saida_almoco = None
+                
+            if retorno_almoco:
+                ponto.retorno_almoco = datetime.strptime(retorno_almoco, '%H:%M').time()
+            else:
+                ponto.retorno_almoco = None
+                
+            if saida:
+                ponto.saida = datetime.strptime(saida, '%H:%M').time()
+            else:
+                ponto.saida = None
+            
+            # Calcula horas trabalhadas com base nos registros disponíveis
+            if ponto.entrada and ponto.saida:
+                # Caso 1: Todos os campos preenchidos (com almoço)
+                if ponto.saida_almoco and ponto.retorno_almoco:
+                    # Tempo antes do almoço
+                    t1 = datetime.combine(ponto.data, ponto.saida_almoco) - datetime.combine(ponto.data, ponto.entrada)
+                    
+                    # Tempo depois do almoço
+                    t2 = datetime.combine(ponto.data, ponto.saida) - datetime.combine(ponto.data, ponto.retorno_almoco)
+                    
+                    # Total de horas trabalhadas
+                    total_segundos = t1.total_seconds() + t2.total_seconds()
+                    ponto.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+                
+                # Caso 2: Apenas entrada e saída (sem almoço)
+                else:
+                    # Calcula diretamente da entrada até a saída
+                    total_segundos = (datetime.combine(ponto.data, ponto.saida) - 
+                                     datetime.combine(ponto.data, ponto.entrada)).total_seconds()
+                    ponto.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+            else:
+                ponto.horas_trabalhadas = None
+            
+            db.session.commit()
+            flash('Registro de ponto atualizado com sucesso!', 'success')
+            return redirect(url_for('main.dashboard'))
     
     return render_template('main/editar_ponto.html', ponto=ponto)
 
@@ -352,6 +390,11 @@ def calendario():
         Ponto.data <= ultimo_dia
     ).all()
     
+    # Log para debug
+    logger.info(f"Recuperados {len(registros)} registros para o mês {mes_atual}/{ano_atual}")
+    for registro in registros:
+        logger.info(f"Registro {registro.id}: data={registro.data}, afastamento={registro.afastamento}, tipo={registro.tipo_afastamento}")
+    
     # Organiza os registros por data para fácil acesso no template
     registros_por_data = {registro.data: registro for registro in registros}
     
@@ -395,3 +438,26 @@ def visualizar_ponto(ponto_id):
     atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
     
     return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades)
+
+# Rota para verificar o status de um registro (para debug)
+@main.route('/debug/verificar-registro/<int:ponto_id>')
+@login_required
+def verificar_registro(ponto_id):
+    if not current_user.is_admin:
+        flash('Acesso não autorizado.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    return jsonify({
+        'id': ponto.id,
+        'user_id': ponto.user_id,
+        'data': ponto.data.strftime('%Y-%m-%d'),
+        'afastamento': ponto.afastamento,
+        'tipo_afastamento': ponto.tipo_afastamento,
+        'entrada': ponto.entrada.strftime('%H:%M') if ponto.entrada else None,
+        'saida_almoco': ponto.saida_almoco.strftime('%H:%M') if ponto.saida_almoco else None,
+        'retorno_almoco': ponto.retorno_almoco.strftime('%H:%M') if ponto.retorno_almoco else None,
+        'saida': ponto.saida.strftime('%H:%M') if ponto.saida else None,
+        'horas_trabalhadas': ponto.horas_trabalhadas
+    })

@@ -25,7 +25,7 @@
                 <h5 class="mb-0">Registro de Horários</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}">
+                <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}" id="form-registro-ponto">
                     {{ form.hidden_tag() }}
                     
                     <div class="row mb-4">
@@ -43,7 +43,7 @@
                     <div class="row mb-4">
                         <div class="col-md-12">
                             <div class="form-check mb-3">
-                                {{ form.afastamento(class="form-check-input", id="check_afastamento") }}
+                                {{ form.afastamento(class="form-check-input", id="check_afastamento", onclick="toggleAfastamento()") }}
                                 {{ form.afastamento.label(class="form-check-label fw-bold") }}
                                 <small class="form-text text-muted d-block">Marque esta opção para registrar férias ou outros tipos de afastamento.</small>
                             </div>
@@ -70,7 +70,7 @@
                                     {% for error in form.hora_entrada.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_entrada_input">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_entrada_input" id="btn_hora_entrada">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -86,7 +86,7 @@
                                     {% for error in form.hora_saida_almoco.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_almoco_input">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_almoco_input" id="btn_hora_saida_almoco">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -102,7 +102,7 @@
                                     {% for error in form.hora_retorno_almoco.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_retorno_almoco_input">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_retorno_almoco_input" id="btn_hora_retorno_almoco">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -118,7 +118,7 @@
                                     {% for error in form.hora_saida.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_input">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_input" id="btn_hora_saida">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -143,5 +143,100 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/registro_ponto.js') }}"></script>
+<script>
+    // Atualiza o relógio a cada segundo
+    function atualizarRelogio() {
+        const agora = new Date();
+        const horas = agora.getHours().toString().padStart(2, '0');
+        const minutos = agora.getMinutes().toString().padStart(2, '0');
+        const segundos = agora.getSeconds().toString().padStart(2, '0');
+        document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
+    }
+    
+    // Atualiza o relógio imediatamente e depois a cada segundo
+    atualizarRelogio();
+    setInterval(atualizarRelogio, 1000);
+    
+    // Função para alternar entre afastamento e registro normal
+    function toggleAfastamento() {
+        const checkAfastamento = document.getElementById('check_afastamento');
+        const divTipoAfastamento = document.getElementById('div_tipo_afastamento');
+        const divHorarios = document.getElementById('div_horarios');
+        
+        // Campos de horário
+        const horaEntrada = document.getElementById('hora_entrada_input');
+        const horaSaidaAlmoco = document.getElementById('hora_saida_almoco_input');
+        const horaRetornoAlmoco = document.getElementById('hora_retorno_almoco_input');
+        const horaSaida = document.getElementById('hora_saida_input');
+        
+        // Botões de hora atual
+        const btnHoraEntrada = document.getElementById('btn_hora_entrada');
+        const btnHoraSaidaAlmoco = document.getElementById('btn_hora_saida_almoco');
+        const btnHoraRetornoAlmoco = document.getElementById('btn_hora_retorno_almoco');
+        const btnHoraSaida = document.getElementById('btn_hora_saida');
+        
+        if (checkAfastamento.checked) {
+            // Mostra o tipo de afastamento
+            divTipoAfastamento.style.display = 'block';
+            
+            // Esconde a seção de horários
+            divHorarios.style.display = 'none';
+            
+            // Desabilita os campos de horário e limpa os valores
+            horaEntrada.disabled = true;
+            horaEntrada.value = '';
+            
+            horaSaidaAlmoco.disabled = true;
+            horaSaidaAlmoco.value = '';
+            
+            horaRetornoAlmoco.disabled = true;
+            horaRetornoAlmoco.value = '';
+            
+            horaSaida.disabled = true;
+            horaSaida.value = '';
+            
+            // Desabilita os botões de hora atual
+            btnHoraEntrada.disabled = true;
+            btnHoraSaidaAlmoco.disabled = true;
+            btnHoraRetornoAlmoco.disabled = true;
+            btnHoraSaida.disabled = true;
+        } else {
+            // Esconde o tipo de afastamento
+            divTipoAfastamento.style.display = 'none';
+            
+            // Mostra a seção de horários
+            divHorarios.style.display = 'flex';
+            
+            // Habilita os campos de horário
+            horaEntrada.disabled = false;
+            horaSaidaAlmoco.disabled = false;
+            horaRetornoAlmoco.disabled = false;
+            horaSaida.disabled = false;
+            
+            // Habilita os botões de hora atual
+            btnHoraEntrada.disabled = false;
+            btnHoraSaidaAlmoco.disabled = false;
+            btnHoraRetornoAlmoco.disabled = false;
+            btnHoraSaida.disabled = false;
+        }
+    }
+    
+    // Botões para preencher com horário atual
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adiciona funcionalidade aos botões de hora atual
+        const botoesHoraAtual = document.querySelectorAll('.btn-hora-atual');
+        botoesHoraAtual.forEach(function(botao) {
+            botao.addEventListener('click', function() {
+                const targetField = this.getAttribute('data-target');
+                const agora = new Date();
+                const horas = agora.getHours().toString().padStart(2, '0');
+                const minutos = agora.getMinutes().toString().padStart(2, '0');
+                document.getElementById(targetField).value = `${horas}:${minutos}`;
+            });
+        });
+        
+        // Executa a função toggleAfastamento na inicialização para configurar o estado inicial
+        toggleAfastamento();
+    });
+</script>
 {% endblock %}

@@ -68,14 +68,31 @@
     
     .afastamento-badge {
         display: inline-block;
-        padding: 3px 6px;
+        padding: 5px 8px;
         border-radius: 3px;
-        font-size: 0.8rem;
+        font-size: 0.9rem;
         margin-bottom: 5px;
         background-color: #6f42c1;
         color: white;
         width: 100%;
         text-align: center;
+        font-weight: bold;
+    }
+    
+    .ferias-badge {
+        background-color: #6610f2;
+    }
+    
+    .licenca-badge {
+        background-color: #e83e8c;
+    }
+    
+    .abono-badge {
+        background-color: #20c997;
+    }
+    
+    .outro-badge {
+        background-color: #6c757d;
     }
 </style>
 {% endblock %}
@@ -109,8 +126,6 @@
         <div class="dia-semana">Sexta</div>
         <div class="dia-semana">Sábado</div>
         
-        {# Não precisamos de namespace, pois primeiro_dia e ultimo_dia já são objetos date #}
-        
         {# Dias do mês anterior para preencher a primeira semana - ajustado para domingo como primeiro dia #}
         {% set primeiro_dia_semana = (primeiro_dia.weekday() + 1) % 7 %}
         {% for i in range(primeiro_dia_semana) %}
@@ -136,20 +151,37 @@
                 <div class="dia-conteudo">
                     {% if data_atual in registros %}
                         {% set registro = registros[data_atual] %}
-                        {% if registro.afastamento %}
-                            <div class="afastamento-badge">
-                                {% if registro.tipo_afastamento == 'ferias' %}
-                                    <i class="fas fa-umbrella-beach me-1"></i> Férias
-                                {% elif registro.tipo_afastamento == 'licenca_medica' %}
-                                    <i class="fas fa-procedures me-1"></i> Licença Médica
-                                {% elif registro.tipo_afastamento == 'licenca_maternidade' %}
-                                    <i class="fas fa-baby me-1"></i> Licença Maternidade/Paternidade
-                                {% elif registro.tipo_afastamento == 'abono' %}
-                                    <i class="fas fa-calendar-check me-1"></i> Abono
-                                {% else %}
-                                    <i class="fas fa-user-clock me-1"></i> Afastamento
-                                {% endif %}
+                        
+                        {# Verifica se é um afastamento #}
+                        {% if registro.afastamento == True %}
+                            {% set tipo_classe = "" %}
+                            {% if registro.tipo_afastamento == "ferias" %}
+                                {% set tipo_classe = "ferias-badge" %}
+                                {% set tipo_texto = "Férias" %}
+                                {% set tipo_icone = "umbrella-beach" %}
+                            {% elif registro.tipo_afastamento == "licenca_medica" %}
+                                {% set tipo_classe = "licenca-badge" %}
+                                {% set tipo_texto = "Licença Médica" %}
+                                {% set tipo_icone = "procedures" %}
+                            {% elif registro.tipo_afastamento == "licenca_maternidade" %}
+                                {% set tipo_classe = "licenca-badge" %}
+                                {% set tipo_texto = "Licença Maternidade" %}
+                                {% set tipo_icone = "baby" %}
+                            {% elif registro.tipo_afastamento == "abono" %}
+                                {% set tipo_classe = "abono-badge" %}
+                                {% set tipo_texto = "Abono" %}
+                                {% set tipo_icone = "calendar-check" %}
+                            {% else %}
+                                {% set tipo_classe = "outro-badge" %}
+                                {% set tipo_texto = "Afastamento" %}
+                                {% set tipo_icone = "user-clock" %}
+                            {% endif %}
+                            
+                            <div class="afastamento-badge {{ tipo_classe }}">
+                                <i class="fas fa-{{ tipo_icone }} me-1"></i> {{ tipo_texto }}
                             </div>
+                        
+                        {# Se não for afastamento, mostra os horários normais #}
                         {% elif registro.horas_trabalhadas %}
                             <div class="horas-badge 
                                 {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %} text-white">
@@ -228,7 +260,7 @@
                                 <h3 class="card-title">
                                     {% set dias_afastamento = namespace(valor=0) %}
                                     {% for registro in registros.values() %}
-                                        {% if registro.afastamento %}
+                                        {% if registro.afastamento == True %}
                                             {% set dias_afastamento.valor = dias_afastamento.valor + 1 %}
                                         {% endif %}
                                     {% endfor %}
