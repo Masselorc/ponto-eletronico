@@ -81,7 +81,24 @@ def registrar_multiplo_ponto():
         if not registro:
             registro = Ponto(user_id=current_user.id, data=data_selecionada)
         
-        # Processa cada campo de hora se estiver preenchido
+        # Verifica se é um registro de afastamento
+        if form.afastamento.data:
+            registro.afastamento = True
+            registro.tipo_afastamento = form.tipo_afastamento.data
+            registro.entrada = None
+            registro.saida_almoco = None
+            registro.retorno_almoco = None
+            registro.saida = None
+            registro.horas_trabalhadas = None
+            
+            if not registro.id:
+                db.session.add(registro)
+            
+            db.session.commit()
+            flash(f'Registro de afastamento ({dict(form.tipo_afastamento.choices).get(form.tipo_afastamento.data)}) realizado com sucesso para {data_selecionada.strftime("%d/%m/%Y")}!', 'success')
+            return redirect(url_for('main.dashboard'))
+        
+        # Se não for afastamento, processa como registro normal de ponto
         campos_atualizados = []
         
         if form.hora_entrada.data:
@@ -99,6 +116,10 @@ def registrar_multiplo_ponto():
         if form.hora_saida.data:
             registro.saida = form.hora_saida.data
             campos_atualizados.append('saída')
+        
+        # Marca como não sendo um afastamento
+        registro.afastamento = False
+        registro.tipo_afastamento = None
             
         # Calcula horas trabalhadas com base nos registros disponíveis
         if registro.entrada and registro.saida:

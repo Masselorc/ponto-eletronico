@@ -124,7 +124,19 @@
                 <div class="dia-conteudo">
                     {% if data_atual in registros %}
                         {% set registro = registros[data_atual] %}
-                        {% if registro.horas_trabalhadas %}
+                        {% if registro.afastamento %}
+                            <div class="horas-badge bg-info text-white">
+                                {% if registro.tipo_afastamento == 'ferias' %}
+                                    Férias
+                                {% elif registro.tipo_afastamento == 'atestado' %}
+                                    Atestado
+                                {% elif registro.tipo_afastamento == 'licenca' %}
+                                    Licença
+                                {% else %}
+                                    Afastamento
+                                {% endif %}
+                            </div>
+                        {% elif registro.horas_trabalhadas %}
                             <div class="horas-badge 
                                 {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
                                 {{ "%.1f"|format(registro.horas_trabalhadas) }}h

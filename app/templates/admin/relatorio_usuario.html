@@ -18,6 +18,9 @@
                 Próximo Mês <i class="fas fa-chevron-right"></i>
             </a>
         </div>
+        <a href="{{ url_for('admin.relatorio_usuario_pdf', user_id=user.id, mes=mes, ano=ano) }}" class="btn btn-danger ms-2">
+            <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+        </a>
     </div>
 </div>
 

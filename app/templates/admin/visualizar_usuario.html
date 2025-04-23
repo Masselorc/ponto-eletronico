@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block title %}Perfil do Usuário{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h2>Perfil do Usuário</h2>
+        <p class="text-muted">Visualizando informações detalhadas do usuário</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar para Lista de Usuários
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Informações Pessoais</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    {% if user.foto %}
+                    <img src="{{ user.foto }}" alt="{{ user.name }}" class="img-fluid rounded-circle mb-3" style="max-width: 150px;">
+                    {% else %}
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px;">
+                        <i class="fas fa-user fa-4x text-secondary"></i>
+                    </div>
+                    {% endif %}
+                    <h4>{{ user.name }}</h4>
+                    <p class="text-muted">
+                        {% if user.is_admin %}
+                        <span class="badge bg-danger">Cadastrador</span>
+                        {% else %}
+                        <span class="badge bg-info">Funcionário</span>
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="text-muted">Matrícula</h6>
+                    <p class="lead">{{ user.matricula }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="text-muted">E-mail</h6>
+                    <p class="lead">{{ user.email }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="text-muted">Vínculo</h6>
+                    <p class="lead">{{ user.vinculo }}</p>
+                </div>
+                
+                {% if user.cargo %}
+                <div class="mb-3">
+                    <h6 class="text-muted">Cargo</h6>
+                    <p class="lead">{{ user.cargo }}</p>
+                </div>
+                {% endif %}
+                
+                {% if user.uf %}
+                <div class="mb-3">
+                    <h6 class="text-muted">UF</h6>
+                    <p class="lead">{{ user.uf }}</p>
+                </div>
+                {% endif %}
+                
+                {% if user.telefone %}
+                <div class="mb-3">
+                    <h6 class="text-muted">Telefone</h6>
+                    <p class="lead">{{ user.telefone }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Resumo de Atividades</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Total de Registros</h6>
+                                <h3 class="card-title">{{ total_registros }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Horas no Mês Atual</h6>
+                                <h3 class="card-title">{{ "%.1f"|format(horas_mes) }}h</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="card-subtitle mb-2 text-muted">Saldo de Horas</h6>
+                                <h3 class="card-title {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.1f"|format(saldo_horas) }}h
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Ações Disponíveis</h5>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <a href="{{ url_for('admin.editar_usuario', user_id=user.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i>Editar Usuário
+                        </a>
+                        <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-info">
+                            <i class="fas fa-chart-bar me-2"></i>Ver Relatório
+                        </a>
+                        <a href="{{ url_for('admin.relatorio_usuario_pdf', user_id=user.id) }}" class="btn btn-danger">
+                            <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+                        </a>
+                        <a href="{{ url_for('admin.novo_ponto', user_id=user.id) }}" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>Registrar Ponto
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Últimos Registros</h5>
+            </div>
+            <div class="card-body">
+                {% if ultimos_registros %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Entrada</th>
+                                <th>Saída</th>
+                                <th>Horas</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for registro in ultimos_registros %}
+                            <tr>
+                                <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
+                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
+                                <td>
+                                    {% if registro.afastamento %}
+                                        <span class="badge bg-info">Afastamento</span>
+                                    {% elif registro.horas_trabalhadas %}
+                                        <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
+                                            {{ "%.1f"|format(registro.horas_trabalhadas) }}h
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Pendente</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    Nenhum registro de ponto encontrado para este usuário.
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer text-end">
+                <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-primary">
+                    <i class="fas fa-list me-2"></i>Ver Todos os Registros
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

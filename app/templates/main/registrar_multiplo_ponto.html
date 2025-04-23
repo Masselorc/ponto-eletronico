@@ -41,6 +41,22 @@
                     </div>
                     
                     <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="form-check mb-3">
+                                {{ form.afastamento(class="form-check-input", id="check_afastamento") }}
+                                {{ form.afastamento.label(class="form-check-label") }}
+                            </div>
+                            <div id="div_tipo_afastamento" class="mb-3" style="display: none;">
+                                {{ form.tipo_afastamento.label(class="form-label") }}
+                                {{ form.tipo_afastamento(class="form-select") }}
+                                {% for error in form.tipo_afastamento.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4" id="div_horarios">
                         <div class="col-md-3">
                             <div class="card">
                                 <div class="card-header bg-light">
@@ -48,11 +64,11 @@
                                 </div>
                                 <div class="card-body">
                                     {{ form.hora_entrada.label(class="form-label") }}
-                                    {{ form.hora_entrada(class="form-control", type="time") }}
+                                    {{ form.hora_entrada(class="form-control", type="time", id="hora_entrada_input") }}
                                     {% for error in form.hora_entrada.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_entrada">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_entrada_input">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -64,11 +80,11 @@
                                 </div>
                                 <div class="card-body">
                                     {{ form.hora_saida_almoco.label(class="form-label") }}
-                                    {{ form.hora_saida_almoco(class="form-control", type="time") }}
+                                    {{ form.hora_saida_almoco(class="form-control", type="time", id="hora_saida_almoco_input") }}
                                     {% for error in form.hora_saida_almoco.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_almoco">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_almoco_input">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -80,11 +96,11 @@
                                 </div>
                                 <div class="card-body">
                                     {{ form.hora_retorno_almoco.label(class="form-label") }}
-                                    {{ form.hora_retorno_almoco(class="form-control", type="time") }}
+                                    {{ form.hora_retorno_almoco(class="form-control", type="time", id="hora_retorno_almoco_input") }}
                                     {% for error in form.hora_retorno_almoco.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_retorno_almoco">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_retorno_almoco_input">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -96,11 +112,11 @@
                                 </div>
                                 <div class="card-body">
                                     {{ form.hora_saida.label(class="form-label") }}
-                                    {{ form.hora_saida(class="form-control", type="time") }}
+                                    {{ form.hora_saida(class="form-control", type="time", id="hora_saida_input") }}
                                     {% for error in form.hora_saida.errors %}
                                     <div class="text-danger">{{ error }}</div>
                                     {% endfor %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida">Usar horário atual</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" data-target="hora_saida_input">Usar horário atual</button>
                                 </div>
                             </div>
                         </div>
@@ -152,6 +168,45 @@
                 document.getElementById(targetField).value = `${horas}:${minutos}`;
             });
         });
+        
+        // Controle de exibição dos campos de afastamento
+        const checkAfastamento = document.getElementById('check_afastamento');
+        const divTipoAfastamento = document.getElementById('div_tipo_afastamento');
+        const divHorarios = document.getElementById('div_horarios');
+        const camposHorario = [
+            document.getElementById('hora_entrada_input'),
+            document.getElementById('hora_saida_almoco_input'),
+            document.getElementById('hora_retorno_almoco_input'),
+            document.getElementById('hora_saida_input')
+        ];
+        
+        // Função para atualizar a visibilidade e estado dos campos
+        function atualizarCampos() {
+            if (checkAfastamento.checked) {
+                divTipoAfastamento.style.display = 'block';
+                divHorarios.style.display = 'none';
+                
+                // Desabilita os campos de horário
+                camposHorario.forEach(campo => {
+                    campo.disabled = true;
+                    campo.value = '';  // Limpa os valores
+                });
+            } else {
+                divTipoAfastamento.style.display = 'none';
+                divHorarios.style.display = 'flex';
+                
+                // Habilita os campos de horário
+                camposHorario.forEach(campo => {
+                    campo.disabled = false;
+                });
+            }
+        }
+        
+        // Executa na inicialização
+        atualizarCampos();
+        
+        // Adiciona evento de mudança ao checkbox
+        checkAfastamento.addEventListener('change', atualizarCampos);
     });
 </script>
 {% endblock %}

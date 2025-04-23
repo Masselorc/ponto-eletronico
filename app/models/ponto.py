@@ -12,6 +12,8 @@ class Ponto(db.Model):
     retorno_almoco = db.Column(db.Time, nullable=True)
     saida = db.Column(db.Time, nullable=True)
     horas_trabalhadas = db.Column(db.Float, nullable=True)
+    afastamento = db.Column(db.Boolean, default=False)
+    tipo_afastamento = db.Column(db.String(100), nullable=True)
     
     # Relacionamentos
     atividades = db.relationship('Atividade', backref='ponto', lazy=True, cascade="all, delete-orphan")

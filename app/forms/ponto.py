@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, TextAreaField, SubmitField, TimeField, DateField
+from wtforms import StringField, SelectField, TextAreaField, SubmitField, TimeField, DateField, BooleanField
 from wtforms.validators import DataRequired, Length, Optional
 from datetime import datetime, date, time
 
@@ -21,6 +21,16 @@ class RegistroPontoForm(FlaskForm):
 class RegistroMultiploPontoForm(FlaskForm):
     data = DateField('Data', format='%Y-%m-%d', default=date.today, validators=[DataRequired()])
     
+    afastamento = BooleanField('Férias ou outros afastamentos')
+    tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
+        ('', 'Selecione o tipo de afastamento'),
+        ('ferias', 'Férias'),
+        ('licenca_medica', 'Licença Médica'),
+        ('licenca_maternidade', 'Licença Maternidade/Paternidade'),
+        ('abono', 'Abono'),
+        ('outro', 'Outro Afastamento')
+    ], validators=[Optional()])
+    
     hora_entrada = TimeField('Hora de Entrada', format='%H:%M', validators=[Optional()])
     hora_saida_almoco = TimeField('Hora de Saída para Almoço', format='%H:%M', validators=[Optional()])
     hora_retorno_almoco = TimeField('Hora de Retorno do Almoço', format='%H:%M', validators=[Optional()])
@@ -32,7 +42,14 @@ class RegistroMultiploPontoForm(FlaskForm):
         if not super().validate():
             return False
         
-        # Verifica se pelo menos um campo de hora foi preenchido
+        # Se for afastamento, não precisa validar os horários
+        if self.afastamento.data:
+            if not self.tipo_afastamento.data:
+                self.tipo_afastamento.errors = ['Selecione o tipo de afastamento.']
+                return False
+            return True
+            
+        # Se não for afastamento, verifica se pelo menos um campo de hora foi preenchido
         if not (self.hora_entrada.data or self.hora_saida_almoco.data or 
                 self.hora_retorno_almoco.data or self.hora_saida.data):
             self.hora_entrada.errors = ['Preencha pelo menos um horário.']
