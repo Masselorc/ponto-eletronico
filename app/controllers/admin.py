@@ -35,9 +35,18 @@ def novo_usuario():
             name=form.name.data,
             email=form.email.data,
             matricula=form.matricula.data,
+            cargo=form.cargo.data,
+            uf=form.uf.data,
+            telefone=form.telefone.data,
             vinculo=form.vinculo.data,
             is_admin=form.is_admin.data
         )
+        
+        # Processar foto se enviada
+        if form.foto.data:
+            # Lógica para salvar a foto será implementada aqui
+            pass
+            
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
@@ -56,9 +65,17 @@ def editar_usuario(user_id):
         user.name = form.name.data
         user.email = form.email.data
         user.matricula = form.matricula.data
+        user.cargo = form.cargo.data
+        user.uf = form.uf.data
+        user.telefone = form.telefone.data
         user.vinculo = form.vinculo.data
         user.is_admin = form.is_admin.data
         
+        # Processar foto se enviada
+        if form.foto.data:
+            # Lógica para salvar a foto será implementada aqui
+            pass
+            
         if form.password.data:
             user.set_password(form.password.data)
             

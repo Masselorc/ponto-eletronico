@@ -83,19 +83,26 @@ def registrar_multiplo_ponto():
             registro.saida = form.hora_saida.data
             campos_atualizados.append('saída')
             
-        # Calcula horas trabalhadas se tiver todos os registros
-        if (registro.entrada and registro.saida_almoco and 
-            registro.retorno_almoco and registro.saida):
+        # Calcula horas trabalhadas com base nos registros disponíveis
+        if registro.entrada and registro.saida:
+            # Caso 1: Todos os campos preenchidos (com almoço)
+            if registro.saida_almoco and registro.retorno_almoco:
+                # Tempo antes do almoço
+                t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
+                
+                # Tempo depois do almoço
+                t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
+                
+                # Total de horas trabalhadas
+                total_segundos = t1.total_seconds() + t2.total_seconds()
+                registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
             
-            # Tempo antes do almoço
-            t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
-            
-            # Tempo depois do almoço
-            t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
-            
-            # Total de horas trabalhadas
-            total_segundos = t1.total_seconds() + t2.total_seconds()
-            registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
+            # Caso 2: Apenas entrada e saída (sem almoço)
+            else:
+                # Calcula diretamente da entrada até a saída
+                total_segundos = (datetime.combine(data_selecionada, registro.saida) - 
+                                 datetime.combine(data_selecionada, registro.entrada)).total_seconds()
+                registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
         
         try:
             if not registro.id:
@@ -251,10 +258,18 @@ def calendario():
     ).all()
     feriados_datas = [feriado.data for feriado in feriados]
     
+    # Nomes dos meses em português
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]  # Ajuste para índice 0-based
+    
     return render_template('main/calendario.html', 
                           registros=registros_por_data,
                           mes_atual=mes_atual,
                           ano_atual=ano_atual,
+                          nome_mes=nome_mes,
                           hoje=hoje,
                           primeiro_dia=primeiro_dia,
                           ultimo_dia=ultimo_dia,
