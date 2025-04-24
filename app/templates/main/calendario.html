@@ -4,178 +4,220 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h1>Calendário</h1>
-            <p class="lead">Visualize seus registros de ponto no calendário</p>
-        </div>
-        <div class="col-md-4 text-end">
-            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
-            </a>
-        </div>
-    </div>
-
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">{{ nome_mes }} {{ ano_atual }}</h6>
-            <div>
-                <a href="{{ url_for('main.calendario', mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-chevron-left"></i> Mês Anterior
-                </a>
-                <a href="{{ url_for('main.calendario', mes=mes_atual, ano=ano_atual) }}" class="btn btn-sm btn-primary mx-2">
-                    Mês Atual
-                </a>
-                <a href="{{ url_for('main.calendario', mes=mes_seguinte, ano=ano_seguinte) }}" class="btn btn-sm btn-outline-primary">
-                    Próximo Mês <i class="fas fa-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-        <div class="card-body">
-            {% if current_user.is_admin and usuarios %}
-            <div class="mb-4">
-                <form method="GET" action="{{ url_for('main.calendario') }}" class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="user_id" class="col-form-label">Visualizar calendário de:</label>
-                    </div>
-                    <div class="col-auto">
-                        <select name="user_id" id="user_id" class="form-select">
-                            <option value="{{ current_user.id }}" {% if usuario.id == current_user.id %}selected{% endif %}>Meu calendário</option>
-                            {% for user in usuarios %}
-                                {% if user.id != current_user.id %}
-                                <option value="{{ user.id }}" {% if usuario.id == user.id %}selected{% endif %}>{{ user.name }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-auto">
-                        <input type="hidden" name="mes" value="{{ mes_atual }}">
-                        <input type="hidden" name="ano" value="{{ ano_atual }}">
-                        <button type="submit" class="btn btn-primary">Visualizar</button>
-                    </div>
-                </form>
-            </div>
-            {% endif %}
-
-            <div class="table-responsive">
-                <table class="table table-bordered calendar-table">
-                    <thead>
-                        <tr>
-                            <th>Domingo</th>
-                            <th>Segunda</th>
-                            <th>Terça</th>
-                            <th>Quarta</th>
-                            <th>Quinta</th>
-                            <th>Sexta</th>
-                            <th>Sábado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for semana in calendario %}
-                        <tr>
-                            {% for dia in semana %}
-                            <td class="calendar-day {% if dia.mes != 'atual' %}text-muted{% endif %} {% if dia.data == hoje %}today{% endif %} {% if dia.data.weekday() >= 5 %}weekend{% endif %} {% if dia.data in feriados_datas %}holiday{% endif %}">
-                                <div class="day-number">{{ dia.dia }}</div>
-                                
-                                {% if dia.feriado %}
-                                <div class="holiday-badge">
-                                    <span class="badge bg-danger">Feriado</span>
-                                    <small class="d-block">{{ dia.feriado }}</small>
-                                </div>
-                                {% endif %}
-                                
-                                {% if dia.registro %}
-                                <div class="day-content">
-                                    {% if dia.registro.afastamento %}
-                                    <div class="absence-badge">
-                                        <span class="badge bg-warning">{{ dia.registro.tipo_afastamento }}</span>
-                                    </div>
-                                    {% else %}
-                                    <div class="time-record">
-                                        {% if dia.registro.entrada %}
-                                        <small class="d-block">
-                                            <i class="fas fa-sign-in-alt text-success"></i> {{ dia.registro.entrada.strftime('%H:%M') }}
-                                        </small>
-                                        {% endif %}
-                                        
-                                        {% if dia.registro.saida %}
-                                        <small class="d-block">
-                                            <i class="fas fa-sign-out-alt text-danger"></i> {{ dia.registro.saida.strftime('%H:%M') }}
-                                        </small>
-                                        {% endif %}
-                                        
-                                        {% if dia.registro.horas_trabalhadas %}
-                                        <small class="d-block">
-                                            <i class="fas fa-clock text-primary"></i> {{ "%.1f"|format(dia.registro.horas_trabalhadas) }}h
-                                        </small>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-                                    
-                                    <div class="day-actions">
-                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=dia.registro.id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                                {% else %}
-                                    {% if dia.mes == 'atual' %}
-                                    <div class="day-actions">
-                                        <a href="{{ url_for('main.registrar_ponto') }}?data={{ dia.data.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-outline-secondary">
-                                            <i class="fas fa-plus"></i>
-                                        </a>
-                                    </div>
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Calendário - {{ nome_mes }} de {{ ano_atual }}</h1>
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <a href="{{ url_for('main.calendario', mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-chevron-left"></i> Mês Anterior
+                    </a>
+                    <a href="{{ url_for('main.calendario', mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary">
+                        Próximo Mês <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
             </div>
             
-            <div class="mt-4">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0">Legenda</h6>
+            {% if current_user.is_admin and usuarios %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Selecionar Usuário</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('main.calendario') }}">
+                        <input type="hidden" name="mes" value="{{ mes_atual }}">
+                        <input type="hidden" name="ano" value="{{ ano_atual }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <select name="user_id" class="form-select">
+                                    {% for user in usuarios %}
+                                    <option value="{{ user.id }}" {% if user.id == usuario.id %}selected{% endif %}>{{ user.name }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <div class="card-body">
-                                <div class="d-flex flex-wrap gap-3">
-                                    <div>
-                                        <span class="badge bg-info">Hoje</span>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-danger">Feriado</span>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-warning">Férias</span>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-secondary">Fim de Semana</span>
-                                    </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary">Visualizar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Resumo do Mês</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ dias_uteis }}</h5>
+                                    <p class="card-text">Dias Úteis</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ dias_trabalhados }}</h5>
+                                    <p class="card-text">Dias Trabalhados</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ dias_afastamento }}</h5>
+                                    <p class="card-text">Dias de Afastamento</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ "%.2f"|format(horas_trabalhadas) }}h</h5>
+                                    <p class="card-text">Horas Trabalhadas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ "%.2f"|format(carga_horaria_devida) }}h</h5>
+                                    <p class="card-text">Carga Horária Devida</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card text-center mb-3">
+                                <div class="card-body {% if saldo_horas < 0 %}bg-danger text-white{% elif saldo_horas > 0 %}bg-success text-white{% endif %}">
+                                    <h5 class="card-title">{{ "%.2f"|format(saldo_horas) }}h</h5>
+                                    <p class="card-text">Saldo de Horas</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0">Resumo do Mês</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-6">
-                                        <p><strong>Dias Úteis:</strong> {{ dias_uteis }}</p>
-                                        <p><strong>Dias Trabalhados:</strong> {{ dias_trabalhados }}</p>
-                                    </div>
-                                    <div class="col-6">
-                                        <p><strong>Dias de Afastamento:</strong> {{ dias_afastamento }}</p>
-                                        <p><strong>Horas Trabalhadas:</strong> {{ "%.1f"|format(horas_trabalhadas) }}h</p>
-                                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ "%.2f"|format(media_diaria) }}h</h5>
+                                    <p class="card-text">Média Diária de Horas Trabalhadas</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Calendário</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Domingo</th>
+                                    <th class="text-center">Segunda</th>
+                                    <th class="text-center">Terça</th>
+                                    <th class="text-center">Quarta</th>
+                                    <th class="text-center">Quinta</th>
+                                    <th class="text-center">Sexta</th>
+                                    <th class="text-center">Sábado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for semana in calendario %}
+                                <tr style="height: 120px;">
+                                    {% for dia in semana %}
+                                    <td class="{% if dia.mes != 'atual' %}text-muted{% endif %} {% if dia.data in feriados_datas %}bg-warning{% elif dia.data.weekday() >= 5 %}bg-light{% elif dia.registro and dia.registro.afastamento %}bg-info{% elif dia.registro and dia.registro.horas_trabalhadas and dia.registro.horas_trabalhadas >= 8 %}bg-success{% elif dia.registro and dia.registro.horas_trabalhadas %}bg-warning{% elif dia.data.weekday() < 5 and dia.mes == 'atual' %}bg-danger{% endif %}" style="width: 14.28%; vertical-align: top;">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ dia.dia }}</span>
+                                            {% if dia.mes == 'atual' and dia.registro %}
+                                            <a href="{{ url_for('main.visualizar_ponto', ponto_id=dia.registro.id) }}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        {% if dia.feriado %}
+                                        <small class="d-block text-truncate">Feriado: {{ dia.feriado }}</small>
+                                        {% elif dia.registro %}
+                                            {% if dia.registro.afastamento %}
+                                            <small class="d-block text-truncate">{{ dia.registro.tipo_afastamento or 'Afastamento' }}</small>
+                                            {% else %}
+                                            <small class="d-block">Entrada: {{ dia.registro.entrada.strftime('%H:%M') if dia.registro.entrada else '-' }}</small>
+                                            <small class="d-block">Saída: {{ dia.registro.saida.strftime('%H:%M') if dia.registro.saida else '-' }}</small>
+                                            <small class="d-block">Horas: {{ "%.2f"|format(dia.registro.horas_trabalhadas) if dia.registro.horas_trabalhadas else '-' }}</small>
+                                            {% endif %}
+                                        {% elif dia.mes == 'atual' and dia.data.weekday() < 5 %}
+                                        <a href="{{ url_for('main.registrar_ponto') }}?data={{ dia.data.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-success mt-2">
+                                            <i class="fas fa-plus"></i> Registrar
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title">Legenda</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-success" style="width: 20px; height: 20px; margin-right: 10px;"></div>
+                                <span>Dia completo (8h ou mais)</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-warning" style="width: 20px; height: 20px; margin-right: 10px;"></div>
+                                <span>Dia parcial (menos de 8h)</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-danger" style="width: 20px; height: 20px; margin-right: 10px;"></div>
+                                <span>Sem registro</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-info" style="width: 20px; height: 20px; margin-right: 10px;"></div>
+                                <span>Afastamento</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-warning" style="width: 20px; height: 20px; margin-right: 10px;"></div>
+                                <span>Feriado</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-light" style="width: 20px; height: 20px; margin-right: 10px; border: 1px solid #dee2e6;"></div>
+                                <span>Fim de semana</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="text-muted" style="width: 20px; height: 20px; margin-right: 10px; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center;">1</div>
+                                <span>Outro mês</span>
                             </div>
                         </div>
                     </div>
@@ -184,79 +226,4 @@
         </div>
     </div>
 </div>
-
-<style>
-.calendar-table th, .calendar-table td {
-    width: 14.28%;
-    height: 120px;
-    vertical-align: top;
-    padding: 5px;
-}
-
-.calendar-day {
-    position: relative;
-    min-height: 100px;
-}
-
-.day-number {
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.today {
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-.weekend {
-    background-color: rgba(108, 117, 125, 0.1);
-}
-
-.holiday {
-    background-color: rgba(220, 53, 69, 0.1);
-}
-
-.day-content {
-    margin-top: 5px;
-}
-
-.day-actions {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-}
-
-.time-record {
-    margin-bottom: 10px;
-}
-
-.holiday-badge, .absence-badge {
-    margin-bottom: 5px;
-}
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Função para calcular dias anteriores e posteriores
-    document.addEventListener('DOMContentLoaded', function() {
-        // Preenche os dias anteriores ao primeiro dia do mês
-        const primeiroDia = new Date({{ ano_atual }}, {{ mes_atual - 1 }}, 1);
-        const diaSemana = primeiroDia.getDay(); // 0 = domingo, 6 = sábado
-        
-        for (let i = 0; i < diaSemana; i++) {
-            const diaAnterior = new Date(primeiroDia);
-            diaAnterior.setDate(primeiroDia.getDate() - (diaSemana - i));
-            // Aqui você pode usar o diaAnterior para preencher os dias do mês anterior
-        }
-        
-        // Função para alternar entre meses
-        document.querySelectorAll('.month-nav').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = this.getAttribute('href');
-                window.location.href = url;
-            });
-        });
-    });
-</script>
 {% endblock %}

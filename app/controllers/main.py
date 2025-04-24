@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
@@ -7,6 +7,14 @@ from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastame
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 import logging
+import os
+import tempfile
+import pandas as pd
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 main = Blueprint('main', __name__)
 
@@ -619,6 +627,24 @@ def relatorio_mensal():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
+    # Cria uma lista de datas de feriados para o template
+    feriados_datas = list(feriados_dict.keys())
+    
+    # Cria um dicionário de registros por data para o template
+    registros_por_data = {registro.data: registro for registro in registros}
+    
+    # Obtém as atividades dos registros
+    atividades = Atividade.query.filter(
+        Atividade.ponto_id.in_([registro.id for registro in registros])
+    ).all()
+    
+    # Cria um dicionário de atividades por ponto para o template
+    atividades_por_ponto = {}
+    for atividade in atividades:
+        if atividade.ponto_id not in atividades_por_ponto:
+            atividades_por_ponto[atividade.ponto_id] = []
+        atividades_por_ponto[atividade.ponto_id].append(atividade)
+    
     # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
@@ -702,8 +728,477 @@ def relatorio_mensal():
                           saldo_horas=saldo_horas,
                           media_diaria=media_diaria,
                           feriados_dict=feriados_dict,
+                          feriados_datas=feriados_datas,
+                          registros_por_data=registros_por_data,
+                          atividades_por_ponto=atividades_por_ponto,
                           usuario=usuario,
-                          usuarios=usuarios)
+                          usuarios=usuarios,
+                          date=date,
+                          ultimo_dia=ultimo_dia,
+                          ano=ano_atual,
+                          mes=mes_atual)
+
+# CORREÇÃO: Adicionar rota para gerar relatório mensal em PDF
+@main.route('/relatorio-mensal/pdf')
+@login_required
+def relatorio_mensal_pdf():
+    """Rota para gerar o relatório mensal em PDF."""
+    # Obtém o mês e ano da query string
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # CORREÇÃO: Adicionar suporte para visualização de outros usuários por administradores
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        usuario = User.query.get(user_id)
+        if not usuario:
+            usuario = current_user
+    else:
+        usuario = current_user
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == usuario.id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # Calcula os dias úteis, horas trabalhadas, etc.
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
+    
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcula a carga horária devida (8h por dia útil)
+    carga_horaria_devida = 8 * dias_uteis
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Cria um arquivo PDF temporário
+    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+        pdf_path = temp_file.name
+    
+    # Cria o documento PDF
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    elements = []
+    
+    # Adiciona o título
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph(f"Relatório Mensal - {nome_mes} de {ano_atual}", styles['Title']))
+    elements.append(Paragraph(f"Funcionário: {usuario.name}", styles['Heading2']))
+    elements.append(Spacer(1, 12))
+    
+    # Adiciona o resumo do mês
+    data = [
+        ["Dias Úteis", "Dias Trabalhados", "Dias de Afastamento", "Horas Trabalhadas", "Carga Horária Devida", "Saldo de Horas"],
+        [str(dias_uteis), str(dias_trabalhados), str(dias_afastamento), f"{horas_trabalhadas:.2f}h", f"{carga_horaria_devida:.2f}h", f"{saldo_horas:.2f}h"]
+    ]
+    
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    elements.append(table)
+    elements.append(Spacer(1, 24))
+    
+    # Adiciona os registros do mês
+    elements.append(Paragraph("Registros do Mês", styles['Heading2']))
+    elements.append(Spacer(1, 12))
+    
+    # Cabeçalho da tabela de registros
+    data = [["Data", "Dia da Semana", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horas Trabalhadas", "Status"]]
+    
+    # Dias da semana em português
+    dias_semana = {
+        0: "Segunda",
+        1: "Terça",
+        2: "Quarta",
+        3: "Quinta",
+        4: "Sexta",
+        5: "Sábado",
+        6: "Domingo"
+    }
+    
+    # Adiciona os dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        dia_semana = dias_semana[data_atual.weekday()]
+        
+        # Verifica se é feriado
+        if data_atual in feriados_dict:
+            data.append([
+                data_atual.strftime("%d/%m/%Y"),
+                dia_semana,
+                "Feriado",
+                "",
+                "",
+                "",
+                "",
+                "Feriado"
+            ])
+            continue
+        
+        # Verifica se é fim de semana
+        if data_atual.weekday() >= 5:
+            data.append([
+                data_atual.strftime("%d/%m/%Y"),
+                dia_semana,
+                "Fim de semana",
+                "",
+                "",
+                "",
+                "",
+                "Fim de semana"
+            ])
+            continue
+        
+        # Verifica se há registro para esta data
+        registro = next((r for r in registros if r.data == data_atual), None)
+        
+        if registro:
+            if registro.afastamento:
+                data.append([
+                    data_atual.strftime("%d/%m/%Y"),
+                    dia_semana,
+                    "Afastamento",
+                    "",
+                    "",
+                    "",
+                    "",
+                    registro.tipo_afastamento or "Afastamento"
+                ])
+            else:
+                entrada = registro.entrada.strftime("%H:%M") if registro.entrada else "-"
+                saida_almoco = registro.saida_almoco.strftime("%H:%M") if registro.saida_almoco else "-"
+                retorno_almoco = registro.retorno_almoco.strftime("%H:%M") if registro.retorno_almoco else "-"
+                saida = registro.saida.strftime("%H:%M") if registro.saida else "-"
+                horas = f"{registro.horas_trabalhadas:.2f}h" if registro.horas_trabalhadas else "-"
+                
+                status = "Completo" if registro.horas_trabalhadas and registro.horas_trabalhadas >= 8 else "Parcial"
+                
+                data.append([
+                    data_atual.strftime("%d/%m/%Y"),
+                    dia_semana,
+                    entrada,
+                    saida_almoco,
+                    retorno_almoco,
+                    saida,
+                    horas,
+                    status
+                ])
+        else:
+            data.append([
+                data_atual.strftime("%d/%m/%Y"),
+                dia_semana,
+                "Sem registro",
+                "",
+                "",
+                "",
+                "",
+                "Pendente"
+            ])
+    
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    elements.append(table)
+    
+    # Gera o PDF
+    doc.build(elements)
+    
+    # Retorna o arquivo PDF
+    return send_file(pdf_path, as_attachment=True, download_name=f"relatorio_{usuario.name}_{nome_mes}_{ano_atual}.pdf")
+
+# CORREÇÃO: Adicionar rota para gerar relatório mensal em Excel
+@main.route('/relatorio-mensal/excel')
+@login_required
+def relatorio_mensal_excel():
+    """Rota para gerar o relatório mensal em Excel."""
+    # Obtém o mês e ano da query string
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # CORREÇÃO: Adicionar suporte para visualização de outros usuários por administradores
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        usuario = User.query.get(user_id)
+        if not usuario:
+            usuario = current_user
+    else:
+        usuario = current_user
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == usuario.id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # Calcula os dias úteis, horas trabalhadas, etc.
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
+    
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcula a carga horária devida (8h por dia útil)
+    carga_horaria_devida = 8 * dias_uteis
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Dias da semana em português
+    dias_semana = {
+        0: "Segunda",
+        1: "Terça",
+        2: "Quarta",
+        3: "Quinta",
+        4: "Sexta",
+        5: "Sábado",
+        6: "Domingo"
+    }
+    
+    # Cria um DataFrame para o resumo do mês
+    resumo_data = {
+        "Métrica": ["Dias Úteis", "Dias Trabalhados", "Dias de Afastamento", "Horas Trabalhadas", "Carga Horária Devida", "Saldo de Horas"],
+        "Valor": [dias_uteis, dias_trabalhados, dias_afastamento, f"{horas_trabalhadas:.2f}h", f"{carga_horaria_devida:.2f}h", f"{saldo_horas:.2f}h"]
+    }
+    resumo_df = pd.DataFrame(resumo_data)
+    
+    # Cria um DataFrame para os registros do mês
+    registros_data = []
+    
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        dia_semana = dias_semana[data_atual.weekday()]
+        
+        # Verifica se é feriado
+        if data_atual in feriados_dict:
+            registros_data.append({
+                "Data": data_atual.strftime("%d/%m/%Y"),
+                "Dia da Semana": dia_semana,
+                "Entrada": "Feriado",
+                "Saída Almoço": "",
+                "Retorno Almoço": "",
+                "Saída": "",
+                "Horas Trabalhadas": "",
+                "Status": "Feriado",
+                "Observação": feriados_dict[data_atual]
+            })
+            continue
+        
+        # Verifica se é fim de semana
+        if data_atual.weekday() >= 5:
+            registros_data.append({
+                "Data": data_atual.strftime("%d/%m/%Y"),
+                "Dia da Semana": dia_semana,
+                "Entrada": "Fim de semana",
+                "Saída Almoço": "",
+                "Retorno Almoço": "",
+                "Saída": "",
+                "Horas Trabalhadas": "",
+                "Status": "Fim de semana",
+                "Observação": ""
+            })
+            continue
+        
+        # Verifica se há registro para esta data
+        registro = next((r for r in registros if r.data == data_atual), None)
+        
+        if registro:
+            if registro.afastamento:
+                registros_data.append({
+                    "Data": data_atual.strftime("%d/%m/%Y"),
+                    "Dia da Semana": dia_semana,
+                    "Entrada": "Afastamento",
+                    "Saída Almoço": "",
+                    "Retorno Almoço": "",
+                    "Saída": "",
+                    "Horas Trabalhadas": "",
+                    "Status": registro.tipo_afastamento or "Afastamento",
+                    "Observação": registro.observacoes or ""
+                })
+            else:
+                entrada = registro.entrada.strftime("%H:%M") if registro.entrada else "-"
+                saida_almoco = registro.saida_almoco.strftime("%H:%M") if registro.saida_almoco else "-"
+                retorno_almoco = registro.retorno_almoco.strftime("%H:%M") if registro.retorno_almoco else "-"
+                saida = registro.saida.strftime("%H:%M") if registro.saida else "-"
+                horas = f"{registro.horas_trabalhadas:.2f}h" if registro.horas_trabalhadas else "-"
+                
+                status = "Completo" if registro.horas_trabalhadas and registro.horas_trabalhadas >= 8 else "Parcial"
+                
+                registros_data.append({
+                    "Data": data_atual.strftime("%d/%m/%Y"),
+                    "Dia da Semana": dia_semana,
+                    "Entrada": entrada,
+                    "Saída Almoço": saida_almoco,
+                    "Retorno Almoço": retorno_almoco,
+                    "Saída": saida,
+                    "Horas Trabalhadas": horas,
+                    "Status": status,
+                    "Observação": registro.observacoes or ""
+                })
+        else:
+            registros_data.append({
+                "Data": data_atual.strftime("%d/%m/%Y"),
+                "Dia da Semana": dia_semana,
+                "Entrada": "Sem registro",
+                "Saída Almoço": "",
+                "Retorno Almoço": "",
+                "Saída": "",
+                "Horas Trabalhadas": "",
+                "Status": "Pendente",
+                "Observação": ""
+            })
+    
+    registros_df = pd.DataFrame(registros_data)
+    
+    # Cria um arquivo Excel temporário
+    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_file:
+        excel_path = temp_file.name
+    
+    # Cria o arquivo Excel
+    with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+        # Adiciona uma planilha com informações gerais
+        info_data = {
+            "Informação": ["Funcionário", "Mês", "Ano"],
+            "Valor": [usuario.name, nome_mes, ano_atual]
+        }
+        info_df = pd.DataFrame(info_data)
+        info_df.to_excel(writer, sheet_name='Informações', index=False)
+        
+        # Adiciona a planilha de resumo
+        resumo_df.to_excel(writer, sheet_name='Resumo', index=False)
+        
+        # Adiciona a planilha de registros
+        registros_df.to_excel(writer, sheet_name='Registros', index=False)
+    
+    # Retorna o arquivo Excel
+    return send_file(excel_path, as_attachment=True, download_name=f"relatorio_{usuario.name}_{nome_mes}_{ano_atual}.xlsx")
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required

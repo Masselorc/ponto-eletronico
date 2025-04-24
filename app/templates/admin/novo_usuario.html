@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Novo Usuário{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Novo Usuário</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Admin</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.listar_usuarios') }}">Usuários</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Novo Usuário</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Cadastrar Novo Usuário</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.novo_usuario') }}">
+                        {{ form.csrf_token }}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nome</label>
+                            {{ form.name(class="form-control", id="name", placeholder="Nome completo") }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            {{ form.email(class="form-control", id="email", placeholder="email@exemplo.com") }}
+                            {% if form.email.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="matricula" class="form-label">Matrícula</label>
+                            {{ form.matricula(class="form-control", id="matricula", placeholder="Número de matrícula") }}
+                            {% if form.matricula.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.matricula.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="vinculo" class="form-label">Vínculo</label>
+                            {{ form.vinculo(class="form-control", id="vinculo") }}
+                            {% if form.vinculo.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.vinculo.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Senha</label>
+                            {{ form.password(class="form-control", id="password") }}
+                            {% if form.password.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirmar Senha</label>
+                            {{ form.confirm_password(class="form-control", id="confirm_password") }}
+                            {% if form.confirm_password.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.confirm_password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.is_admin(class="form-check-input", id="is_admin") }}
+                            <label class="form-check-label" for="is_admin">Administrador</label>
+                            {% if form.is_admin.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.is_admin.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {{ form.is_active(class="form-check-input", id="is_active") }}
+                            <label class="form-check-label" for="is_active">Ativo</label>
+                            {% if form.is_active.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.is_active.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Informações</h5>
+                </div>
+                <div class="card-body">
+                    <p>Preencha todos os campos obrigatórios para cadastrar um novo usuário no sistema.</p>
+                    <p>A senha deve ter no mínimo 6 caracteres.</p>
+                    <p>Usuários administradores têm acesso a todas as funcionalidades do sistema.</p>
+                    <p>Usuários inativos não podem fazer login no sistema.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
