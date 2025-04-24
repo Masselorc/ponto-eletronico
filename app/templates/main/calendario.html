@@ -125,11 +125,11 @@
                                                     <div class="registro-completo">
                                                         <div class="horarios">
                                                             {% if registro.entrada %}
-                                                                <span class="entrada">{{ registro.entrada.strftime('%H:%M') }}</span>
+                                                                <span class="entrada"><i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}</span>
                                                             {% endif %}
                                                             
                                                             {% if registro.saida %}
-                                                                <span class="saida">{{ registro.saida.strftime('%H:%M') }}</span>
+                                                                <span class="saida"><i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}</span>
                                                             {% endif %}
                                                         </div>
                                                         <div class="horas-badge {% if registro.horas_trabalhadas >= 8 %}horas-completas{% else %}horas-parciais{% endif %}">

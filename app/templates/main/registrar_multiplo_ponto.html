@@ -214,6 +214,13 @@
     
     // Configuração inicial
     document.addEventListener('DOMContentLoaded', function() {
+        // Preenche a data atual no campo de data
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = (hoje.getMonth() + 1).toString().padStart(2, '0');
+        const dia = hoje.getDate().toString().padStart(2, '0');
+        document.getElementById('data').value = `${ano}-${mes}-${dia}`;
+        
         // Verifica o estado inicial do checkbox
         const checkAfastamento = document.getElementById('check_afastamento');
         if (checkAfastamento.checked) {

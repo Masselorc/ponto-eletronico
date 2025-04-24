@@ -8,6 +8,46 @@ body {
     margin-top: auto;
 }
 
+/* Melhorias no cabeçalho e navegação */
+.navbar-dark .navbar-nav .nav-link {
+    position: relative;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    margin: 0 2px;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover i {
+    transform: scale(1.2);
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.navbar-dark .navbar-nav .nav-link i {
+    transition: all 0.3s ease;
+}
+
+.dropdown-item {
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background-color: #e9f0ff;
+    transform: translateX(5px);
+}
+
+.dropdown-item:hover i {
+    transform: scale(1.2);
+    color: #0d6efd;
+}
+
+/* Estilos existentes */
 .card-dashboard {
     transition: transform 0.3s;
     border-radius: 10px;
@@ -27,23 +67,36 @@ body {
     margin: 0 auto;
 }
 
+/* Melhorias adicionais para o calendário */
 .calendario-dia {
     height: 120px;
     border: 1px solid #dee2e6;
     padding: 5px;
+    transition: all 0.3s ease;
+}
+
+.calendario-dia:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    position: relative;
 }
 
 .calendario-dia-header {
     font-weight: bold;
     text-align: right;
+    margin-bottom: 5px;
 }
 
 .calendario-hoje {
     background-color: #e8f4ff;
+    border: 2px solid #0d6efd;
 }
 
 .calendario-feriado {
     background-color: #ffecec;
+    border-left: 3px solid #dc3545;
 }
 
 .calendario-fim-semana {
@@ -75,4 +128,90 @@ body {
 
 .btn-registrar-ponto {
     min-width: 200px;
+}
+
+/* Melhorias no calendário */
+.sem-registro-badge {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.afastamento-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-top: 2px;
+    background-color: #e0cffc;
+    color: #6610f2;
+}
+
+.registro-completo {
+    margin-top: 2px;
+}
+
+.horarios {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.entrada, .saida {
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.entrada {
+    color: #198754;
+}
+
+.saida {
+    color: #dc3545;
+}
+
+.horas-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: inline-block;
+}
+
+.horas-completas {
+    background-color: #d4edda;
+    color: #0f5132;
+}
+
+.horas-parciais {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+/* Estilo para badges coloridos nos registros */
+.badge.bg-purple {
+    background-color: #6f42c1;
+}
+
+/* Melhorias nos botões e interações */
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
 }
