@@ -39,9 +39,23 @@ def dashboard():
     primeiro_dia = date(ano_atual, mes_atual, 1)
     ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
     
+    # CORREÇÃO: Adicionar suporte para visualização de outros usuários por administradores
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        usuario = User.query.get(user_id)
+        if not usuario:
+            usuario = current_user
+    else:
+        usuario = current_user
+    
+    # Obtém a lista de usuários para administradores
+    usuarios = None
+    if current_user.is_admin:
+        usuarios = User.query.all()
+    
     # Obtém os registros de ponto do mês para o usuário
     registros = Ponto.query.filter(
-        Ponto.user_id == current_user.id,
+        Ponto.user_id == usuario.id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
@@ -118,7 +132,9 @@ def dashboard():
                           carga_horaria_devida=carga_horaria_devida,
                           saldo_horas=saldo_horas,
                           media_diaria=media_diaria,
-                          feriados_dict=feriados_dict)
+                          feriados_dict=feriados_dict,
+                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
+                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
 
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
@@ -189,127 +205,6 @@ def registrar_ponto():
         return redirect(url_for('main.dashboard'))
     
     return render_template('main/registrar_ponto.html', form=form)
-
-# CORREÇÃO: Adicionar a rota registrar_multiplo_ponto que está faltando
-@main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
-@login_required
-def registrar_multiplo_ponto():
-    """Rota para registrar múltiplos pontos de uma vez."""
-    # Esta é uma implementação básica da funcionalidade
-    # Pode ser expandida conforme necessário
-    
-    if request.method == 'POST':
-        # Processar o formulário de múltiplos pontos
-        datas = request.form.getlist('datas[]')
-        entradas = request.form.getlist('entradas[]')
-        saidas_almoco = request.form.getlist('saidas_almoco[]')
-        retornos_almoco = request.form.getlist('retornos_almoco[]')
-        saidas = request.form.getlist('saidas[]')
-        atividades = request.form.getlist('atividades[]')
-        
-        # Validar que todas as listas têm o mesmo tamanho
-        if not (len(datas) == len(entradas) == len(saidas_almoco) == len(retornos_almoco) == len(saidas) == len(atividades)):
-            flash('Erro ao processar o formulário. Verifique os dados e tente novamente.', 'danger')
-            return redirect(url_for('main.registrar_multiplo_ponto'))
-        
-        # Processar cada registro
-        registros_criados = 0
-        for i in range(len(datas)):
-            try:
-                # Converter a data de string para objeto date
-                data_str = datas[i]
-                if not data_str:
-                    continue
-                
-                data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
-                
-                # Verificar se já existe um registro para esta data
-                registro_existente = Ponto.query.filter_by(
-                    user_id=current_user.id,
-                    data=data_obj
-                ).first()
-                
-                if registro_existente:
-                    continue
-                
-                # Converter os horários de string para objeto time
-                entrada = None
-                if entradas[i]:
-                    entrada = datetime.strptime(entradas[i], '%H:%M').time()
-                
-                saida_almoco = None
-                if saidas_almoco[i]:
-                    saida_almoco = datetime.strptime(saidas_almoco[i], '%H:%M').time()
-                
-                retorno_almoco = None
-                if retornos_almoco[i]:
-                    retorno_almoco = datetime.strptime(retornos_almoco[i], '%H:%M').time()
-                
-                saida = None
-                if saidas[i]:
-                    saida = datetime.strptime(saidas[i], '%H:%M').time()
-                
-                # Calcular as horas trabalhadas
-                horas_trabalhadas = None
-                if entrada and saida:
-                    entrada_dt = datetime.combine(data_obj, entrada)
-                    saida_dt = datetime.combine(data_obj, saida)
-                    
-                    # Se a saída for antes da entrada, assume que é do dia seguinte
-                    if saida_dt < entrada_dt:
-                        saida_dt = saida_dt + timedelta(days=1)
-                    
-                    # Calcula a diferença em horas
-                    diferenca = saida_dt - entrada_dt
-                    horas_trabalhadas = diferenca.total_seconds() / 3600
-                    
-                    # Se houver almoço, subtrai o tempo de almoço
-                    if saida_almoco and retorno_almoco:
-                        saida_almoco_dt = datetime.combine(data_obj, saida_almoco)
-                        retorno_almoco_dt = datetime.combine(data_obj, retorno_almoco)
-                        
-                        # Se o retorno for antes da saída, assume que é do dia seguinte
-                        if retorno_almoco_dt < saida_almoco_dt:
-                            retorno_almoco_dt = retorno_almoco_dt + timedelta(days=1)
-                        
-                        # Calcula a diferença em horas
-                        diferenca_almoco = retorno_almoco_dt - saida_almoco_dt
-                        horas_trabalhadas -= diferenca_almoco.total_seconds() / 3600
-                
-                # Criar o registro de ponto
-                registro = Ponto(
-                    user_id=current_user.id,
-                    data=data_obj,
-                    entrada=entrada,
-                    saida_almoco=saida_almoco,
-                    retorno_almoco=retorno_almoco,
-                    saida=saida,
-                    horas_trabalhadas=horas_trabalhadas,
-                    atividades=atividades[i]
-                )
-                
-                # Salvar no banco de dados
-                from app import db
-                db.session.add(registro)
-                registros_criados += 1
-            
-            except Exception as e:
-                logger.error(f"Erro ao processar registro {i}: {str(e)}")
-                continue
-        
-        # Commit das alterações
-        from app import db
-        db.session.commit()
-        
-        if registros_criados > 0:
-            flash(f'{registros_criados} registros de ponto criados com sucesso!', 'success')
-        else:
-            flash('Nenhum registro de ponto foi criado. Verifique os dados e tente novamente.', 'warning')
-        
-        return redirect(url_for('main.dashboard'))
-    
-    # Renderizar o template para o método GET
-    return render_template('main/registrar_multiplo_ponto.html')
 
 @main.route('/editar-ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
@@ -434,9 +329,23 @@ def calendario():
     primeiro_dia = date(ano_atual, mes_atual, 1)
     ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
     
+    # CORREÇÃO: Adicionar suporte para visualização de outros usuários por administradores
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        usuario = User.query.get(user_id)
+        if not usuario:
+            usuario = current_user
+    else:
+        usuario = current_user
+    
+    # Obtém a lista de usuários para administradores
+    usuarios = None
+    if current_user.is_admin:
+        usuarios = User.query.all()
+    
     # Obtém os registros de ponto do mês para o usuário
     registros = Ponto.query.filter(
-        Ponto.user_id == current_user.id,
+        Ponto.user_id == usuario.id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).all()
@@ -547,7 +456,9 @@ def calendario():
                           mes_anterior=mes_anterior,
                           ano_anterior=ano_anterior,
                           mes_seguinte=mes_seguinte,
-                          ano_seguinte=ano_seguinte)
+                          ano_seguinte=ano_seguinte,
+                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
+                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
@@ -586,6 +497,124 @@ def excluir_ponto(ponto_id):
     flash('Registro excluído com sucesso!', 'success')
     return redirect(url_for('main.dashboard'))
 
+@main.route('/relatorio-mensal')
+@login_required
+def relatorio_mensal():
+    """Rota para o relatório mensal do usuário."""
+    # Obtém o mês e ano da query string
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # CORREÇÃO: Adicionar suporte para visualização de outros usuários por administradores
+    user_id = request.args.get('user_id', type=int)
+    if current_user.is_admin and user_id:
+        usuario = User.query.get(user_id)
+        if not usuario:
+            usuario = current_user
+    else:
+        usuario = current_user
+    
+    # Obtém a lista de usuários para administradores
+    usuarios = None
+    if current_user.is_admin:
+        usuarios = User.query.all()
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == usuario.id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
+    
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # CORREÇÃO: Corrigir o cálculo da carga horária devida (8h por dia útil)
+    # Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # CORREÇÃO: Adicionar cálculo da média diária de horas trabalhadas
+    media_diaria = 0
+    if dias_trabalhados > 0:
+        media_diaria = horas_trabalhadas / dias_trabalhados
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    return render_template('main/relatorio_mensal.html',
+                          registros=registros,
+                          mes_atual=mes_atual,
+                          ano_atual=ano_atual,
+                          nome_mes=nome_mes,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          horas_trabalhadas=horas_trabalhadas,
+                          carga_horaria_devida=carga_horaria_devida,
+                          saldo_horas=saldo_horas,
+                          media_diaria=media_diaria,
+                          feriados_dict=feriados_dict,
+                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
+                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
+
 @main.route('/perfil')
 @login_required
 def perfil():
@@ -594,3 +623,117 @@ def perfil():
     usuario = User.query.get(current_user.id)
     
     return render_template('main/perfil.html', usuario=usuario)
+
+@main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
+@login_required
+def registrar_multiplo_ponto():
+    """Rota para registrar múltiplos pontos de uma só vez."""
+    if request.method == 'POST':
+        # Obtém os dados do formulário
+        datas = request.form.getlist('data[]')
+        entradas = request.form.getlist('entrada[]')
+        saidas_almoco = request.form.getlist('saida_almoco[]')
+        retornos_almoco = request.form.getlist('retorno_almoco[]')
+        saidas = request.form.getlist('saida[]')
+        atividades = request.form.getlist('atividades[]')
+        
+        # Processa cada registro
+        from app import db
+        registros_criados = 0
+        
+        for i in range(len(datas)):
+            # Pula registros vazios
+            if not datas[i]:
+                continue
+            
+            # Converte a data
+            try:
+                data_selecionada = datetime.strptime(datas[i], '%Y-%m-%d').date()
+            except ValueError:
+                flash(f'Data inválida: {datas[i]}', 'danger')
+                continue
+            
+            # Verifica se já existe um registro para esta data
+            registro_existente = Ponto.query.filter_by(
+                user_id=current_user.id,
+                data=data_selecionada
+            ).first()
+            
+            if registro_existente:
+                flash(f'Já existe um registro para {data_selecionada.strftime("%d/%m/%Y")}.', 'warning')
+                continue
+            
+            # Converte os horários
+            entrada = None
+            saida_almoco = None
+            retorno_almoco = None
+            saida = None
+            
+            try:
+                if entradas[i]:
+                    entrada = datetime.strptime(entradas[i], '%H:%M').time()
+                if saidas_almoco[i]:
+                    saida_almoco = datetime.strptime(saidas_almoco[i], '%H:%M').time()
+                if retornos_almoco[i]:
+                    retorno_almoco = datetime.strptime(retornos_almoco[i], '%H:%M').time()
+                if saidas[i]:
+                    saida = datetime.strptime(saidas[i], '%H:%M').time()
+            except (ValueError, IndexError):
+                flash(f'Horário inválido para {data_selecionada.strftime("%d/%m/%Y")}.', 'danger')
+                continue
+            
+            # Calcula as horas trabalhadas
+            horas_trabalhadas = None
+            if entrada and saida:
+                entrada_dt = datetime.combine(data_selecionada, entrada)
+                saida_dt = datetime.combine(data_selecionada, saida)
+                
+                # Se a saída for antes da entrada, assume que é do dia seguinte
+                if saida_dt < entrada_dt:
+                    saida_dt = saida_dt + timedelta(days=1)
+                
+                # Calcula a diferença em horas
+                diferenca = saida_dt - entrada_dt
+                horas_trabalhadas = diferenca.total_seconds() / 3600
+                
+                # Se houver almoço, subtrai o tempo de almoço
+                if saida_almoco and retorno_almoco:
+                    saida_almoco_dt = datetime.combine(data_selecionada, saida_almoco)
+                    retorno_almoco_dt = datetime.combine(data_selecionada, retorno_almoco)
+                    
+                    # Se o retorno for antes da saída, assume que é do dia seguinte
+                    if retorno_almoco_dt < saida_almoco_dt:
+                        retorno_almoco_dt = retorno_almoco_dt + timedelta(days=1)
+                    
+                    # Calcula a diferença em horas
+                    diferenca_almoco = retorno_almoco_dt - saida_almoco_dt
+                    horas_trabalhadas -= diferenca_almoco.total_seconds() / 3600
+            
+            # Cria um novo registro de ponto
+            atividade_texto = atividades[i] if i < len(atividades) else ""
+            registro = Ponto(
+                user_id=current_user.id,
+                data=data_selecionada,
+                entrada=entrada,
+                saida_almoco=saida_almoco,
+                retorno_almoco=retorno_almoco,
+                saida=saida,
+                horas_trabalhadas=horas_trabalhadas,
+                atividades=atividade_texto
+            )
+            
+            # Salva no banco de dados
+            db.session.add(registro)
+            registros_criados += 1
+        
+        # Commit das alterações
+        db.session.commit()
+        
+        if registros_criados > 0:
+            flash(f'{registros_criados} registro(s) de ponto criado(s) com sucesso!', 'success')
+        else:
+            flash('Nenhum registro de ponto foi criado.', 'warning')
+        
+        return redirect(url_for('main.dashboard'))
+    
+    return render_template('main/registrar_multiplo_ponto.html')
