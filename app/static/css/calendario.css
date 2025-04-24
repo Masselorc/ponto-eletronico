@@ -1,269 +1,246 @@
-/* Estilos para o calendário */
 .calendario-table {
     width: 100%;
-    table-layout: fixed;
     border-collapse: collapse;
 }
 
 .calendario-table th {
-    background-color: #f0f8ff;
+    background-color: #f8f9fa;
     text-align: center;
     padding: 10px;
-    font-weight: bold;
+    font-weight: 600;
     border: 1px solid #dee2e6;
 }
 
 .calendario-table td {
     height: 120px;
+    width: 14.28%;
     vertical-align: top;
-    padding: 8px;
     border: 1px solid #dee2e6;
+    padding: 8px;
     position: relative;
+    transition: all 0.3s ease;
 }
 
-/* Estilos para diferentes tipos de dias */
-.dia-outro-mes {
+.calendario-table td:hover {
     background-color: #f8f9fa;
-    color: #adb5bd;
-    opacity: 0.7;
+    transform: scale(1.02);
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.numero-dia {
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+    color: #495057;
 }
 
 .hoje {
     background-color: #e8f4ff !important;
-    box-shadow: inset 0 0 0 2px #0d6efd;
+    border: 2px solid #007bff !important;
+}
+
+.hoje .numero-dia {
+    color: #007bff;
 }
 
 .fim-de-semana {
     background-color: #f8f9fa;
 }
 
-.feriado {
-    background-color: #fff0f0;
-}
-
-/* Número do dia */
-.numero-dia {
-    font-weight: bold;
-    font-size: 1.2rem;
-    margin-bottom: 8px;
-    color: #495057;
-}
-
-.hoje .numero-dia {
-    color: #0d6efd;
-}
-
-.feriado .numero-dia {
-    color: #dc3545;
-}
-
-/* Badges para diferentes tipos de registros */
-.sem-registro-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    margin-bottom: 5px;
-    border-radius: 4px;
-    background-color: #f8f9fa;
-    border: 1px dashed #ced4da;
+.fim-de-semana .numero-dia {
     color: #6c757d;
-    font-size: 0.85rem;
-    width: 100%;
-    text-align: center;
+}
+
+.dia-outro-mes {
+    background-color: #f0f0f0;
+    color: #adb5bd;
+}
+
+.feriado {
+    background-color: #fff8e8 !important;
+    border-left: 3px solid #ffc107 !important;
+}
+
+.feriado-badge {
+    background-color: #ffc107;
+    color: #212529;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    animation: pulse 2s infinite;
+}
+
+.afastamento-badge {
+    background-color: #6c757d;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.ferias-badge {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.licenca-badge {
+    background-color: #dc3545;
+    color: white;
+}
+
+.abono-badge {
+    background-color: #28a745;
+    color: white;
 }
 
 .registro-completo {
-    margin-bottom: 5px;
+    margin-top: 5px;
 }
 
 .horarios {
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 3px;
+    flex-direction: column;
+    margin-bottom: 5px;
 }
 
 .entrada, .saida {
     font-size: 0.85rem;
-    font-weight: bold;
-    color: #495057;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    display: inline-block;
+}
+
+.entrada {
+    background-color: #e8f5e9;
+    color: #28a745;
+    border-left: 3px solid #28a745;
+}
+
+.saida {
+    background-color: #ffebee;
+    color: #dc3545;
+    border-left: 3px solid #dc3545;
 }
 
 .horas-badge {
-    display: inline-block;
-    padding: 4px 8px;
+    background-color: #6c757d;
+    color: white;
+    padding: 3px 6px;
     border-radius: 4px;
-    font-size: 0.85rem;
-    width: 100%;
-    text-align: center;
-    font-weight: bold;
+    font-size: 0.75rem;
+    display: inline-block;
+    margin-top: 3px;
 }
 
 .horas-completas {
-    background-color: #d1e7dd;
-    color: #0f5132;
-    border: 1px solid #badbcc;
+    background-color: #28a745;
 }
 
 .horas-parciais {
-    background-color: #fff3cd;
-    color: #664d03;
-    border: 1px solid #ffecb5;
+    background-color: #ffc107;
+    color: #212529;
 }
 
-/* Badges para afastamentos - Versão melhorada com cores mais chamativas */
-.afastamento-badge {
-    display: inline-block;
-    padding: 6px 8px;
-    margin-bottom: 5px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    width: 100%;
-    text-align: center;
-    font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.sem-registro-badge {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-top: 5px;
+    display: block;
 }
 
-.ferias-badge {
-    background-color: #6610f2;
-    color: white;
-    border: 1px solid #5b0edb;
-}
-
-.licenca-badge {
-    background-color: #fd7e14;
-    color: white;
-    border: 1px solid #e76b06;
-}
-
-.abono-badge {
-    background-color: #20c997;
-    color: white;
-    border: 1px solid #1ba87e;
-}
-
-.feriado-badge {
-    display: inline-block;
-    padding: 6px 8px;
-    margin-bottom: 5px;
-    border-radius: 4px;
-    background-color: #dc3545;
-    color: white;
-    font-size: 0.85rem;
-    width: 100%;
-    text-align: center;
-    font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Botões de ação */
 .acoes-dia {
     position: absolute;
-    bottom: 8px;
-    right: 8px;
+    bottom: 5px;
+    right: 5px;
+    display: flex;
+    gap: 3px;
 }
 
 .acoes-dia .btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
+    padding: 2px 5px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.acoes-dia .btn:hover {
+    transform: scale(1.1);
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+    }
+}
+
+/* Estilos para os botões de registro */
+.btn-registro {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.acoes-dia .btn-outline-primary {
-    background-color: white;
+.btn-registro:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.acoes-dia .btn-outline-primary:hover {
-    background-color: #0d6efd;
+.btn-registro-entrada {
+    background-color: #28a745;
     color: white;
+    border: none;
 }
 
-/* Ícones mais chamativos */
-.sem-registro-badge + .acoes-dia .btn-outline-primary {
-    background-color: #0d6efd;
+.btn-registro-saida {
+    background-color: #dc3545;
     color: white;
-    border-color: #0d6efd;
+    border: none;
 }
 
-.sem-registro-badge + .acoes-dia .btn-outline-primary:hover {
-    background-color: #0b5ed7;
+.btn-registro-afastamento {
+    background-color: #17a2b8;
+    color: white;
+    border: none;
 }
 
-/* Resumo do mês */
-.resumo-mes {
-    margin-top: 20px;
-    padding: 15px;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-}
-
-.resumo-mes h5 {
-    margin-bottom: 15px;
-    color: #495057;
-}
-
-.resumo-item {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.resumo-item:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
-
-.resumo-label {
-    font-weight: bold;
-    color: #495057;
-}
-
-.resumo-valor {
-    font-weight: bold;
-}
-
-.resumo-valor.positivo {
-    color: #198754;
-}
-
-.resumo-valor.negativo {
-    color: #dc3545;
-}
-
-.resumo-valor.neutro {
-    color: #6c757d;
-}
-
-/* Legenda do calendário */
-.legenda-calendario {
-    margin-top: 20px;
-    padding: 15px;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-}
-
-.legenda-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.legenda-cor {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    margin-right: 10px;
-}
-
-.legenda-texto {
-    font-size: 0.9rem;
-    color: #495057;
+/* Melhorias para visualização em dispositivos móveis */
+@media (max-width: 768px) {
+    .calendario-table td {
+        height: 100px;
+        padding: 5px;
+    }
+    
+    .numero-dia {
+        font-size: 1rem;
+    }
+    
+    .entrada, .saida {
+        font-size: 0.75rem;
+    }
+    
+    .horas-badge, .afastamento-badge, .feriado-badge {
+        font-size: 0.7rem;
+        padding: 2px 4px;
+    }
 }

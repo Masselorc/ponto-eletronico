@@ -16,6 +16,11 @@
         <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-warning">
             <i class="fas fa-edit me-2"></i>Editar Registro
         </a>
+        <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash me-2"></i>Excluir Registro
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>
