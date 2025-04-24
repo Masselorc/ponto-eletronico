@@ -1,7 +1,8 @@
 import os
 from app import create_app, db
 from app.models.user import User
-from app.models.ponto import Ponto, Atividade, Feriado
+from app.models.ponto import Ponto, Atividade
+from app.models.feriado import Feriado
 from datetime import datetime, date
 
 # Função para inicializar o banco de dados em produção
@@ -18,13 +19,17 @@ def init_production_db():
             if not admin:
                 # Cria um usuário administrador padrão
                 admin = User(
-                    name='Administrador',
-                    email='admin@example.com',
-                    matricula='ADMIN001',
-                    vinculo='SENAPPEN - Administração',
+                    name=os.getenv('ADMIN_NAME', 'Administrador'),
+                    email=os.getenv('ADMIN_EMAIL', 'admin@example.com'),
+                    matricula=os.getenv('ADMIN_MATRICULA', 'ADMIN001'),
+                    cargo=os.getenv('ADMIN_CARGO', 'Administrador'),
+                    uf=os.getenv('ADMIN_UF', 'DF'),
+                    telefone=os.getenv('ADMIN_TELEFONE', '(61) 99999-9999'),
+                    vinculo=os.getenv('ADMIN_VINCULO', 'SENAPPEN - Administração'),
+                    foto_path=os.getenv('ADMIN_FOTO_PATH', 'default.png'),
                     is_admin=True
                 )
-                admin.set_password('admin123')
+                admin.set_password(os.getenv('ADMIN_PASSWORD', 'admin123'))
                 db.session.add(admin)
                 
                 # Cria um usuário comum para demonstração
@@ -32,7 +37,11 @@ def init_production_db():
                     name='Usuário Demonstração',
                     email='demo@example.com',
                     matricula='DEMO001',
+                    cargo='Analista',
+                    uf='DF',
+                    telefone='(61) 88888-8888',
                     vinculo='SENAPPEN - Demonstração',
+                    foto_path='default.png',
                     is_admin=False
                 )
                 user.set_password('demo123')
