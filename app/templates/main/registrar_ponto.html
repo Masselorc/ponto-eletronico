@@ -3,164 +3,143 @@
 {% block title %}Registrar Ponto{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <h2>Registrar Ponto</h2>
-        <p class="text-muted">Selecione a data e hora para o registro</p>
-    </div>
-    <div class="col-md-6 text-end">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title">Horário Atual</h5>
-                <h3 id="relogio" class="display-4 mb-0">00:00:00</h3>
-            </div>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Registrar Ponto</h1>
+            <p class="lead">Registre seu horário de trabalho</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
+            </a>
         </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Registro de Ponto</h5>
-            </div>
-            <div class="card-body">
-                {% if registro %}
-                <div class="row mb-4">
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
-                                <h4 class="card-title {% if registro.entrada %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro.entrada %}
-                                    {{ registro.entrada.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Formulário de Registro de Ponto</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-3">
+                    <label for="data" class="form-label">Data</label>
+                    {{ form.data(class="form-control", type="date", required=true) }}
+                    {% if form.data.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.data.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
-                                <h4 class="card-title {% if registro.saida_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro.saida_almoco %}
-                                    {{ registro.saida_almoco.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
-                                <h4 class="card-title {% if registro.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro.retorno_almoco %}
-                                    {{ registro.retorno_almoco.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card card-dashboard">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
-                                <h4 class="card-title {% if registro.saida %}text-success{% else %}text-muted{% endif %}">
-                                    {% if registro.saida %}
-                                    {{ registro.saida.strftime('%H:%M') }}
-                                    {% else %}
-                                    --:--
-                                    {% endif %}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-
-                <form method="POST" action="{{ url_for('main.registrar_ponto') }}">
-                    {{ form.hidden_tag() }}
-                    <div class="row">
-                        <div class="col-md-8 mx-auto">
-                            <div class="mb-3">
-                                {{ form.tipo.label(class="form-label") }}
-                                {{ form.tipo(class="form-select") }}
-                                {% for error in form.tipo.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            
-                            <div class="mb-3">
-                                {{ form.data.label(class="form-label") }}
-                                {{ form.data(class="form-control", type="date") }}
-                                {% for error in form.data.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            
-                            <div class="mb-3">
-                                {{ form.hora.label(class="form-label") }}
-                                {{ form.hora(class="form-control", type="time") }}
-                                {% for error in form.hora.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            
-                            <div class="d-grid">
-                                {{ form.submit(class="btn btn-primary btn-lg btn-registrar-ponto") }}
-                            </div>
-                        </div>
+                
+                <div class="mb-3">
+                    <label for="entrada" class="form-label">Entrada</label>
+                    {{ form.entrada(class="form-control", type="time", required=true) }}
+                    {% if form.entrada.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.entrada.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
                     </div>
-                </form>
-            </div>
-            <div class="card-footer text-center">
-                <p class="text-muted mb-0">Selecione o tipo de registro, a data e a hora desejada, e clique em "Registrar"</p>
-            </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="saida_almoco" class="form-label">Saída para Almoço</label>
+                    {{ form.saida_almoco(class="form-control", type="time") }}
+                    {% if form.saida_almoco.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.saida_almoco.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="retorno_almoco" class="form-label">Retorno do Almoço</label>
+                    {{ form.retorno_almoco(class="form-control", type="time") }}
+                    {% if form.retorno_almoco.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.retorno_almoco.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="saida" class="form-label">Saída</label>
+                    {{ form.saida(class="form-control", type="time", required=true) }}
+                    {% if form.saida.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.saida.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="atividades" class="form-label">Atividades Realizadas</label>
+                    {{ form.atividades(class="form-control", rows=3) }}
+                    {% if form.atividades.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.atividades.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Registrar Ponto
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
-    // Atualiza o relógio a cada segundo
-    function atualizarRelogio() {
+    // Função para preencher campos com horário atual
+    function preencherHorarioAtual(campoId) {
         const agora = new Date();
         const horas = agora.getHours().toString().padStart(2, '0');
         const minutos = agora.getMinutes().toString().padStart(2, '0');
-        const segundos = agora.getSeconds().toString().padStart(2, '0');
-        document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
+        document.getElementById(campoId).value = `${horas}:${minutos}`;
     }
     
-    // Atualiza o relógio imediatamente e depois a cada segundo
-    atualizarRelogio();
-    setInterval(atualizarRelogio, 1000);
-    
-    // Botão para preencher com horário atual
+    // Adiciona botões para preencher com horário atual
     document.addEventListener('DOMContentLoaded', function() {
-        // Adiciona botão para preencher com horário atual
-        const horaField = document.querySelector('input[type="time"]');
-        if (horaField) {
-            const btnAtual = document.createElement('button');
-            btnAtual.type = 'button';
-            btnAtual.className = 'btn btn-sm btn-outline-secondary mt-2';
-            btnAtual.textContent = 'Usar horário atual';
-            btnAtual.onclick = function() {
-                const agora = new Date();
-                const horas = agora.getHours().toString().padStart(2, '0');
-                const minutos = agora.getMinutes().toString().padStart(2, '0');
-                horaField.value = `${horas}:${minutos}`;
-            };
-            horaField.parentNode.appendChild(btnAtual);
-        }
+        const campos = ['entrada', 'saida_almoco', 'retorno_almoco', 'saida'];
+        
+        campos.forEach(campo => {
+            const input = document.getElementById(campo);
+            if (input) {
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'mt-2';
+                
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-outline-secondary';
+                btn.textContent = 'Usar horário atual';
+                btn.onclick = function(e) {
+                    e.preventDefault();
+                    preencherHorarioAtual(campo);
+                };
+                
+                btnContainer.appendChild(btn);
+                input.parentNode.appendChild(btnContainer);
+            }
+        });
     });
 </script>
 {% endblock %}

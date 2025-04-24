@@ -2,474 +2,261 @@
 
 {% block title %}Calendário{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/calendario.css') }}">
-<style>
-    .calendario-table {
-        table-layout: fixed;
-    }
-    
-    .calendario-table td {
-        height: 120px;
-        vertical-align: top;
-        padding: 5px;
-        position: relative;
-    }
-    
-    .numero-dia {
-        font-weight: bold;
-        font-size: 1.2em;
-        margin-bottom: 5px;
-    }
-    
-    .dia-outro-mes {
-        background-color: #f8f9fa;
-        color: #adb5bd;
-    }
-    
-    .hoje {
-        background-color: #e8f4f8;
-        border: 2px solid #0d6efd;
-    }
-    
-    .fim-de-semana {
-        background-color: #f8f9fa;
-    }
-    
-    .feriado {
-        background-color: #ffebee;
-    }
-    
-    .registro-completo {
-        margin-top: 5px;
-    }
-    
-    .horarios {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.8em;
-        margin-bottom: 3px;
-    }
-    
-    .entrada, .saida {
-        background-color: #e9ecef;
-        padding: 2px 5px;
-        border-radius: 3px;
-    }
-    
-    .horas-badge, .sem-registro-badge, .feriado-badge, .afastamento-badge {
-        display: inline-block;
-        padding: 3px 6px;
-        border-radius: 3px;
-        font-size: 0.8em;
-        margin-top: 3px;
-        width: 100%;
-        text-align: center;
-    }
-    
-    .horas-completas {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    
-    .horas-parciais {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-    
-    .sem-registro-badge {
-        background-color: #e9ecef;
-        color: #6c757d;
-    }
-    
-    .feriado-badge {
-        background-color: #ffebee;
-        color: #b71c1c;
-    }
-    
-    .afastamento-badge {
-        background-color: #e2d9f3;
-        color: #6f42c1;
-    }
-    
-    .ferias-badge {
-        background-color: #d1ecf1;
-        color: #0c5460;
-    }
-    
-    .licenca-badge {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-    
-    .abono-badge {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-    
-    .acoes-dia {
-        position: absolute;
-        bottom: 5px;
-        right: 5px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <h2>Calendário</h2>
-        <p class="text-muted">
-            {% if current_user.id == usuario.id %}
-                Meus registros de ponto
-            {% else %}
-                Registros de ponto de {{ usuario.name }}
-            {% endif %}
-        </p>
-    </div>
-    <div class="col-md-6 text-end">
-        <div class="btn-group">
-            <a href="{{ url_for('main.calendario', user_id=usuario.id, mes=(mes_atual-1 if mes_atual > 1 else 12), ano=(ano_atual if mes_atual > 1 else ano_atual-1)) }}" class="btn btn-outline-primary">
-                <i class="fas fa-chevron-left"></i> Mês Anterior
-            </a>
-            <a href="{{ url_for('main.calendario', user_id=usuario.id, mes=(mes_atual+1 if mes_atual < 12 else 1), ano=(ano_atual if mes_atual < 12 else ano_atual+1)) }}" class="btn btn-outline-primary">
-                Próximo Mês <i class="fas fa-chevron-right"></i>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Calendário</h1>
+            <p class="lead">Visualize seus registros de ponto no calendário</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
             </a>
         </div>
     </div>
-</div>
 
-{% if current_user.is_admin and usuarios %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Selecionar Usuário</h5>
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">{{ nome_mes }} {{ ano_atual }}</h6>
+            <div>
+                <a href="{{ url_for('main.calendario', mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-chevron-left"></i> Mês Anterior
+                </a>
+                <a href="{{ url_for('main.calendario', mes=mes_atual, ano=ano_atual) }}" class="btn btn-sm btn-primary mx-2">
+                    Mês Atual
+                </a>
+                <a href="{{ url_for('main.calendario', mes=mes_seguinte, ano=ano_seguinte) }}" class="btn btn-sm btn-outline-primary">
+                    Próximo Mês <i class="fas fa-chevron-right"></i>
+                </a>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-8">
-                        <select id="usuario-select" class="form-select">
-                            <option value="{{ current_user.id }}" {% if usuario.id == current_user.id %}selected{% endif %}>Meus Registros</option>
+        </div>
+        <div class="card-body">
+            {% if current_user.is_admin and usuarios %}
+            <div class="mb-4">
+                <form method="GET" action="{{ url_for('main.calendario') }}" class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        <label for="user_id" class="col-form-label">Visualizar calendário de:</label>
+                    </div>
+                    <div class="col-auto">
+                        <select name="user_id" id="user_id" class="form-select">
+                            <option value="{{ current_user.id }}" {% if usuario.id == current_user.id %}selected{% endif %}>Meu calendário</option>
                             {% for user in usuarios %}
                                 {% if user.id != current_user.id %}
-                                <option value="{{ user.id }}" {% if usuario.id == user.id %}selected{% endif %}>{{ user.name }} ({{ user.matricula }})</option>
+                                <option value="{{ user.id }}" {% if usuario.id == user.id %}selected{% endif %}>{{ user.name }}</option>
                                 {% endif %}
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <button id="btn-visualizar" class="btn btn-primary w-100">Visualizar</button>
+                    <div class="col-auto">
+                        <input type="hidden" name="mes" value="{{ mes_atual }}">
+                        <input type="hidden" name="ano" value="{{ ano_atual }}">
+                        <button type="submit" class="btn btn-primary">Visualizar</button>
                     </div>
-                </div>
+                </form>
             </div>
-        </div>
-    </div>
-</div>
-{% endif %}
+            {% endif %}
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">{{ nome_mes }} de {{ ano_atual }}</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered calendario-table">
-                        <thead>
-                            <tr>
-                                <th>Domingo</th>
-                                <th>Segunda</th>
-                                <th>Terça</th>
-                                <th>Quarta</th>
-                                <th>Quinta</th>
-                                <th>Sexta</th>
-                                <th>Sábado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% set dia_semana_primeiro = primeiro_dia.weekday() %}
-                            {% set dia_semana_primeiro = (dia_semana_primeiro + 1) % 7 %}  <!-- Ajuste para domingo = 0 -->
-                            {% set total_dias = ultimo_dia.day %}
-                            
-                            <!-- Primeira linha - dias do mês anterior e primeiros dias do mês atual -->
-                            <tr>
-                                {% for i in range(7) %}
-                                    {% if i < dia_semana_primeiro %}
-                                        {% set dia_anterior = primeiro_dia - timedelta(days=(dia_semana_primeiro - i)) %}
-                                        <td class="dia-outro-mes">{{ dia_anterior.day }}</td>
+            <div class="table-responsive">
+                <table class="table table-bordered calendar-table">
+                    <thead>
+                        <tr>
+                            <th>Domingo</th>
+                            <th>Segunda</th>
+                            <th>Terça</th>
+                            <th>Quarta</th>
+                            <th>Quinta</th>
+                            <th>Sexta</th>
+                            <th>Sábado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for semana in calendario %}
+                        <tr>
+                            {% for dia in semana %}
+                            <td class="calendar-day {% if dia.mes != 'atual' %}text-muted{% endif %} {% if dia.data == hoje %}today{% endif %} {% if dia.data.weekday() >= 5 %}weekend{% endif %} {% if dia.data in feriados_datas %}holiday{% endif %}">
+                                <div class="day-number">{{ dia.dia }}</div>
+                                
+                                {% if dia.feriado %}
+                                <div class="holiday-badge">
+                                    <span class="badge bg-danger">Feriado</span>
+                                    <small class="d-block">{{ dia.feriado }}</small>
+                                </div>
+                                {% endif %}
+                                
+                                {% if dia.registro %}
+                                <div class="day-content">
+                                    {% if dia.registro.afastamento %}
+                                    <div class="absence-badge">
+                                        <span class="badge bg-warning">{{ dia.registro.tipo_afastamento }}</span>
+                                    </div>
                                     {% else %}
-                                        {% set dia_atual = i - dia_semana_primeiro + 1 %}
-                                        {% set data_atual = date(ano_atual, mes_atual, dia_atual) %}
-                                        <td class="{% if data_atual == hoje %}hoje{% endif %} {% if data_atual.weekday() >= 5 %}fim-de-semana{% endif %} {% if data_atual in feriados_datas %}feriado{% endif %}">
-                                            <div class="numero-dia">{{ dia_atual }}</div>
-                                            
-                                            {% if data_atual in registros %}
-                                                {% set registro = registros[data_atual] %}
-                                                
-                                                {% if registro.afastamento %}
-                                                    {% set tipo_classe = "" %}
-                                                    {% set tipo_texto = "Afastamento" %}
-                                                    {% set tipo_icone = "user-clock" %}
-                                                    
-                                                    {% if registro.tipo_afastamento == "ferias" %}
-                                                        {% set tipo_classe = "ferias-badge" %}
-                                                        {% set tipo_texto = "Férias" %}
-                                                        {% set tipo_icone = "umbrella-beach" %}
-                                                    {% elif registro.tipo_afastamento == "licenca_medica" %}
-                                                        {% set tipo_classe = "licenca-badge" %}
-                                                        {% set tipo_texto = "Licença Médica" %}
-                                                        {% set tipo_icone = "procedures" %}
-                                                    {% elif registro.tipo_afastamento == "licenca_maternidade" %}
-                                                        {% set tipo_classe = "licenca-badge" %}
-                                                        {% set tipo_texto = "Licença Maternidade" %}
-                                                        {% set tipo_icone = "baby" %}
-                                                    {% elif registro.tipo_afastamento == "abono" %}
-                                                        {% set tipo_classe = "abono-badge" %}
-                                                        {% set tipo_texto = "Abono" %}
-                                                        {% set tipo_icone = "calendar-check" %}
-                                                    {% endif %}
-                                                    
-                                                    <div class="afastamento-badge {{ tipo_classe }}">
-                                                        <i class="fas fa-{{ tipo_icone }} me-1"></i> {{ tipo_texto }}
-                                                    </div>
-                                                {% elif registro.horas_trabalhadas %}
-                                                    <div class="registro-completo">
-                                                        <div class="horarios">
-                                                            {% if registro.entrada %}
-                                                                <span class="entrada"><i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}</span>
-                                                            {% endif %}
-                                                            
-                                                            {% if registro.saida %}
-                                                                <span class="saida"><i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}</span>
-                                                            {% endif %}
-                                                        </div>
-                                                        <div class="horas-badge {% if registro.horas_trabalhadas >= 8 %}horas-completas{% else %}horas-parciais{% endif %}">
-                                                            <i class="fas fa-clock me-1"></i> {{ "%.1f"|format(registro.horas_trabalhadas) }}h
-                                                        </div>
-                                                    </div>
-                                                {% else %}
-                                                    <div class="sem-registro-badge">
-                                                        Sem registro
-                                                    </div>
-                                                {% endif %}
-                                                
-                                                <div class="acoes-dia">
-                                                    <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                </div>
-                                            {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas %}
-                                                <div class="sem-registro-badge">
-                                                    Sem registro
-                                                </div>
-                                                
-                                                {% if current_user.id == usuario.id %}
-                                                <div class="acoes-dia">
-                                                    <a href="{{ url_for('main.registrar_multiplo_ponto') }}?data={{ data_atual.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-plus"></i>
-                                                    </a>
-                                                </div>
-                                                {% endif %}
-                                            {% endif %}
-                                            
-                                            {% if data_atual in feriados_datas %}
-                                                <div class="feriado-badge">
-                                                    <i class="fas fa-star me-1"></i> Feriado: {{ feriados_dict.get(data_atual, 'Feriado') }}
-                                                </div>
-                                            {% endif %}
-                                        </td>
-                                    {% endif %}
-                                {% endfor %}
-                            </tr>
-                            
-                            <!-- Calcula quantos dias já foram mostrados -->
-                            {% set dias_mostrados = 7 - dia_semana_primeiro %}
-                            
-                            <!-- Calcula quantas semanas adicionais são necessárias -->
-                            {% set semanas_adicionais = ((total_dias - dias_mostrados) // 7) + (1 if (total_dias - dias_mostrados) % 7 > 0 else 0) %}
-                            
-                            <!-- Gera as linhas adicionais do calendário -->
-                            {% for semana in range(semanas_adicionais) %}
-                                <tr>
-                                    {% for dia_semana in range(7) %}
-                                        {% set dia_atual = dias_mostrados + dia_semana + 1 + (semana * 7) %}
-                                        {% if dia_atual <= total_dias %}
-                                            {% set data_atual = date(ano_atual, mes_atual, dia_atual) %}
-                                            <td class="{% if data_atual == hoje %}hoje{% endif %} {% if data_atual.weekday() >= 5 %}fim-de-semana{% endif %} {% if data_atual in feriados_datas %}feriado{% endif %}">
-                                                <div class="numero-dia">{{ dia_atual }}</div>
-                                                
-                                                {% if data_atual in registros %}
-                                                    {% set registro = registros[data_atual] %}
-                                                    
-                                                    {% if registro.afastamento %}
-                                                        {% set tipo_classe = "" %}
-                                                        {% set tipo_texto = "Afastamento" %}
-                                                        {% set tipo_icone = "user-clock" %}
-                                                        
-                                                        {% if registro.tipo_afastamento == "ferias" %}
-                                                            {% set tipo_classe = "ferias-badge" %}
-                                                            {% set tipo_texto = "Férias" %}
-                                                            {% set tipo_icone = "umbrella-beach" %}
-                                                        {% elif registro.tipo_afastamento == "licenca_medica" %}
-                                                            {% set tipo_classe = "licenca-badge" %}
-                                                            {% set tipo_texto = "Licença Médica" %}
-                                                            {% set tipo_icone = "procedures" %}
-                                                        {% elif registro.tipo_afastamento == "licenca_maternidade" %}
-                                                            {% set tipo_classe = "licenca-badge" %}
-                                                            {% set tipo_texto = "Licença Maternidade" %}
-                                                            {% set tipo_icone = "baby" %}
-                                                        {% elif registro.tipo_afastamento == "abono" %}
-                                                            {% set tipo_classe = "abono-badge" %}
-                                                            {% set tipo_texto = "Abono" %}
-                                                            {% set tipo_icone = "calendar-check" %}
-                                                        {% endif %}
-                                                        
-                                                        <div class="afastamento-badge {{ tipo_classe }}">
-                                                            <i class="fas fa-{{ tipo_icone }} me-1"></i> {{ tipo_texto }}
-                                                        </div>
-                                                    {% elif registro.horas_trabalhadas %}
-                                                        <div class="registro-completo">
-                                                            <div class="horarios">
-                                                                {% if registro.entrada %}
-                                                                    <span class="entrada"><i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}</span>
-                                                                {% endif %}
-                                                                
-                                                                {% if registro.saida %}
-                                                                    <span class="saida"><i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}</span>
-                                                                {% endif %}
-                                                            </div>
-                                                            <div class="horas-badge {% if registro.horas_trabalhadas >= 8 %}horas-completas{% else %}horas-parciais{% endif %}">
-                                                                <i class="fas fa-clock me-1"></i> {{ "%.1f"|format(registro.horas_trabalhadas) }}h
-                                                            </div>
-                                                        </div>
-                                                    {% else %}
-                                                        <div class="sem-registro-badge">
-                                                            Sem registro
-                                                        </div>
-                                                    {% endif %}
-                                                    
-                                                    <div class="acoes-dia">
-                                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary">
-                                                            <i class="fas fa-eye"></i>
-                                                        </a>
-                                                    </div>
-                                                {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas %}
-                                                    <div class="sem-registro-badge">
-                                                        Sem registro
-                                                    </div>
-                                                    
-                                                    {% if current_user.id == usuario.id %}
-                                                    <div class="acoes-dia">
-                                                        <a href="{{ url_for('main.registrar_multiplo_ponto') }}?data={{ data_atual.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-outline-primary">
-                                                            <i class="fas fa-plus"></i>
-                                                        </a>
-                                                    </div>
-                                                    {% endif %}
-                                                {% endif %}
-                                                
-                                                {% if data_atual in feriados_datas %}
-                                                    <div class="feriado-badge">
-                                                        <i class="fas fa-star me-1"></i> Feriado: {{ feriados_dict.get(data_atual, 'Feriado') }}
-                                                    </div>
-                                                {% endif %}
-                                            </td>
-                                        {% else %}
-                                            {% set dia_proximo = dia_atual - total_dias %}
-                                            <td class="dia-outro-mes">{{ dia_proximo }}</td>
+                                    <div class="time-record">
+                                        {% if dia.registro.entrada %}
+                                        <small class="d-block">
+                                            <i class="fas fa-sign-in-alt text-success"></i> {{ dia.registro.entrada.strftime('%H:%M') }}
+                                        </small>
                                         {% endif %}
-                                    {% endfor %}
-                                </tr>
+                                        
+                                        {% if dia.registro.saida %}
+                                        <small class="d-block">
+                                            <i class="fas fa-sign-out-alt text-danger"></i> {{ dia.registro.saida.strftime('%H:%M') }}
+                                        </small>
+                                        {% endif %}
+                                        
+                                        {% if dia.registro.horas_trabalhadas %}
+                                        <small class="d-block">
+                                            <i class="fas fa-clock text-primary"></i> {{ "%.1f"|format(dia.registro.horas_trabalhadas) }}h
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="day-actions">
+                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=dia.registro.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                {% else %}
+                                    {% if dia.mes == 'atual' %}
+                                    <div class="day-actions">
+                                        <a href="{{ url_for('main.registrar_ponto') }}?data={{ dia.data.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
                             {% endfor %}
-                        </tbody>
-                    </table>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">Legenda</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap gap-3">
+                                    <div>
+                                        <span class="badge bg-info">Hoje</span>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-danger">Feriado</span>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-warning">Férias</span>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-secondary">Fim de Semana</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">Resumo do Mês</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <p><strong>Dias Úteis:</strong> {{ dias_uteis }}</p>
+                                        <p><strong>Dias Trabalhados:</strong> {{ dias_trabalhados }}</p>
+                                    </div>
+                                    <div class="col-6">
+                                        <p><strong>Dias de Afastamento:</strong> {{ dias_afastamento }}</p>
+                                        <p><strong>Horas Trabalhadas:</strong> {{ "%.1f"|format(horas_trabalhadas) }}h</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Resumo do Mês</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0">{{ dias_uteis }}</h3>
-                                <p class="text-muted mb-0">Dias Úteis</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0">{{ dias_trabalhados }}</h3>
-                                <p class="text-muted mb-0">Dias Trabalhados</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0">{{ dias_afastamento }}</h3>
-                                <p class="text-muted mb-0">Dias de Afastamento</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0">{{ "%.1f"|format(horas_trabalhadas) }}</h3>
-                                <p class="text-muted mb-0">Horas Trabalhadas</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0">{{ "%.1f"|format(carga_horaria_devida) }}</h3>
-                                <p class="text-muted mb-0">Carga Horária Devida (h)</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <h3 class="mb-0 {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {{ "%.1f"|format(saldo_horas) }}
-                                </h3>
-                                <p class="text-muted mb-0">Saldo de Horas</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+.calendar-table th, .calendar-table td {
+    width: 14.28%;
+    height: 120px;
+    vertical-align: top;
+    padding: 5px;
+}
+
+.calendar-day {
+    position: relative;
+    min-height: 100px;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.today {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.weekend {
+    background-color: rgba(108, 117, 125, 0.1);
+}
+
+.holiday {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.day-content {
+    margin-top: 5px;
+}
+
+.day-actions {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+}
+
+.time-record {
+    margin-bottom: 10px;
+}
+
+.holiday-badge, .absence-badge {
+    margin-bottom: 5px;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Função para calcular dias anteriores e posteriores
     document.addEventListener('DOMContentLoaded', function() {
-        // Botão para visualizar registros de outro usuário
-        const btnVisualizar = document.getElementById('btn-visualizar');
-        const usuarioSelect = document.getElementById('usuario-select');
+        // Preenche os dias anteriores ao primeiro dia do mês
+        const primeiroDia = new Date({{ ano_atual }}, {{ mes_atual - 1 }}, 1);
+        const diaSemana = primeiroDia.getDay(); // 0 = domingo, 6 = sábado
         
-        if (btnVisualizar && usuarioSelect) {
-            btnVisualizar.addEventListener('click', function() {
-                const userId = usuarioSelect.value;
-                window.location.href = "{{ url_for('main.calendario') }}?user_id=" + userId;
-            });
+        for (let i = 0; i < diaSemana; i++) {
+            const diaAnterior = new Date(primeiroDia);
+            diaAnterior.setDate(primeiroDia.getDate() - (diaSemana - i));
+            // Aqui você pode usar o diaAnterior para preencher os dias do mês anterior
         }
+        
+        // Função para alternar entre meses
+        document.querySelectorAll('.month-nav').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = this.getAttribute('href');
+                window.location.href = url;
+            });
+        });
     });
 </script>
 {% endblock %}
