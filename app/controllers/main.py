@@ -61,6 +61,13 @@ def dashboard():
     
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém o registro de hoje, se existir
+    registro_hoje = Ponto.query.filter_by(
+        user_id=user_id,
+        data=hoje
+    ).first()
     
     # Calcula estatísticas
     dias_uteis = 0
@@ -97,19 +104,31 @@ def dashboard():
     if current_user.is_admin:
         usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
     
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
     return render_template('main/dashboard.html',
                           usuario=usuario,
                           registros=registros,
+                          registros_mes=registros,
                           hoje=hoje,
                           mes_atual=mes_atual,
                           ano_atual=ano_atual,
+                          nome_mes=nome_mes,
                           dias_uteis=dias_uteis,
                           dias_trabalhados=dias_trabalhados,
                           dias_afastamento=dias_afastamento,
                           horas_trabalhadas=horas_trabalhadas,
                           carga_horaria_devida=carga_horaria_devida,
                           saldo_horas=saldo_horas,
-                          usuarios=usuarios)
+                          usuarios=usuarios,
+                          registro_hoje=registro_hoje,
+                          feriados_dict=feriados_dict,
+                          feriados_datas=feriados_datas)
 
 @main.route('/calendario')
 @login_required
@@ -170,6 +189,9 @@ def calendario():
     
     # Cria um conjunto de datas de feriados para fácil verificação
     feriados_datas = {feriado.data for feriado in feriados}
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
     # Calcula estatísticas
     dias_uteis = 0
@@ -232,6 +254,7 @@ def calendario():
                           carga_horaria_devida=carga_horaria_devida,
                           saldo_horas=saldo_horas,
                           feriados_datas=feriados_datas,
+                          feriados_dict=feriados_dict,
                           usuarios=usuarios,
                           timedelta=timedelta,
                           date=date)
@@ -298,9 +321,20 @@ def registrar_multiplo_ponto():
             data=data_selecionada
         ).first()
         
+        # Permitir registro retroativo mesmo se já existir um registro para a data
+        # Se a data for hoje e já existir registro, redireciona para edição
+        # Se a data for anterior e já existir registro, pergunta se deseja sobrescrever
         if registro_existente:
-            flash(f'Já existe um registro para {data_selecionada.strftime("%d/%m/%Y")}. Você pode editá-lo.', 'warning')
-            return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+            hoje = date.today()
+            if data_selecionada == hoje:
+                flash(f'Já existe um registro para hoje. Você pode editá-lo.', 'warning')
+                return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+            else:
+                # Para datas anteriores, permite sobrescrever o registro existente
+                from app import db
+                db.session.delete(registro_existente)
+                db.session.commit()
+                flash(f'Registro anterior para {data_selecionada.strftime("%d/%m/%Y")} foi substituído.', 'info')
         
         # Cria um novo registro
         novo_registro = Ponto(
@@ -429,7 +463,7 @@ def editar_ponto(ponto_id):
         else:
             ponto.tipo_afastamento = None
             
-            # Atualiza os horários
+            # Processa os horários apenas se não for afastamento
             if form.entrada.data:
                 hora, minuto = map(int, form.entrada.data.split(':'))
                 ponto.entrada = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
@@ -454,36 +488,68 @@ def editar_ponto(ponto_id):
             else:
                 ponto.saida = None
             
-            # Recalcula as horas trabalhadas
+            # Calcula as horas trabalhadas
             ponto.calcular_horas_trabalhadas()
         
-        # Salva as alterações
+        # Salva no banco de dados
         from app import db
         db.session.commit()
         
         # Atualiza ou cria a atividade
-        if hasattr(form, 'atividades') and form.atividades.data:
+        if hasattr(form, 'atividades'):
             atividade = Atividade.query.filter_by(ponto_id=ponto.id).first()
             if atividade:
                 atividade.descricao = form.atividades.data
-            else:
+            elif form.atividades.data:  # Só cria se tiver conteúdo
                 atividade = Atividade(
                     ponto_id=ponto.id,
                     descricao=form.atividades.data
                 )
                 db.session.add(atividade)
             db.session.commit()
-            logger.info(f"Atividade atualizada para o ponto {ponto.id}")
         
-        flash('Registro atualizado com sucesso!', 'success')
+        flash('Registro de ponto atualizado com sucesso!', 'success')
         return redirect(url_for('main.visualizar_ponto', ponto_id=ponto.id))
     
     return render_template('main/editar_ponto.html', form=form, ponto=ponto)
 
-@main.route('/perfil')
+@main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
-def perfil():
-    return render_template('main/perfil.html')
+def registrar_atividade(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Verifica se o usuário tem permissão para registrar atividade neste ponto
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para registrar atividade neste ponto.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    form = AtividadeForm()
+    
+    # Obtém a atividade existente, se houver
+    atividade = Atividade.query.filter_by(ponto_id=ponto.id).first()
+    
+    if request.method == 'GET' and atividade:
+        form.descricao.data = atividade.descricao
+    
+    if form.validate_on_submit():
+        from app import db
+        
+        if atividade:
+            # Atualiza a atividade existente
+            atividade.descricao = form.descricao.data
+        else:
+            # Cria uma nova atividade
+            atividade = Atividade(
+                ponto_id=ponto.id,
+                descricao=form.descricao.data
+            )
+            db.session.add(atividade)
+        
+        db.session.commit()
+        flash('Atividade registrada com sucesso!', 'success')
+        return redirect(url_for('main.visualizar_ponto', ponto_id=ponto.id))
+    
+    return render_template('main/registrar_atividade.html', form=form, ponto=ponto)
 
 @main.route('/relatorio-mensal')
 @login_required
@@ -526,52 +592,15 @@ def relatorio_mensal():
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # Cria um dicionário de registros indexado por data
-    registros_por_data = {registro.data: registro for registro in registros}
-    
     # Obtém os feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
     ).all()
     
-    # Cria um conjunto de datas de feriados para fácil verificação
-    feriados_datas = {feriado.data for feriado in feriados}
-    
-    # Cria um dicionário de feriados para exibir descrições
+    # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
-    
-    # Calcula estatísticas
-    dias_uteis = 0
-    dias_trabalhados = 0
-    dias_afastamento = 0
-    horas_trabalhadas = 0
-    
-    # Itera pelos dias do mês
-    for dia in range(1, ultimo_dia.day + 1):
-        data_atual = date(ano_atual, mes_atual, dia)
-        
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_datas:
-            dias_uteis += 1
-            
-            # Verifica se há registro para este dia
-            if data_atual in registros_por_data:
-                registro = registros_por_data[data_atual]
-                
-                if registro.afastamento:
-                    # Se for um dia de afastamento
-                    dias_afastamento += 1
-                elif registro.horas_trabalhadas:
-                    # Se tiver horas trabalhadas registradas
-                    dias_trabalhados += 1
-                    horas_trabalhadas += registro.horas_trabalhadas
-    
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
-    
-    # Calcula o saldo de horas
-    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    feriados_datas = set(feriados_dict.keys())
     
     # Obtém o nome do mês
     nomes_meses = [
@@ -586,46 +615,34 @@ def relatorio_mensal():
         usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
     
     # Obtém as atividades para cada registro
-    atividades_por_ponto = {}
     for registro in registros:
-        atividades = Atividade.query.filter_by(ponto_id=registro.id).all()
-        if atividades:
-            atividades_por_ponto[registro.id] = atividades
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
     
     return render_template('main/relatorio_mensal.html',
                           usuario=usuario,
                           registros=registros,
-                          registros_por_data=registros_por_data,
                           hoje=hoje,
-                          mes=mes_atual,
-                          ano=ano_atual,
+                          mes_atual=mes_atual,
+                          ano_atual=ano_atual,
                           nome_mes=nome_mes,
-                          primeiro_dia=primeiro_dia,
-                          ultimo_dia=ultimo_dia,
-                          dias_uteis=dias_uteis,
-                          dias_trabalhados=dias_trabalhados,
-                          dias_afastamento=dias_afastamento,
-                          horas_trabalhadas=horas_trabalhadas,
-                          carga_horaria_devida=carga_horaria_devida,
-                          saldo_horas=saldo_horas,
-                          feriados_datas=feriados_datas,
                           feriados_dict=feriados_dict,
-                          atividades_por_ponto=atividades_por_ponto,
+                          feriados_datas=feriados_datas,
                           usuarios=usuarios)
 
-@main.route('/relatorio-mensal/pdf')
+@main.route('/exportar-pdf')
 @login_required
-def relatorio_mensal_pdf():
+def exportar_pdf():
     user_id = request.args.get('user_id', type=int)
     mes = request.args.get('mes', type=int)
     ano = request.args.get('ano', type=int)
     
-    # Se o usuário não for admin, só pode ver seu próprio relatório
+    # Se o usuário não for admin, só pode exportar seu próprio relatório
     if user_id and user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para visualizar o relatório de outros usuários.', 'danger')
-        return redirect(url_for('main.relatorio_mensal'))
+        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
+        return redirect(url_for('main.dashboard'))
     
-    # Se não for especificado um user_id ou o usuário não for admin, mostra o próprio relatório
+    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
     if not user_id or not current_user.is_admin:
         user_id = current_user.id
         usuario = current_user
@@ -642,26 +659,65 @@ def relatorio_mensal_pdf():
     else:
         mes_atual = mes
         ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Obtém as atividades para cada registro
+    for registro in registros:
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
     
     # Gera o PDF
-    pdf_path = generate_pdf(user_id, mes_atual, ano_atual)
+    output_path = os.path.join(current_app.static_folder, 'exports', f'relatorio_{usuario.matricula}_{mes_atual}_{ano_atual}_{int(datetime.now().timestamp())}.pdf')
     
-    # Retorna o arquivo PDF
+    # Garante que o diretório de exportação existe
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Gera o PDF
+    pdf_path = generate_pdf(registros, usuario, mes_atual, ano_atual, output_path, feriados_dict, feriados_datas)
+    
+    # Retorna o arquivo para download
     return redirect(url_for('static', filename=f'exports/{os.path.basename(pdf_path)}'))
 
-@main.route('/relatorio-mensal/excel')
+@main.route('/exportar-excel')
 @login_required
-def relatorio_mensal_excel():
+def exportar_excel():
     user_id = request.args.get('user_id', type=int)
     mes = request.args.get('mes', type=int)
     ano = request.args.get('ano', type=int)
     
-    # Se o usuário não for admin, só pode ver seu próprio relatório
+    # Se o usuário não for admin, só pode exportar seu próprio relatório
     if user_id and user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para visualizar o relatório de outros usuários.', 'danger')
-        return redirect(url_for('main.relatorio_mensal'))
+        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
+        return redirect(url_for('main.dashboard'))
     
-    # Se não for especificado um user_id ou o usuário não for admin, mostra o próprio relatório
+    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
     if not user_id or not current_user.is_admin:
         user_id = current_user.id
         usuario = current_user
@@ -679,8 +735,40 @@ def relatorio_mensal_excel():
         mes_atual = mes
         ano_atual = ano
     
-    # Gera o Excel
-    excel_path = generate_excel(user_id, mes_atual, ano_atual)
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
     
-    # Retorna o arquivo Excel
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém as atividades para cada registro
+    for registro in registros:
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
+    
+    # Gera o Excel
+    output_path = os.path.join(current_app.static_folder, 'exports', f'relatorio_{usuario.matricula}_{mes_atual}_{ano_atual}_{int(datetime.now().timestamp())}.xlsx')
+    
+    # Garante que o diretório de exportação existe
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Gera o Excel
+    excel_path = generate_excel(registros, usuario, mes_atual, ano_atual, output_path, feriados_dict, feriados_datas)
+    
+    # Retorna o arquivo para download
     return redirect(url_for('static', filename=f'exports/{os.path.basename(excel_path)}'))
