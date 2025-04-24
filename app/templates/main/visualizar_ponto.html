@@ -3,228 +3,116 @@
 {% block title %}Visualizar Ponto{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <h2>Detalhes do Registro</h2>
-        <p class="text-muted">{{ ponto.data.strftime('%d/%m/%Y') }}</p>
-    </div>
-    <div class="col-md-6 text-end">
-        <a href="{{ url_for('main.dashboard', user_id=ponto.user_id) }}" class="btn btn-outline-primary">
-            <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
-        </a>
-        {% if current_user.id == ponto.user_id or current_user.is_admin %}
-        <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-warning">
-            <i class="fas fa-edit me-2"></i>Editar Registro
-        </a>
-        <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
-            <button type="submit" class="btn btn-danger">
-                <i class="fas fa-trash me-2"></i>Excluir Registro
-            </button>
-        </form>
-        {% endif %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Registro de {{ ponto.data.strftime('%d/%m/%Y') }} - {{ usuario.name }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6>Informações do Registro</h6>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <strong>Data:</strong> {{ ponto.data.strftime('%d/%m/%Y') }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Tipo:</strong>
+                            {% if ponto.afastamento %}
+                            <span class="badge bg-purple">{{ ponto.tipo_afastamento|capitalize }}</span>
+                            {% else %}
+                            <span class="badge bg-success">Trabalho</span>
+                            {% endif %}
+                        </li>
+                        {% if not ponto.afastamento %}
+                        <li class="list-group-item">
+                            <strong>Entrada:</strong> {{ ponto.entrada.strftime('%H:%M') if ponto.entrada else '--:--' }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Saída para Almoço:</strong> {{ ponto.saida_almoco.strftime('%H:%M') if ponto.saida_almoco else '--:--' }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Retorno do Almoço:</strong> {{ ponto.retorno_almoco.strftime('%H:%M') if ponto.retorno_almoco else '--:--' }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Saída:</strong> {{ ponto.saida.strftime('%H:%M') if ponto.saida else '--:--' }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Horas Trabalhadas:</strong>
+                            <span class="badge {% if ponto.horas_trabalhadas >= 8 %}bg-success{% elif ponto.horas_trabalhadas >= 6 %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ ponto.horas_trabalhadas|round(2) }} horas
+                            </span>
+                        </li>
+                        {% endif %}
+                        {% if ponto.observacoes %}
+                        <li class="list-group-item">
+                            <strong>Observações:</strong>
+                            <p class="mb-0">{{ ponto.observacoes }}</p>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Atividades Realizadas</h6>
+                    {% if atividades %}
+                    <ul class="list-group">
+                        {% for atividade in atividades %}
+                        <li class="list-group-item">
+                            <p class="mb-0">{{ atividade.descricao }}</p>
+                            <small class="text-muted">Registrado em {{ atividade.created_at.strftime('%d/%m/%Y') }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Nenhuma atividade registrada para este ponto.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <a href="{{ url_for('main.editar_ponto', ponto_id=ponto.id) }}" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                    <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Adicionar Atividade
+                    </a>
+                    <!-- CORREÇÃO: Adicionado botão para excluir registro -->
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <i class="fas fa-trash"></i> Excluir
+                    </button>
+                    <a href="{{ url_for('main.calendario') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Registro de {{ ponto.data.strftime('%d/%m/%Y') }} - {{ usuario.name }}</h5>
+<!-- Modal de confirmação de exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="card-body">
+            <div class="modal-body">
+                Tem certeza que deseja excluir o registro de {{ ponto.data.strftime('%d/%m/%Y') }}?
                 {% if ponto.afastamento %}
-                    <div class="alert alert-purple">
-                        <h4 class="alert-heading">
-                            {% if ponto.tipo_afastamento == 'ferias' %}
-                                <i class="fas fa-umbrella-beach me-2"></i> Férias
-                            {% elif ponto.tipo_afastamento == 'licenca_medica' %}
-                                <i class="fas fa-procedures me-2"></i> Licença Médica
-                            {% elif ponto.tipo_afastamento == 'licenca_maternidade' %}
-                                <i class="fas fa-baby me-2"></i> Licença Maternidade/Paternidade
-                            {% elif ponto.tipo_afastamento == 'abono' %}
-                                <i class="fas fa-calendar-check me-2"></i> Abono
-                            {% else %}
-                                <i class="fas fa-user-clock me-2"></i> Afastamento
-                            {% endif %}
-                        </h4>
-                        <p>Este dia foi registrado como um período de afastamento.</p>
-                        <hr>
-                        <p class="mb-0">
-                            <strong>Tipo de afastamento:</strong> 
-                            {% if ponto.tipo_afastamento == 'ferias' %}
-                                Férias
-                            {% elif ponto.tipo_afastamento == 'licenca_medica' %}
-                                Licença Médica
-                            {% elif ponto.tipo_afastamento == 'licenca_maternidade' %}
-                                Licença Maternidade/Paternidade
-                            {% elif ponto.tipo_afastamento == 'abono' %}
-                                Abono
-                            {% else %}
-                                Outro
-                            {% endif %}
-                        </p>
-                    </div>
-                {% else %}
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Entrada</h6>
-                                    <h4 class="card-title {% if ponto.entrada %}text-success{% else %}text-muted{% endif %}">
-                                        {% if ponto.entrada %}
-                                        {{ ponto.entrada.strftime('%H:%M') }}
-                                        {% else %}
-                                        --:--
-                                        {% endif %}
-                                    </h4>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Saída Almoço</h6>
-                                    <h4 class="card-title {% if ponto.saida_almoco %}text-success{% else %}text-muted{% endif %}">
-                                        {% if ponto.saida_almoco %}
-                                        {{ ponto.saida_almoco.strftime('%H:%M') }}
-                                        {% else %}
-                                        --:--
-                                        {% endif %}
-                                    </h4>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Retorno Almoço</h6>
-                                    <h4 class="card-title {% if ponto.retorno_almoco %}text-success{% else %}text-muted{% endif %}">
-                                        {% if ponto.retorno_almoco %}
-                                        {{ ponto.retorno_almoco.strftime('%H:%M') }}
-                                        {% else %}
-                                        --:--
-                                        {% endif %}
-                                    </h4>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Saída</h6>
-                                    <h4 class="card-title {% if ponto.saida %}text-success{% else %}text-muted{% endif %}">
-                                        {% if ponto.saida %}
-                                        {{ ponto.saida.strftime('%H:%M') }}
-                                        {% else %}
-                                        --:--
-                                        {% endif %}
-                                    </h4>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">Horas Trabalhadas</h5>
-                                    <h3 class="{% if ponto.horas_trabalhadas and ponto.horas_trabalhadas >= 8 %}text-success{% elif ponto.horas_trabalhadas %}text-warning{% else %}text-muted{% endif %}">
-                                        {% if ponto.horas_trabalhadas %}
-                                            {{ "%.2f"|format(ponto.horas_trabalhadas) }} horas
-                                        {% else %}
-                                            Pendente
-                                        {% endif %}
-                                    </h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <p class="text-danger">Este é um registro de {{ ponto.tipo_afastamento }}.</p>
                 {% endif %}
-                
-                {% if current_user.is_admin %}
-                <div class="row mt-3">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header bg-secondary text-white">
-                                <h5 class="mb-0">Ferramentas Administrativas</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <a href="{{ url_for('main.verificar_registro', ponto_id=ponto.id) }}" class="btn btn-info w-100">
-                                            <i class="fas fa-search me-2"></i>Verificar Dados do Registro
-                                        </a>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <a href="{{ url_for('main.corrigir_afastamento', ponto_id=ponto.id) }}" class="btn btn-warning w-100" onclick="return confirm('Tem certeza que deseja forçar a correção deste registro como afastamento?')">
-                                            <i class="fas fa-tools me-2"></i>Forçar Correção como Afastamento
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
+                <p class="text-danger"><strong>Esta ação não pode ser desfeita!</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
             </div>
         </div>
     </div>
 </div>
-
-{% if atividades %}
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Atividades Registradas</h5>
-            </div>
-            <div class="card-body">
-                <div class="list-group">
-                    {% for atividade in atividades %}
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">Atividade #{{ loop.index }}</h5>
-                            <small>{{ atividade.data_registro.strftime('%d/%m/%Y %H:%M') }}</small>
-                        </div>
-                        <p class="mb-1">{{ atividade.descricao }}</p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Atividades Registradas</h5>
-            </div>
-            <div class="card-body text-center py-4">
-                <p class="text-muted mb-4">Nenhuma atividade registrada para este dia</p>
-                {% if current_user.id == ponto.user_id or current_user.is_admin %}
-                <a href="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}" class="btn btn-primary">
-                    <i class="fas fa-tasks me-2"></i>Registrar Atividade
-                </a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block styles %}
-<style>
-    .bg-purple {
-        background-color: #6f42c1;
-    }
-    .alert-purple {
-        background-color: #e2d9f3;
-        border-color: #d4c6ea;
-        color: #6f42c1;
-    }
-</style>
 {% endblock %}

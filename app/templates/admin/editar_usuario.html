@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Usuário{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Editar Usuário</h1>
+            <p class="lead">Edite as informações do usuário</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('admin.visualizar_usuario', user_id=user.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Visualização
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0">Formulário de Edição</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.editar_usuario', user_id=user.id) }}">
+                {{ form.csrf_token }}
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">Nome</label>
+                    {{ form.name(class="form-control") }}
+                    {% if form.name.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.name.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    {{ form.email(class="form-control") }}
+                    {% if form.email.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.email.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="matricula" class="form-label">Matrícula</label>
+                    {{ form.matricula(class="form-control") }}
+                    {% if form.matricula.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.matricula.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="vinculo" class="form-label">Vínculo</label>
+                    {{ form.vinculo(class="form-control") }}
+                    {% if form.vinculo.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.vinculo.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Nova Senha (deixe em branco para manter a atual)</label>
+                    {{ form.password(class="form-control") }}
+                    {% if form.password.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.password.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.is_admin(class="form-check-input") }}
+                        <label class="form-check-label" for="is_admin">
+                            Administrador
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        {{ form.is_active(class="form-check-input") }}
+                        <label class="form-check-label" for="is_active">
+                            Ativo
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

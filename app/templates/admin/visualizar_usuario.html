@@ -1,218 +1,171 @@
 {% extends 'base.html' %}
 
-{% block title %}Perfil do Usuário{% endblock %}
+{% block title %}Visualizar Usuário{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <h2>Perfil do Usuário</h2>
-        <p class="text-muted">Visualizando informações detalhadas do usuário</p>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>{{ user.name }}</h1>
+            <p class="lead">{{ user.email }}</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('admin.usuarios') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Usuários
+            </a>
+        </div>
     </div>
-    <div class="col-md-6 text-end">
-        <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Voltar para Lista de Usuários
-        </a>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">Informações do Usuário</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <strong>Nome:</strong> {{ user.name }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Email:</strong> {{ user.email }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Matrícula:</strong> {{ user.matricula }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Vínculo:</strong> {{ user.vinculo }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Administrador:</strong> {{ 'Sim' if user.is_admin else 'Não' }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Ativo:</strong> {{ 'Sim' if user.is_active else 'Não' }}
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group">
+                        <a href="{{ url_for('admin.editar_usuario', user_id=user.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash"></i> Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">Registros do Mês</h2>
+                </div>
+                <div class="card-body">
+                    {% if registros %}
+                    <ul class="list-group">
+                        {% for registro in registros %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ registro.data.strftime('%d/%m/%Y') }}</strong>
+                                    {% if registro.afastamento %}
+                                    <span class="badge bg-purple">{{ registro.tipo_afastamento|capitalize }}</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Trabalho</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if not registro.afastamento %}
+                                    <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% elif registro.horas_trabalhadas >= 6 %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ registro.horas_trabalhadas|round(2) }} horas
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Nenhum registro encontrado para este mês.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.calendario', user_id=user.id) }}" class="btn btn-info">
+                        <i class="fas fa-calendar"></i> Ver Calendário
+                    </a>
+                    <a href="{{ url_for('admin.novo_ponto', user_id=user.id) }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Registrar Ponto
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0">Relatórios</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Relatório Mensal</h5>
+                            <p class="card-text">Visualize o relatório mensal de ponto do usuário.</p>
+                            <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-primary">
+                                <i class="fas fa-chart-bar"></i> Visualizar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Exportar PDF</h5>
+                            <p class="card-text">Exporte o relatório mensal em formato PDF.</p>
+                            <a href="{{ url_for('admin.relatorio_usuario_pdf', user_id=user.id) }}" class="btn btn-danger">
+                                <i class="fas fa-file-pdf"></i> Exportar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Exportar Excel</h5>
+                            <p class="card-text">Exporte o relatório mensal em formato Excel.</p>
+                            <a href="{{ url_for('admin.relatorio_usuario_excel', user_id=user.id) }}" class="btn btn-success">
+                                <i class="fas fa-file-excel"></i> Exportar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Informações Pessoais</h5>
+<!-- Modal de confirmação de exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="card-body">
-                <div class="text-center mb-4">
-                    {% if user.foto_path and user.foto_path != 'default.png' %}
-                        {% if user.foto_path.startswith('http') %}
-                            <img src="{{ user.foto_path }}" 
-                                 alt="Foto de {{ user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 150px; max-height: 150px;">
-                        {% elif user.foto_path.startswith('/') %}
-                            <img src="{{ url_for('static', filename=user.foto_path.lstrip('/')) }}" 
-                                 alt="Foto de {{ user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 150px; max-height: 150px;">
-                        {% elif 'app/static/' in user.foto_path %}
-                            <img src="{{ url_for('static', filename=user.foto_path.replace('app/static/', '')) }}" 
-                                 alt="Foto de {{ user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 150px; max-height: 150px;">
-                        {% elif user.name.lower() == 'marcelo' %}
-                            <img src="{{ url_for('static', filename='uploads/fotos/marcelo.png') }}" 
-                                 alt="Foto de {{ user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 150px; max-height: 150px;">
-                        {% else %}
-                            <img src="{{ url_for('static', filename=user.foto_path) }}" 
-                                 alt="Foto de {{ user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 150px; max-height: 150px;">
-                        {% endif %}
-                    {% else %}
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 150px; height: 150px;">
-                        <i class="fas fa-user fa-4x text-secondary"></i>
-                    </div>
-                    {% endif %}
-                    <h4>{{ user.name }}</h4>
-                    <p class="text-muted">
-                        {% if user.is_admin %}
-                        <span class="badge bg-danger">Cadastrador</span>
-                        {% else %}
-                        <span class="badge bg-info">Funcionário</span>
-                        {% endif %}
-                    </p>
-                </div>
-                
-                <div class="mb-3">
-                    <h6 class="text-muted">Matrícula</h6>
-                    <p class="lead">{{ user.matricula }}</p>
-                </div>
-                
-                <div class="mb-3">
-                    <h6 class="text-muted">E-mail</h6>
-                    <p class="lead">{{ user.email }}</p>
-                </div>
-                
-                <div class="mb-3">
-                    <h6 class="text-muted">Vínculo</h6>
-                    <p class="lead">{{ user.vinculo }}</p>
-                </div>
-                
-                {% if user.cargo %}
-                <div class="mb-3">
-                    <h6 class="text-muted">Cargo</h6>
-                    <p class="lead">{{ user.cargo }}</p>
-                </div>
-                {% endif %}
-                
-                {% if user.uf %}
-                <div class="mb-3">
-                    <h6 class="text-muted">UF</h6>
-                    <p class="lead">{{ user.uf }}</p>
-                </div>
-                {% endif %}
-                
-                {% if user.telefone %}
-                <div class="mb-3">
-                    <h6 class="text-muted">Telefone</h6>
-                    <p class="lead">{{ user.telefone }}</p>
-                </div>
-                {% endif %}
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o usuário <strong>{{ user.name }}</strong>?</p>
+                <p class="text-danger"><strong>Esta ação não pode ser desfeita!</strong></p>
+                <p>Todos os registros de ponto deste usuário também serão excluídos.</p>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Resumo de Atividades</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Total de Registros</h6>
-                                <h3 class="card-title">{{ total_registros }}</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Horas no Mês Atual</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(horas_mes) }}h</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saldo de Horas</h6>
-                                <h3 class="card-title {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {{ "%.1f"|format(saldo_horas) }}h
-                                </h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <h5>Ações Disponíveis</h5>
-                    <div class="d-flex flex-wrap gap-2 mt-3">
-                        <a href="{{ url_for('admin.editar_usuario', user_id=user.id) }}" class="btn btn-primary">
-                            <i class="fas fa-edit me-2"></i>Editar Usuário
-                        </a>
-                        <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-info">
-                            <i class="fas fa-chart-bar me-2"></i>Ver Relatório
-                        </a>
-                        <a href="{{ url_for('admin.relatorio_usuario_pdf', user_id=user.id) }}" class="btn btn-danger">
-                            <i class="fas fa-file-pdf me-2"></i>Exportar PDF
-                        </a>
-                        <a href="{{ url_for('admin.novo_ponto', user_id=user.id) }}" class="btn btn-success">
-                            <i class="fas fa-plus me-2"></i>Registrar Ponto
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Últimos Registros</h5>
-            </div>
-            <div class="card-body">
-                {% if ultimos_registros %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Entrada</th>
-                                <th>Saída</th>
-                                <th>Horas</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for registro in ultimos_registros %}
-                            <tr>
-                                <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
-                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
-                                <td>
-                                    {% if registro.afastamento %}
-                                        <span class="badge bg-info">Afastamento</span>
-                                    {% elif registro.horas_trabalhadas %}
-                                        <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% else %}bg-warning{% endif %}">
-                                            {{ "%.1f"|format(registro.horas_trabalhadas) }}h
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Pendente</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('admin.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="alert alert-info">
-                    Nenhum registro de ponto encontrado para este usuário.
-                </div>
-                {% endif %}
-            </div>
-            <div class="card-footer text-end">
-                <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-primary">
-                    <i class="fas fa-list me-2"></i>Ver Todos os Registros
-                </a>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('admin.excluir_usuario', user_id=user.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
             </div>
         </div>
     </div>
