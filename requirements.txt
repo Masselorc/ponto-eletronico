@@ -9,7 +9,7 @@ Jinja2==3.1.6
 SQLAlchemy==2.0.40
 WTForms==3.2.1
 gunicorn==21.2.0
-reportlab==4.1.0
+reportlab==3.6.12
 pdfkit==1.0.0
 openpyxl==3.1.2
 xlsxwriter==3.1.9
