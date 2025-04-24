@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, make_response, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
-from app.models.ponto import Ponto, Atividade, Feriado
+from app.models.ponto import Ponto, Atividade
+from app.models.feriado import Feriado
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
 from app.forms.ponto import RegistroPontoForm, AtividadeForm
@@ -425,25 +426,11 @@ def relatorio_usuario_pdf(user_id):
     else:
         ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data < ultimo_dia
-    ).order_by(Ponto.data).all()
+    # Gera o PDF
+    pdf_path = export_registros_pdf(user_id, mes, ano)
     
-    # Cria o diretório de exportação se não existir
-    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
-    os.makedirs(export_dir, exist_ok=True)
-    
-    # Define o nome do arquivo
-    filename = f"relatorio_{user.matricula}_{mes:02d}_{ano}.pdf"
-    output_path = os.path.join(export_dir, filename)
-    
-    # Exporta o PDF
-    success = export_registros_pdf(registros, user, mes, ano, output_path)
-    
-    if success:
-        return send_file(output_path, as_attachment=True)
+    if pdf_path:
+        return send_file(pdf_path, as_attachment=True, download_name=f'relatorio_{user.matricula}_{mes}_{ano}.pdf')
     else:
         flash('Erro ao gerar o PDF. Tente novamente.', 'danger')
         return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
@@ -457,32 +444,11 @@ def relatorio_usuario_excel(user_id):
     mes = request.args.get('mes', datetime.now().month, type=int)
     ano = request.args.get('ano', datetime.now().year, type=int)
     
-    # Obtém todos os registros do mês selecionado
-    primeiro_dia = date(ano, mes, 1)
-    if mes == 12:
-        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    # Gera o Excel
+    excel_path = export_registros_excel(user_id, mes, ano)
     
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data < ultimo_dia
-    ).order_by(Ponto.data).all()
-    
-    # Cria o diretório de exportação se não existir
-    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
-    os.makedirs(export_dir, exist_ok=True)
-    
-    # Define o nome do arquivo
-    filename = f"dados_ponto_{user.matricula}_{mes:02d}_{ano}.xlsx"
-    output_path = os.path.join(export_dir, filename)
-    
-    # Exporta o Excel
-    success = export_registros_excel(registros, user, mes, ano, output_path)
-    
-    if success:
-        return send_file(output_path, as_attachment=True)
+    if excel_path:
+        return send_file(excel_path, as_attachment=True, download_name=f'relatorio_{user.matricula}_{mes}_{ano}.xlsx')
     else:
         flash('Erro ao gerar o Excel. Tente novamente.', 'danger')
         return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
