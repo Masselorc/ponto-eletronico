@@ -1,129 +1,66 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, SubmitField, BooleanField, SelectField, TextAreaField, HiddenField
+from wtforms import StringField, DateField, TimeField, TextAreaField, BooleanField, SelectField, HiddenField
 from wtforms.validators import DataRequired, Optional, Length
-from datetime import datetime
+from datetime import date
 
 class RegistroPontoForm(FlaskForm):
-    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
-    data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
-    data_original = HiddenField()
+    """Formulário para registro de ponto simples (apenas entrada)"""
+    # CORREÇÃO DEFINITIVA: Adicionado campo oculto para armazenar a data original como string
+    data_original = HiddenField('Data Original')
     
-    hora = StringField('Hora', validators=[DataRequired()])
-    tipo = SelectField('Tipo de Registro', choices=[
-        ('entrada', 'Entrada'),
-        ('saida_almoco', 'Saída para Almoço'),
-        ('retorno_almoco', 'Retorno do Almoço'),
-        ('saida', 'Saída')
-    ], validators=[DataRequired()])
-    submit = SubmitField('Registrar Ponto')
+    # CORREÇÃO DEFINITIVA: Removido default=date.today para forçar o usuário a selecionar uma data
+    data = DateField('Data', validators=[DataRequired()])
+    observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
 
 class RegistroMultiploPontoForm(FlaskForm):
-    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
-    data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
-    data_original = HiddenField()
+    """Formulário para registro de ponto completo (entrada, saída, almoço, etc.)"""
+    # CORREÇÃO DEFINITIVA: Adicionado campo oculto para armazenar a data original como string
+    data_original = HiddenField('Data Original')
     
-    afastamento = BooleanField('Férias ou outros afastamentos')
-    tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
-        ('ferias', 'Férias'),
-        ('licenca_medica', 'Licença Médica'),
-        ('licenca_maternidade', 'Licença Maternidade/Paternidade'),
-        ('falta_justificada', 'Falta Justificada'),
-        ('outro', 'Outro')
-    ], validators=[Optional()])
-    
-    entrada = StringField('Hora de Entrada', validators=[Optional()])
-    saida_almoco = StringField('Hora de Saída para Almoço', validators=[Optional()])
-    retorno_almoco = StringField('Hora de Retorno do Almoço', validators=[Optional()])
-    saida = StringField('Hora de Saída', validators=[Optional()])
-    
+    # CORREÇÃO DEFINITIVA: Removido default=date.today para forçar o usuário a selecionar uma data
+    data = DateField('Data', validators=[DataRequired()])
+    entrada = StringField('Entrada (HH:MM)', validators=[Optional()])
+    saida_almoco = StringField('Saída para Almoço (HH:MM)', validators=[Optional()])
+    retorno_almoco = StringField('Retorno do Almoço (HH:MM)', validators=[Optional()])
+    saida = StringField('Saída (HH:MM)', validators=[Optional()])
+    afastamento = BooleanField('Afastamento', default=False)
+    tipo_afastamento = SelectField('Tipo de Afastamento', 
+                                  choices=[
+                                      ('', 'Selecione'),
+                                      ('ferias', 'Férias'),
+                                      ('atestado', 'Atestado Médico'),
+                                      ('licenca', 'Licença'),
+                                      ('falta', 'Falta'),
+                                      ('outro', 'Outro')
+                                  ],
+                                  validators=[Optional()])
     observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
-    atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=1000)],
-                              description='Descreva as atividades realizadas neste dia')
-    
-    submit = SubmitField('Registrar Horários')
-    
-    def validate(self, extra_validators=None):
-        if not super().validate():
-            return False
-            
-        if self.afastamento.data:
-            if not self.tipo_afastamento.data:
-                self.tipo_afastamento.errors.append('Selecione o tipo de afastamento')
-                return False
-            # Se for afastamento, os campos de horário não são necessários
-            return True
-            
-        # Verifica se pelo menos um campo de horário foi preenchido
-        if not any([self.entrada.data, self.saida_almoco.data, self.retorno_almoco.data, self.saida.data]):
-            self.entrada.errors.append('Preencha pelo menos um horário')
-            return False
-            
-        # Verifica o formato dos horários
-        for field in [self.entrada, self.saida_almoco, self.retorno_almoco, self.saida]:
-            if field.data:
-                try:
-                    datetime.strptime(field.data, '%H:%M')
-                except ValueError:
-                    field.errors.append('Formato inválido. Use HH:MM')
-                    return False
-                    
-        return True
+    atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=1000)])
 
 class EditarPontoForm(FlaskForm):
-    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
-    data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
-    data_original = HiddenField()
+    """Formulário para edição de ponto"""
+    # CORREÇÃO DEFINITIVA: Adicionado campo oculto para armazenar a data original como string
+    data_original = HiddenField('Data Original')
     
-    afastamento = BooleanField('Férias ou outros afastamentos')
-    tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
-        ('ferias', 'Férias'),
-        ('licenca_medica', 'Licença Médica'),
-        ('licenca_maternidade', 'Licença Maternidade/Paternidade'),
-        ('falta_justificada', 'Falta Justificada'),
-        ('outro', 'Outro')
-    ], validators=[Optional()])
-    
-    entrada = StringField('Hora de Entrada', validators=[Optional()])
-    saida_almoco = StringField('Hora de Saída para Almoço', validators=[Optional()])
-    retorno_almoco = StringField('Hora de Retorno do Almoço', validators=[Optional()])
-    saida = StringField('Hora de Saída', validators=[Optional()])
-    
+    # CORREÇÃO DEFINITIVA: Removido default=date.today para forçar o usuário a selecionar uma data
+    data = DateField('Data', validators=[DataRequired()])
+    entrada = StringField('Entrada (HH:MM)', validators=[Optional()])
+    saida_almoco = StringField('Saída para Almoço (HH:MM)', validators=[Optional()])
+    retorno_almoco = StringField('Retorno do Almoço (HH:MM)', validators=[Optional()])
+    saida = StringField('Saída (HH:MM)', validators=[Optional()])
+    afastamento = BooleanField('Afastamento', default=False)
+    tipo_afastamento = SelectField('Tipo de Afastamento', 
+                                  choices=[
+                                      ('', 'Selecione'),
+                                      ('ferias', 'Férias'),
+                                      ('atestado', 'Atestado Médico'),
+                                      ('licenca', 'Licença'),
+                                      ('falta', 'Falta'),
+                                      ('outro', 'Outro')
+                                  ],
+                                  validators=[Optional()])
     observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
-    atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=1000)],
-                              description='Descreva as atividades realizadas neste dia')
-    
-    submit = SubmitField('Atualizar Registro')
-    
-    def validate(self, extra_validators=None):
-        if not super().validate():
-            return False
-            
-        if self.afastamento.data:
-            if not self.tipo_afastamento.data:
-                self.tipo_afastamento.errors.append('Selecione o tipo de afastamento')
-                return False
-            # Se for afastamento, os campos de horário não são necessários
-            return True
-            
-        # Verifica se pelo menos um campo de horário foi preenchido
-        if not any([self.entrada.data, self.saida_almoco.data, self.retorno_almoco.data, self.saida.data]):
-            self.entrada.errors.append('Preencha pelo menos um horário')
-            return False
-            
-        # Verifica o formato dos horários
-        for field in [self.entrada, self.saida_almoco, self.retorno_almoco, self.saida]:
-            if field.data:
-                try:
-                    datetime.strptime(field.data, '%H:%M')
-                except ValueError:
-                    field.errors.append('Formato inválido. Use HH:MM')
-                    return False
-                    
-        return True
 
 class AtividadeForm(FlaskForm):
-    descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), Length(max=500)])
-    submit = SubmitField('Registrar Atividade')
+    """Formulário para registro de atividade"""
+    descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), Length(max=1000)])

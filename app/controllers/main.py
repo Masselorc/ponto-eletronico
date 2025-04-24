@@ -76,19 +76,27 @@ def dashboard():
         data=hoje
     ).first()
     
-    # Calcula estatísticas
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
     dias_afastamento = 0
     horas_trabalhadas = 0
     
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
     # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
         data_atual = date(ano_atual, mes_atual, dia)
         
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
     
     # Processa os registros
     for registro in registros:
@@ -100,8 +108,9 @@ def dashboard():
             dias_trabalhados += 1
             horas_trabalhadas += registro.horas_trabalhadas
     
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    # Calcula a carga horária devida (8h por dia útil)
+    # CORREÇÃO: Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
     
     # Calcula o saldo de horas
     saldo_horas = horas_trabalhadas - carga_horaria_devida
@@ -200,19 +209,27 @@ def calendario():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
-    # Calcula estatísticas
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
     dias_afastamento = 0
     horas_trabalhadas = 0
     
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros_lista:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
     # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
         data_atual = date(ano_atual, mes_atual, dia)
         
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_datas:
-            dias_uteis += 1
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_datas and data_atual not in afastamentos_dict:
+                dias_uteis += 1
             
             # Verifica se há registro para este dia
             if data_atual in registros:
@@ -227,8 +244,9 @@ def calendario():
                     dias_trabalhados += 1
                     horas_trabalhadas += registro.horas_trabalhadas
     
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    # Calcula a carga horária devida (8h por dia útil)
+    # CORREÇÃO: Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
     
     # Calcula o saldo de horas
     saldo_horas = horas_trabalhadas - carga_horaria_devida
@@ -592,6 +610,25 @@ def visualizar_ponto(ponto_id):
     
     return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades)
 
+# CORREÇÃO: Adicionando a rota excluir_ponto que estava faltando
+@main.route('/excluir-ponto/<int:ponto_id>', methods=['POST'])
+@login_required
+def excluir_ponto(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Verifica se o usuário tem permissão para excluir este ponto
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para excluir este registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Exclui o ponto
+    from app import db
+    db.session.delete(ponto)
+    db.session.commit()
+    
+    flash('Registro de ponto excluído com sucesso!', 'success')
+    return redirect(url_for('main.calendario'))
+
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
@@ -642,19 +679,27 @@ def relatorio_mensal():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
-    # Calcula estatísticas
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
     dias_afastamento = 0
     horas_trabalhadas = 0
     
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
     # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
         data_atual = date(ano_atual, mes_atual, dia)
         
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
     
     # Processa os registros
     for registro in registros:
@@ -666,8 +711,9 @@ def relatorio_mensal():
             dias_trabalhados += 1
             horas_trabalhadas += registro.horas_trabalhadas
     
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    # Calcula a carga horária devida (8h por dia útil)
+    # CORREÇÃO: Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
     
     # Calcula o saldo de horas
     saldo_horas = horas_trabalhadas - carga_horaria_devida
@@ -749,19 +795,27 @@ def exportar_pdf():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
-    # Calcula estatísticas
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
     dias_afastamento = 0
     horas_trabalhadas = 0
     
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
     # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
         data_atual = date(ano_atual, mes_atual, dia)
         
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
     
     # Processa os registros
     for registro in registros:
@@ -773,8 +827,9 @@ def exportar_pdf():
             dias_trabalhados += 1
             horas_trabalhadas += registro.horas_trabalhadas
     
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    # Calcula a carga horária devida (8h por dia útil)
+    # CORREÇÃO: Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
     
     # Calcula o saldo de horas
     saldo_horas = horas_trabalhadas - carga_horaria_devida
@@ -854,19 +909,27 @@ def exportar_excel():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
-    # Calcula estatísticas
+    # CORREÇÃO: Melhorar o cálculo de dias úteis para excluir feriados e afastamentos
     dias_uteis = 0
     dias_trabalhados = 0
     dias_afastamento = 0
     horas_trabalhadas = 0
     
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
     # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
         data_atual = date(ano_atual, mes_atual, dia)
         
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
     
     # Processa os registros
     for registro in registros:
@@ -878,8 +941,9 @@ def exportar_excel():
             dias_trabalhados += 1
             horas_trabalhadas += registro.horas_trabalhadas
     
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    # Calcula a carga horária devida (8h por dia útil)
+    # CORREÇÃO: Não é mais necessário subtrair dias de afastamento, pois já foram excluídos do cálculo de dias úteis
+    carga_horaria_devida = 8 * dias_uteis
     
     # Calcula o saldo de horas
     saldo_horas = horas_trabalhadas - carga_horaria_devida
