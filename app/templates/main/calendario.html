@@ -2,7 +2,7 @@
 
 {% block title %}Calendário{% endblock %}
 
-{% block styles %}
+{% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/calendario.css') }}">
 <style>
     .calendario-table {
@@ -260,7 +260,7 @@
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                 </div>
-                                            {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas and data_atual <= hoje %}
+                                            {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas %}
                                                 <div class="sem-registro-badge">
                                                     Sem registro
                                                 </div>
@@ -355,7 +355,7 @@
                                                             <i class="fas fa-eye"></i>
                                                         </a>
                                                     </div>
-                                                {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas and data_atual <= hoje %}
+                                                {% elif data_atual.weekday() < 5 and data_atual not in feriados_datas %}
                                                     <div class="sem-registro-badge">
                                                         Sem registro
                                                     </div>
@@ -376,8 +376,8 @@
                                                 {% endif %}
                                             </td>
                                         {% else %}
-                                            {% set dia_proximo = ultimo_dia + timedelta(days=(dia_atual - total_dias)) %}
-                                            <td class="dia-outro-mes">{{ dia_proximo.day }}</td>
+                                            {% set dia_proximo = dia_atual - total_dias %}
+                                            <td class="dia-outro-mes">{{ dia_proximo }}</td>
                                         {% endif %}
                                     {% endfor %}
                                 </tr>
@@ -394,144 +394,77 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Registros do Mês</h5>
+                <h5 class="mb-0">Resumo do Mês</h5>
             </div>
             <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <div class="card">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Dias Úteis</h6>
-                                <h3 class="card-title">{{ dias_uteis }}</h3>
+                                <h3 class="mb-0">{{ dias_uteis }}</h3>
+                                <p class="text-muted mb-0">Dias Úteis</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card">
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Dias Trabalhados</h6>
-                                <h3 class="card-title">{{ dias_trabalhados }}</h3>
+                                <h3 class="mb-0">{{ dias_trabalhados }}</h3>
+                                <p class="text-muted mb-0">Dias Trabalhados</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card">
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Dias de Afastamento</h6>
-                                <h3 class="card-title">{{ dias_afastamento }}</h3>
+                                <h3 class="mb-0">{{ dias_afastamento }}</h3>
+                                <p class="text-muted mb-0">Dias de Afastamento</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="card">
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Dias Pendentes</h6>
-                                <h3 class="card-title">{{ dias_uteis - dias_trabalhados - dias_afastamento }}</h3>
+                                <h3 class="mb-0">{{ "%.1f"|format(horas_trabalhadas) }}</h3>
+                                <p class="text-muted mb-0">Horas Trabalhadas</p>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="card">
+                <div class="row mt-3">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Horas Trabalhadas</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(horas_trabalhadas) }}h</h3>
+                                <h3 class="mb-0">{{ "%.1f"|format(carga_horaria_devida) }}</h3>
+                                <p class="text-muted mb-0">Carga Horária Devida (h)</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Carga Horária Devida</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(carga_horaria_devida) }}h</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-muted">Saldo de Horas</h6>
-                                <h3 class="card-title {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {{ "%.1f"|format(saldo_horas) }}h
+                                <h3 class="mb-0 {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.1f"|format(saldo_horas) }}
                                 </h3>
+                                <p class="text-muted mb-0">Saldo de Horas</p>
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Tipo</th>
-                                <th>Entrada</th>
-                                <th>Saída Almoço</th>
-                                <th>Retorno Almoço</th>
-                                <th>Saída</th>
-                                <th>Horas</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for registro in registros.values()|sort(attribute='data') %}
-                            <tr>
-                                <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
-                                <td>
-                                    {% if registro.afastamento %}
-                                        {% if registro.tipo_afastamento == "ferias" %}
-                                            <span class="badge bg-info">Férias</span>
-                                        {% elif registro.tipo_afastamento == "licenca_medica" %}
-                                            <span class="badge bg-warning">Licença Médica</span>
-                                        {% elif registro.tipo_afastamento == "licenca_maternidade" %}
-                                            <span class="badge bg-warning">Licença Maternidade</span>
-                                        {% elif registro.tipo_afastamento == "abono" %}
-                                            <span class="badge bg-info">Abono</span>
-                                        {% else %}
-                                            <span class="badge bg-info">Afastamento</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-success">Trabalho</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
-                                <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--' }}</td>
-                                <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--' }}</td>
-                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
-                                <td>
-                                    {% if registro.afastamento %}
-                                        --
-                                    {% else %}
-                                        {{ "%.1f"|format(registro.horas_trabalhadas) if registro.horas_trabalhadas else '0.0' }}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="8" class="text-center">Nenhum registro encontrado para este mês</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const usuarioSelect = document.getElementById('usuario-select');
+        // Botão para visualizar registros de outro usuário
         const btnVisualizar = document.getElementById('btn-visualizar');
+        const usuarioSelect = document.getElementById('usuario-select');
         
-        if (btnVisualizar) {
+        if (btnVisualizar && usuarioSelect) {
             btnVisualizar.addEventListener('click', function() {
                 const userId = usuarioSelect.value;
                 window.location.href = "{{ url_for('main.calendario') }}?user_id=" + userId;
