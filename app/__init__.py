@@ -14,7 +14,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 
 def migrate_db(app):
-    """Adiciona as colunas afastamento e tipo_afastamento à tabela pontos se não existirem"""
+    """Adiciona as colunas necessárias à tabela pontos se não existirem"""
     try:
         # Usar diretamente a conexão do SQLAlchemy em vez de tentar acessar o arquivo
         app.logger.info("Iniciando migração do banco de dados...")
@@ -46,6 +46,15 @@ def migrate_db(app):
             app.logger.info("Coluna 'tipo_afastamento' adicionada com sucesso!")
         else:
             app.logger.info("Coluna 'tipo_afastamento' já existe.")
+        
+        # Adicionar a coluna observacoes se não existir
+        if 'observacoes' not in columns:
+            app.logger.info("Adicionando coluna 'observacoes' à tabela pontos...")
+            db.session.execute(db.text("ALTER TABLE pontos ADD COLUMN observacoes TEXT"))
+            db.session.commit()
+            app.logger.info("Coluna 'observacoes' adicionada com sucesso!")
+        else:
+            app.logger.info("Coluna 'observacoes' já existe.")
         
         app.logger.info("Migração do banco de dados concluída com sucesso!")
         
