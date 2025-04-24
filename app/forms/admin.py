@@ -1,46 +1,55 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, BooleanField, SubmitField, DateField, PasswordField, SelectField
-from wtforms.validators import DataRequired, Email, Length, EqualTo, Optional
-from app.models.user import User
+from wtforms import StringField, DateField, TextAreaField, BooleanField, PasswordField, SelectField
+from wtforms.validators import DataRequired, Email, Length, Optional, EqualTo
 
-class UserForm(FlaskForm):
-    name = StringField('Nome Completo', validators=[DataRequired(), Length(min=3, max=100)])
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    matricula = StringField('Matrícula', validators=[DataRequired(), Length(min=3, max=20)])
-    cargo = StringField('Cargo', validators=[DataRequired(), Length(min=3, max=100)])
-    uf = SelectField('UF', validators=[DataRequired()], choices=[
-        ('AC', 'Acre'), ('AL', 'Alagoas'), ('AP', 'Amapá'), ('AM', 'Amazonas'),
-        ('BA', 'Bahia'), ('CE', 'Ceará'), ('DF', 'Distrito Federal'), ('ES', 'Espírito Santo'),
-        ('GO', 'Goiás'), ('MA', 'Maranhão'), ('MT', 'Mato Grosso'), ('MS', 'Mato Grosso do Sul'),
-        ('MG', 'Minas Gerais'), ('PA', 'Pará'), ('PB', 'Paraíba'), ('PR', 'Paraná'),
-        ('PE', 'Pernambuco'), ('PI', 'Piauí'), ('RJ', 'Rio de Janeiro'), ('RN', 'Rio Grande do Norte'),
-        ('RS', 'Rio Grande do Sul'), ('RO', 'Rondônia'), ('RR', 'Roraima'), ('SC', 'Santa Catarina'),
-        ('SP', 'São Paulo'), ('SE', 'Sergipe'), ('TO', 'Tocantins')
-    ])
-    telefone = StringField('Telefone', validators=[DataRequired(), Length(min=10, max=15)])
-    vinculo = SelectField('Vínculo com SENAPPEN', validators=[DataRequired()], choices=[
-        ('Mobilizado', 'Mobilizado'),
-        ('Colaborador Eventual', 'Colaborador Eventual'),
-        ('PPF', 'PPF'),
+class NovoFeriadoForm(FlaskForm):
+    """Formulário para criar um novo feriado."""
+    data = DateField('Data', validators=[DataRequired(message='Data é obrigatória')])
+    descricao = StringField('Descrição', validators=[DataRequired(message='Descrição é obrigatória')])
+
+class EditarFeriadoForm(FlaskForm):
+    """Formulário para editar um feriado."""
+    data = DateField('Data', validators=[DataRequired(message='Data é obrigatória')])
+    descricao = StringField('Descrição', validators=[DataRequired(message='Descrição é obrigatória')])
+
+class NovoUsuarioForm(FlaskForm):
+    """Formulário para criar um novo usuário."""
+    name = StringField('Nome', validators=[DataRequired(message='Nome é obrigatório')])
+    email = StringField('Email', validators=[DataRequired(message='Email é obrigatório'), Email(message='Email inválido')])
+    matricula = StringField('Matrícula', validators=[DataRequired(message='Matrícula é obrigatória')])
+    vinculo = SelectField('Vínculo', choices=[
+        ('CLT', 'CLT'),
+        ('Estagiário', 'Estagiário'),
         ('Terceirizado', 'Terceirizado'),
-        ('Estagiário', 'Estagiário')
-    ])
-    foto = FileField('Foto', validators=[
-        Optional(),
-        FileAllowed(['jpg', 'jpeg', 'png'], 'Apenas imagens são permitidas!')
-    ])
+        ('PJ', 'PJ'),
+        ('Outro', 'Outro')
+    ], validators=[DataRequired(message='Vínculo é obrigatório')])
     password = PasswordField('Senha', validators=[
-        Optional(),
-        Length(min=6, message='A senha deve ter pelo menos 6 caracteres')
+        DataRequired(message='Senha é obrigatória'),
+        Length(min=6, message='A senha deve ter pelo menos 6 caracteres'),
+        EqualTo('confirm_password', message='As senhas devem ser iguais')
     ])
-    password2 = PasswordField('Confirmar Senha', validators=[
-        EqualTo('password', message='As senhas devem ser iguais')
-    ])
-    is_admin = BooleanField('Cadastrador (Administrador)')
-    submit = SubmitField('Salvar')
+    confirm_password = PasswordField('Confirmar Senha', validators=[DataRequired(message='Confirmação de senha é obrigatória')])
+    is_admin = BooleanField('Administrador')
+    is_active = BooleanField('Ativo', default=True)
 
-class FeriadoForm(FlaskForm):
-    data = DateField('Data', validators=[DataRequired()], format='%Y-%m-%d')
-    descricao = StringField('Descrição', validators=[DataRequired(), Length(min=3, max=100)])
-    submit = SubmitField('Salvar')
+class EditarUsuarioForm(FlaskForm):
+    """Formulário para editar um usuário."""
+    name = StringField('Nome', validators=[DataRequired(message='Nome é obrigatório')])
+    email = StringField('Email', validators=[DataRequired(message='Email é obrigatório'), Email(message='Email inválido')])
+    matricula = StringField('Matrícula', validators=[DataRequired(message='Matrícula é obrigatória')])
+    vinculo = SelectField('Vínculo', choices=[
+        ('CLT', 'CLT'),
+        ('Estagiário', 'Estagiário'),
+        ('Terceirizado', 'Terceirizado'),
+        ('PJ', 'PJ'),
+        ('Outro', 'Outro')
+    ], validators=[DataRequired(message='Vínculo é obrigatório')])
+    password = PasswordField('Senha (deixe em branco para manter a atual)', validators=[
+        Optional(),
+        Length(min=6, message='A senha deve ter pelo menos 6 caracteres'),
+        EqualTo('confirm_password', message='As senhas devem ser iguais')
+    ])
+    confirm_password = PasswordField('Confirmar Senha')
+    is_admin = BooleanField('Administrador')
+    is_active = BooleanField('Ativo')
