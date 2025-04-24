@@ -1,18 +1,13 @@
-"""
-ARQUIVO MODIFICADO - Abril 2025
-Correção de importações e funcionalidades
-Este arquivo foi corrigido para resolver problemas de truncamento e importação
-"""
-
-from flask import Blueprint, render_template, redirect, url_for, flash, request, make_response, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado  # Importação corrigida
+from app.models.feriado import Feriado
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
 from app.forms.ponto import RegistroPontoForm, AtividadeForm
 from datetime import datetime, date, timedelta
+from calendar import monthrange
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -21,16 +16,16 @@ from reportlab.lib import colors
 from app.utils.excel_generator import generate_excel_report
 from app.utils.export import export_registros_pdf, export_registros_excel
 import os
+import logging
 
-# MODIFICAÇÃO: Blueprint para área administrativa
+# Blueprint para área administrativa
 admin = Blueprint('admin', __name__, url_prefix='/admin')
+
+logger = logging.getLogger(__name__)
 
 @admin.before_request
 def check_admin():
-    """
-    Verifica se o usuário é administrador antes de acessar qualquer rota
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Verifica se o usuário é administrador antes de acessar qualquer rota"""
     if not current_user.is_authenticated or not current_user.is_admin:
         flash('Acesso restrito a administradores', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -38,29 +33,20 @@ def check_admin():
 @admin.route('/')
 @login_required
 def index():
-    """
-    Página inicial da área administrativa
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Página inicial da área administrativa"""
     return render_template('admin/index.html')
 
 @admin.route('/usuarios')
 @login_required
 def listar_usuarios():
-    """
-    Lista todos os usuários cadastrados no sistema
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Lista todos os usuários cadastrados no sistema"""
     usuarios = User.query.all()
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin.route('/usuario/visualizar/<int:user_id>')
 @login_required
 def visualizar_usuario(user_id):
-    """
-    Visualiza detalhes de um usuário específico
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Visualiza detalhes de um usuário específico"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês atual
@@ -88,7 +74,7 @@ def visualizar_usuario(user_id):
     # Calcula as horas trabalhadas no mês
     horas_mes = sum(registro.horas_trabalhadas or 0 for registro in registros_mes)
     
-    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
+    # Obtém feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
@@ -118,552 +104,498 @@ def visualizar_usuario(user_id):
 @admin.route('/usuario/novo', methods=['GET', 'POST'])
 @login_required
 def novo_usuario():
-    """
-    Cria um novo usuário no sistema
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Cria um novo usuário"""
     form = UserForm()
+    
     if form.validate_on_submit():
-        user = User(
+        # Verifica se já existe um usuário com este email
+        if User.query.filter_by(email=form.email.data).first():
+            flash('Email já cadastrado.', 'danger')
+            return render_template('admin/novo_usuario.html', form=form)
+        
+        # Cria um novo usuário
+        novo_user = User(
             name=form.name.data,
             email=form.email.data,
-            matricula=form.matricula.data,
-            cargo=form.cargo.data,
-            uf=form.uf.data,
-            telefone=form.telefone.data,
-            vinculo=form.vinculo.data,
-            is_admin=form.is_admin.data
+            is_admin=form.is_admin.data,
+            is_active=form.is_active.data
         )
         
-        # Processar foto se enviada
-        if form.foto.data:
-            # Lógica para salvar a foto será implementada aqui
-            pass
-            
-        user.set_password(form.password.data)
-        db.session.add(user)
+        # Define a senha
+        novo_user.set_password(form.password.data)
+        
+        # Salva no banco de dados
+        db.session.add(novo_user)
         db.session.commit()
+        
         flash('Usuário criado com sucesso!', 'success')
         return redirect(url_for('admin.listar_usuarios'))
     
-    return render_template('admin/form_usuario.html', form=form, title='Novo Usuário')
+    return render_template('admin/novo_usuario.html', form=form)
 
 @admin.route('/usuario/editar/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def editar_usuario(user_id):
-    """
-    Edita um usuário existente
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Edita um usuário existente"""
     user = User.query.get_or_404(user_id)
     form = UserForm(obj=user)
     
+    # Remove a validação de senha para edição
+    form.password.validators = []
+    form.password.flags.required = False
+    
     if form.validate_on_submit():
+        # Verifica se o email já está em uso por outro usuário
+        email_existente = User.query.filter_by(email=form.email.data).first()
+        if email_existente and email_existente.id != user_id:
+            flash('Email já cadastrado por outro usuário.', 'danger')
+            return render_template('admin/editar_usuario.html', form=form, user=user)
+        
+        # Atualiza os dados do usuário
         user.name = form.name.data
         user.email = form.email.data
-        user.matricula = form.matricula.data
-        user.cargo = form.cargo.data
-        user.uf = form.uf.data
-        user.telefone = form.telefone.data
-        user.vinculo = form.vinculo.data
         user.is_admin = form.is_admin.data
+        user.is_active = form.is_active.data
         
-        # Processar foto se enviada
-        if form.foto.data:
-            # Lógica para salvar a foto será implementada aqui
-            pass
-            
+        # Atualiza a senha apenas se for fornecida
         if form.password.data:
             user.set_password(form.password.data)
-            
+        
+        # Salva as alterações
         db.session.commit()
+        
         flash('Usuário atualizado com sucesso!', 'success')
         return redirect(url_for('admin.listar_usuarios'))
     
-    return render_template('admin/form_usuario.html', form=form, title='Editar Usuário')
+    return render_template('admin/editar_usuario.html', form=form, user=user)
 
 @admin.route('/usuario/excluir/<int:user_id>', methods=['POST'])
 @login_required
 def excluir_usuario(user_id):
-    """
-    Exclui um usuário do sistema
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Exclui um usuário"""
     user = User.query.get_or_404(user_id)
     
+    # Não permite excluir o próprio usuário
     if user.id == current_user.id:
-        flash('Você não pode excluir seu próprio usuário!', 'danger')
+        flash('Você não pode excluir seu próprio usuário.', 'danger')
         return redirect(url_for('admin.listar_usuarios'))
     
+    # Exclui o usuário
     db.session.delete(user)
     db.session.commit()
+    
     flash('Usuário excluído com sucesso!', 'success')
     return redirect(url_for('admin.listar_usuarios'))
 
 @admin.route('/feriados')
 @login_required
 def listar_feriados():
-    """
-    Lista todos os feriados cadastrados
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Lista todos os feriados cadastrados"""
     feriados = Feriado.query.order_by(Feriado.data).all()
     return render_template('admin/feriados.html', feriados=feriados)
 
 @admin.route('/feriado/novo', methods=['GET', 'POST'])
 @login_required
 def novo_feriado():
-    """
-    Cadastra um novo feriado
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Cria um novo feriado"""
     form = FeriadoForm()
-    # Busca todos os feriados existentes para exibir na página
-    feriados = Feriado.query.order_by(Feriado.data).all()
     
     if form.validate_on_submit():
-        feriado = Feriado(
+        # Verifica se já existe um feriado nesta data
+        if Feriado.query.filter_by(data=form.data.data).first():
+            flash('Já existe um feriado cadastrado para esta data.', 'danger')
+            return render_template('admin/novo_feriado.html', form=form)
+        
+        # Cria um novo feriado
+        novo_feriado = Feriado(
             data=form.data.data,
             descricao=form.descricao.data
         )
-        db.session.add(feriado)
+        
+        # Salva no banco de dados
+        db.session.add(novo_feriado)
         db.session.commit()
-        flash('Feriado registrado com sucesso!', 'success')
-        return redirect(url_for('admin.novo_feriado'))
+        
+        flash('Feriado cadastrado com sucesso!', 'success')
+        return redirect(url_for('admin.listar_feriados'))
     
-    return render_template('admin/form_feriado.html', form=form, title='Novo Feriado', feriados=feriados)
+    return render_template('admin/novo_feriado.html', form=form)
+
+@admin.route('/feriado/editar/<int:feriado_id>', methods=['GET', 'POST'])
+@login_required
+def editar_feriado(feriado_id):
+    """Edita um feriado existente"""
+    feriado = Feriado.query.get_or_404(feriado_id)
+    form = FeriadoForm(obj=feriado)
+    
+    if form.validate_on_submit():
+        # Verifica se já existe outro feriado nesta data
+        feriado_existente = Feriado.query.filter_by(data=form.data.data).first()
+        if feriado_existente and feriado_existente.id != feriado_id:
+            flash('Já existe outro feriado cadastrado para esta data.', 'danger')
+            return render_template('admin/editar_feriado.html', form=form, feriado=feriado)
+        
+        # Atualiza os dados do feriado
+        feriado.data = form.data.data
+        feriado.descricao = form.descricao.data
+        
+        # Salva as alterações
+        db.session.commit()
+        
+        flash('Feriado atualizado com sucesso!', 'success')
+        return redirect(url_for('admin.listar_feriados'))
+    
+    return render_template('admin/editar_feriado.html', form=form, feriado=feriado)
 
 @admin.route('/feriado/excluir/<int:feriado_id>', methods=['POST'])
 @login_required
 def excluir_feriado(feriado_id):
-    """
-    Exclui um feriado cadastrado
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Exclui um feriado"""
     feriado = Feriado.query.get_or_404(feriado_id)
+    
+    # Exclui o feriado
     db.session.delete(feriado)
     db.session.commit()
+    
     flash('Feriado excluído com sucesso!', 'success')
-    return redirect(url_for('admin.novo_feriado'))
+    return redirect(url_for('admin.listar_feriados'))
 
 @admin.route('/relatorios')
 @login_required
 def relatorios():
-    """
-    Página de relatórios administrativos
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    # Busca todos os usuários, incluindo administradores
-    usuarios = User.query.all()
+    """Página de relatórios administrativos"""
+    usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
     return render_template('admin/relatorios.html', usuarios=usuarios)
 
 @admin.route('/relatorio/<int:user_id>')
 @login_required
 def relatorio_usuario(user_id):
-    """
-    Exibe relatório detalhado de um usuário
-    MODIFICAÇÃO: Adicionado docstring
-    """
+    """Exibe o relatório de um usuário específico"""
     user = User.query.get_or_404(user_id)
     
-    # Obtém o mês e ano da URL ou usa o mês atual
-    mes = request.args.get('mes', datetime.now().month, type=int)
-    ano = request.args.get('ano', datetime.now().year, type=int)
+    # Obtém o mês e ano do relatório
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
     
     # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano, mes, 1)
-    if mes == 12:
-        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
     
-    # Obtém todos os registros do mês selecionado
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data < ultimo_dia
-    ).order_by(Ponto.data).all()
-    
-    # Organiza os registros por data para fácil acesso no template
-    registros_por_data = {registro.data: registro for registro in registros}
-    
-    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data < ultimo_dia
-    ).all()
-    feriados_datas = [feriado.data for feriado in feriados]
-    
-    # Cria um dicionário de feriados para exibir as descrições
-    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
-    
-    # Calcula o saldo de horas do mês
-    dias_uteis = 0
-    for dia in range(1, ultimo_dia.day + 1):
-        data = date(ano, mes, dia)
-        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
-            dias_uteis += 1
-    
-    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
-    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
-    saldo_horas = horas_trabalhadas - horas_esperadas
-    
-    return render_template('admin/relatorio_usuario.html', 
-                          user=user,
-                          registros=registros,
-                          registros_por_data=registros_por_data,
-                          mes=mes,
-                          ano=ano,
-                          primeiro_dia=primeiro_dia,
-                          ultimo_dia=ultimo_dia,
-                          feriados_datas=feriados_datas,
-                          feriados_dict=feriados_dict,
-                          date=date,
-                          horas_esperadas=horas_esperadas,
-                          horas_trabalhadas=horas_trabalhadas,
-                          saldo_horas=saldo_horas)
-
-@admin.route('/ponto/editar/<int:ponto_id>', methods=['GET', 'POST'])
-@login_required
-def editar_ponto(ponto_id):
-    """
-    Edita um registro de ponto existente
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    ponto = Ponto.query.get_or_404(ponto_id)
-    
-    if request.method == 'POST':
-        entrada = request.form.get('entrada')
-        saida_almoco = request.form.get('saida_almoco')
-        retorno_almoco = request.form.get('retorno_almoco')
-        saida = request.form.get('saida')
-        
-        # Converte strings para objetos time
-        if entrada:
-            ponto.entrada = datetime.strptime(entrada, '%H:%M').time()
-        if saida_almoco:
-            ponto.saida_almoco = datetime.strptime(saida_almoco, '%H:%M').time()
-        if retorno_almoco:
-            ponto.retorno_almoco = datetime.strptime(retorno_almoco, '%H:%M').time()
-        if saida:
-            ponto.saida = datetime.strptime(saida, '%H:%M').time()
-        
-        # Recalcula horas trabalhadas
-        if ponto.entrada and ponto.saida_almoco and ponto.retorno_almoco and ponto.saida:
-            # Tempo antes do almoço
-            t1 = datetime.combine(ponto.data, ponto.saida_almoco) - datetime.combine(ponto.data, ponto.entrada)
-            
-            # Tempo depois do almoço
-            t2 = datetime.combine(ponto.data, ponto.saida) - datetime.combine(ponto.data, ponto.retorno_almoco)
-            
-            # Total de horas trabalhadas
-            total_segundos = t1.total_seconds() + t2.total_seconds()
-            ponto.horas_trabalhadas = total_segundos / 3600  # Converte para horas
-        
-        db.session.commit()
-        flash('Registro de ponto atualizado com sucesso!', 'success')
-        return redirect(url_for('admin.relatorio_usuario', user_id=ponto.user_id))
-    
-    return render_template('admin/editar_ponto.html', ponto=ponto)
-
-@admin.route('/ponto/novo/<int:user_id>', methods=['GET', 'POST'])
-@login_required
-def novo_ponto(user_id):
-    """
-    Cria um novo registro de ponto para um usuário
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    user = User.query.get_or_404(user_id)
-    form = RegistroPontoForm()
-    
-    # Se uma data for fornecida via GET, preenche o formulário
-    data_str = request.args.get('data')
-    if data_str:
-        try:
-            data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
-            form.data.data = data_selecionada
-        except ValueError:
-            flash('Formato de data inválido.', 'danger')
-    
-    if form.validate_on_submit():
-        data_selecionada = form.data.data
-        hora_selecionada = form.hora.data
-        tipo = form.tipo.data
-        
-        # Verifica se já existe registro para a data selecionada
-        registro = Ponto.query.filter_by(
-            user_id=user_id,
-            data=data_selecionada
-        ).first()
-        
-        if not registro:
-            registro = Ponto(user_id=user_id, data=data_selecionada)
-        
-        # Usa a hora selecionada pelo usuário
-        if tipo == 'entrada':
-            registro.entrada = hora_selecionada
-        elif tipo == 'saida_almoco':
-            registro.saida_almoco = hora_selecionada
-        elif tipo == 'retorno_almoco':
-            registro.retorno_almoco = hora_selecionada
-        elif tipo == 'saida':
-            registro.saida = hora_selecionada
-            
-        # Calcula horas trabalhadas se tiver todos os registros
-        if (registro.entrada and registro.saida_almoco and 
-            registro.retorno_almoco and registro.saida):
-            
-            # Tempo antes do almoço
-            t1 = datetime.combine(data_selecionada, registro.saida_almoco) - datetime.combine(data_selecionada, registro.entrada)
-            
-            # Tempo depois do almoço
-            t2 = datetime.combine(data_selecionada, registro.saida) - datetime.combine(data_selecionada, registro.retorno_almoco)
-            
-            # Total de horas trabalhadas
-            total_segundos = t1.total_seconds() + t2.total_seconds()
-            registro.horas_trabalhadas = total_segundos / 3600  # Converte para horas
-        
-        if not registro.id:
-            db.session.add(registro)
-        
-        db.session.commit()
-        flash(f'Registro de {tipo} adicionado com sucesso para o usuário {user.name}!', 'success')
-        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
-    
-    return render_template('admin/novo_ponto.html', form=form, user=user)
-
-@admin.route('/ponto/excluir/<int:ponto_id>', methods=['POST'])
-@login_required
-def excluir_ponto(ponto_id):
-    """
-    Exclui um registro de ponto
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    ponto = Ponto.query.get_or_404(ponto_id)
-    user_id = ponto.user_id
-    
-    db.session.delete(ponto)
-    db.session.commit()
-    flash('Registro de ponto excluído com sucesso!', 'success')
-    return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
-
-@admin.route('/atividade/nova/<int:ponto_id>', methods=['GET', 'POST'])
-@login_required
-def nova_atividade(ponto_id):
-    """
-    Registra uma nova atividade para um ponto
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    ponto = Ponto.query.get_or_404(ponto_id)
-    form = AtividadeForm()
-    
-    if form.validate_on_submit():
-        atividade = Atividade(
-            ponto_id=ponto_id,
-            descricao=form.descricao.data
-        )
-        db.session.add(atividade)
-        db.session.commit()
-        flash('Atividade registrada com sucesso!', 'success')
-        return redirect(url_for('admin.relatorio_usuario', user_id=ponto.user_id))
-    
-    return render_template('admin/nova_atividade.html', form=form, ponto=ponto)
-
-# MODIFICAÇÃO: Função que estava truncada no arquivo original
-@admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
-@login_required
-def excluir_atividade(atividade_id):
-    """
-    Exclui uma atividade
-    MODIFICAÇÃO: Função completa adicionada
-    """
-    atividade = Atividade.query.get_or_404(atividade_id)
-    ponto = Ponto.query.get(atividade.ponto_id)
-    user_id = ponto.user_id
-    
-    db.session.delete(atividade)
-    db.session.commit()
-    flash('Atividade excluída com sucesso!', 'success')
-    return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
-
-@admin.route('/exportar-pdf/<int:user_id>/<int:mes>/<int:ano>')
-@login_required
-def exportar_pdf(user_id, mes, ano):
-    """
-    Exporta o relatório mensal em PDF
-    MODIFICAÇÃO: Adicionado docstring
-    """
-    user = User.query.get_or_404(user_id)
-    
-    # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano, mes, 1)
-    if mes == 12:
-        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
-    
-    # Obtém todos os registros do mês selecionado
+    # Obtém os registros de ponto do mês para o usuário
     registros = Ponto.query.filter(
         Ponto.user_id == user_id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
+    # Obtém os feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
     ).all()
-    feriados_datas = [feriado.data for feriado in feriados]
     
-    # Calcula o saldo de horas do mês
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # Calcula estatísticas
     dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Itera pelos dias do mês
     for dia in range(1, ultimo_dia.day + 1):
-        data = date(ano, mes, dia)
-        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta e não é feriado)
+        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
             dias_uteis += 1
     
-    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
-    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
-    saldo_horas = horas_trabalhadas - horas_esperadas
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
     
-    # Gera o PDF
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
+    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
+    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
     
-    # Estilos
-    styles = getSampleStyleSheet()
-    title_style = styles['Heading1']
-    subtitle_style = styles['Heading2']
-    normal_style = styles['Normal']
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
     
-    # Título
-    elements.append(Paragraph(f"Relatório de Ponto - {user.name}", title_style))
-    elements.append(Spacer(1, 12))
-    
-    # Informações do usuário
-    elements.append(Paragraph(f"Matrícula: {user.matricula}", normal_style))
-    elements.append(Paragraph(f"Vínculo: {user.vinculo}", normal_style))
-    elements.append(Spacer(1, 12))
-    
-    # Informações do período
+    # Obtém o nome do mês
     nomes_meses = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ]
-    nome_mes = nomes_meses[mes - 1]
-    elements.append(Paragraph(f"Período: {nome_mes}/{ano}", subtitle_style))
-    elements.append(Spacer(1, 12))
+    nome_mes = nomes_meses[mes_atual - 1]
     
-    # Resumo
-    elements.append(Paragraph("Resumo:", subtitle_style))
-    elements.append(Paragraph(f"Dias úteis: {dias_uteis}", normal_style))
-    elements.append(Paragraph(f"Horas esperadas: {horas_esperadas:.2f}h", normal_style))
-    elements.append(Paragraph(f"Horas trabalhadas: {horas_trabalhadas:.2f}h", normal_style))
-    elements.append(Paragraph(f"Saldo de horas: {saldo_horas:.2f}h", normal_style))
-    elements.append(Spacer(1, 12))
-    
-    # Tabela de registros
-    elements.append(Paragraph("Registros:", subtitle_style))
-    elements.append(Spacer(1, 6))
-    
-    # Cabeçalho da tabela
-    data = [['Data', 'Entrada', 'Saída Almoço', 'Retorno Almoço', 'Saída', 'Horas']]
-    
-    # Dados da tabela
-    for registro in registros:
-        entrada = registro.entrada.strftime('%H:%M') if registro.entrada else '-'
-        saida_almoco = registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-'
-        retorno_almoco = registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-'
-        saida = registro.saida.strftime('%H:%M') if registro.saida else '-'
-        horas = f"{registro.horas_trabalhadas:.2f}h" if registro.horas_trabalhadas else '-'
-        
-        data.append([
-            registro.data.strftime('%d/%m/%Y'),
-            entrada,
-            saida_almoco,
-            retorno_almoco,
-            saida,
-            horas
-        ])
-    
-    # Cria a tabela
-    table = Table(data)
-    
-    # Estilo da tabela
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-    ])
-    table.setStyle(style)
-    
-    elements.append(table)
-    
-    # Rodapé
-    elements.append(Spacer(1, 20))
-    elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", normal_style))
-    
-    # Gera o PDF
-    doc.build(elements)
-    
-    # Prepara a resposta
-    buffer.seek(0)
-    response = make_response(buffer.getvalue())
-    response.mimetype = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name}_{mes}_{ano}.pdf'
-    
-    return response
+    return render_template('admin/relatorio_usuario.html',
+                          user=user,
+                          registros=registros,
+                          mes=mes_atual,
+                          ano=ano_atual,
+                          nome_mes=nome_mes,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          horas_trabalhadas=horas_trabalhadas,
+                          carga_horaria_devida=carga_horaria_devida,
+                          saldo_horas=saldo_horas)
 
-@admin.route('/exportar-excel/<int:user_id>/<int:mes>/<int:ano>')
+# CORREÇÃO: Adicionando a rota relatorio_usuario_pdf que estava faltando
+@admin.route('/relatorio/<int:user_id>/pdf')
 @login_required
-def exportar_excel(user_id, mes, ano):
-    """
-    Exporta o relatório mensal em Excel
-    MODIFICAÇÃO: Adicionado docstring
-    """
+def relatorio_usuario_pdf(user_id):
+    """Gera um relatório em PDF para um usuário específico"""
     user = User.query.get_or_404(user_id)
     
-    # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano, mes, 1)
-    if mes == 12:
-        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
-    else:
-        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    # Obtém o mês e ano do relatório
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
     
-    # Obtém todos os registros do mês selecionado
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
     registros = Ponto.query.filter(
         Ponto.user_id == user_id,
         Ponto.data >= primeiro_dia,
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
+    # Obtém os feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
     ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
-    # Gera o Excel
-    output = generate_excel_report(user, registros, mes, ano, feriados_dict)
+    # Calcula estatísticas
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
     
-    # Prepara a resposta
-    response = make_response(output.getvalue())
-    response.mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name}_{mes}_{ano}.xlsx'
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta e não é feriado)
+        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
+            dias_uteis += 1
     
-    return response
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
+    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Gera o PDF
+    pdf_path = export_registros_pdf(
+        usuario=user,
+        registros=registros,
+        mes_atual=mes_atual,
+        ano_atual=ano_atual,
+        nome_mes=nome_mes,
+        dias_uteis=dias_uteis,
+        dias_trabalhados=dias_trabalhados,
+        dias_afastamento=dias_afastamento,
+        horas_trabalhadas=horas_trabalhadas,
+        carga_horaria_devida=carga_horaria_devida,
+        saldo_horas=saldo_horas,
+        feriados_dict=feriados_dict
+    )
+    
+    logger.info(f"PDF gerado com sucesso para o usuário {user.name} - {nome_mes}/{ano_atual}")
+    
+    return send_file(pdf_path, as_attachment=True, download_name=f'relatorio_{user.name}_{nome_mes}_{ano_atual}.pdf')
 
-# MODIFICAÇÃO: Fim do arquivo com comentário explícito
-# Este arquivo foi corrigido em Abril 2025 para resolver problemas de truncamento
+# CORREÇÃO: Adicionando a rota relatorio_usuario_excel que também pode estar faltando
+@admin.route('/relatorio/<int:user_id>/excel')
+@login_required
+def relatorio_usuario_excel(user_id):
+    """Gera um relatório em Excel para um usuário específico"""
+    user = User.query.get_or_404(user_id)
+    
+    # Obtém o mês e ano do relatório
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    hoje = date.today()
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # Calcula estatísticas
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta e não é feriado)
+        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
+            dias_uteis += 1
+    
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
+    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Gera o Excel
+    excel_path = export_registros_excel(
+        usuario=user,
+        registros=registros,
+        mes_atual=mes_atual,
+        ano_atual=ano_atual,
+        nome_mes=nome_mes,
+        dias_uteis=dias_uteis,
+        dias_trabalhados=dias_trabalhados,
+        dias_afastamento=dias_afastamento,
+        horas_trabalhadas=horas_trabalhadas,
+        carga_horaria_devida=carga_horaria_devida,
+        saldo_horas=saldo_horas,
+        feriados_dict=feriados_dict
+    )
+    
+    logger.info(f"Excel gerado com sucesso para o usuário {user.name} - {nome_mes}/{ano_atual}")
+    
+    return send_file(excel_path, as_attachment=True, download_name=f'relatorio_{user.name}_{nome_mes}_{ano_atual}.xlsx')
+
+@admin.route('/backup')
+@login_required
+def backup():
+    """Página de backup do banco de dados"""
+    return render_template('admin/backup.html')
+
+@admin.route('/backup/download')
+@login_required
+def download_backup():
+    """Faz o download do arquivo de backup do banco de dados"""
+    from app.utils.backup import create_backup
+    
+    # Cria o backup
+    backup_path = create_backup()
+    
+    # Faz o download do arquivo
+    return send_file(backup_path, as_attachment=True, download_name='backup.sqlite')
+
+@admin.route('/backup/restaurar', methods=['POST'])
+@login_required
+def restaurar_backup():
+    """Restaura o banco de dados a partir de um arquivo de backup"""
+    from app.utils.backup import restore_backup
+    
+    # Verifica se foi enviado um arquivo
+    if 'arquivo' not in request.files:
+        flash('Nenhum arquivo enviado.', 'danger')
+        return redirect(url_for('admin.backup'))
+    
+    arquivo = request.files['arquivo']
+    
+    # Verifica se o arquivo tem um nome
+    if arquivo.filename == '':
+        flash('Nenhum arquivo selecionado.', 'danger')
+        return redirect(url_for('admin.backup'))
+    
+    # Verifica se o arquivo é um arquivo SQLite
+    if not arquivo.filename.endswith('.sqlite'):
+        flash('O arquivo deve ser um arquivo SQLite (.sqlite).', 'danger')
+        return redirect(url_for('admin.backup'))
+    
+    # Restaura o backup
+    try:
+        restore_backup(arquivo)
+        flash('Backup restaurado com sucesso!', 'success')
+    except Exception as e:
+        flash(f'Erro ao restaurar o backup: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.backup'))

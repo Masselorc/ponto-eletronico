@@ -275,24 +275,27 @@ def registrar_ponto():
     data_str = request.args.get('data')
     if data_str:
         try:
+            # CORREÇÃO DEFINITIVA: Armazenar a data original como string e converter para date
             data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
             form.data.data = data_selecionada
-            # CORREÇÃO AVANÇADA: Armazena a data original como string
             form.data_original.data = data_str
+            logger.info(f"Data original armazenada via GET: {data_str}")
         except ValueError:
             flash('Formato de data inválido.', 'danger')
     
     if form.validate_on_submit():
-        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        # CORREÇÃO DEFINITIVA: Usar a data original do formulário se disponível
+        data_selecionada = None
         if form.data_original.data:
             try:
                 data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
                 logger.info(f"Usando data original do formulário: {data_selecionada}")
             except ValueError:
-                # Fallback para o campo data normal se houver erro
-                data_selecionada = form.data.data
-                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
-        else:
+                logger.warning(f"Erro ao converter data original: {form.data_original.data}")
+                data_selecionada = None
+        
+        # Se não conseguiu usar a data original, usa a data do campo normal
+        if data_selecionada is None:
             data_selecionada = form.data.data
             logger.info(f"Usando data normal do formulário: {data_selecionada}")
         
@@ -309,7 +312,7 @@ def registrar_ponto():
         # Cria um novo registro com a data selecionada
         novo_registro = Ponto(
             user_id=current_user.id,
-            data=data_selecionada,  # CORREÇÃO AVANÇADA: Usar a data original
+            data=data_selecionada,  # CORREÇÃO DEFINITIVA: Usar a data selecionada
             entrada=datetime.now().time(),
             observacoes="Registro automático de entrada"
         )
@@ -333,32 +336,32 @@ def registrar_multiplo_ponto():
     data_str = request.args.get('data')
     if data_str:
         try:
+            # CORREÇÃO DEFINITIVA: Armazenar a data original como string e converter para date
             data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
             form.data.data = data_selecionada
-            # CORREÇÃO AVANÇADA: Armazena a data original como string
             form.data_original.data = data_str
-            logger.info(f"Data original armazenada: {data_str}")
+            logger.info(f"Data original armazenada via GET: {data_str}")
         except ValueError:
             flash('Formato de data inválido.', 'danger')
     else:
-        # Preenche com a data atual se não for fornecida
-        hoje = datetime.now().date()
-        form.data.data = hoje
-        # CORREÇÃO AVANÇADA: Armazena a data atual como string
-        form.data_original.data = hoje.strftime('%Y-%m-%d')
-        logger.info(f"Data atual armazenada: {form.data_original.data}")
+        # CORREÇÃO DEFINITIVA: Não preencher automaticamente com a data atual
+        # Deixar o campo vazio para forçar o usuário a selecionar uma data
+        form.data_original.data = ""
+        logger.info("Nenhuma data fornecida via GET, campo deixado vazio")
     
     if form.validate_on_submit():
-        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        # CORREÇÃO DEFINITIVA: Usar a data original do formulário se disponível
+        data_selecionada = None
         if form.data_original.data:
             try:
                 data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
                 logger.info(f"Usando data original do formulário: {data_selecionada}")
             except ValueError:
-                # Fallback para o campo data normal se houver erro
-                data_selecionada = form.data.data
-                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
-        else:
+                logger.warning(f"Erro ao converter data original: {form.data_original.data}")
+                data_selecionada = None
+        
+        # Se não conseguiu usar a data original, usa a data do campo normal
+        if data_selecionada is None:
             data_selecionada = form.data.data
             logger.info(f"Usando data normal do formulário: {data_selecionada}")
         
@@ -388,7 +391,7 @@ def registrar_multiplo_ponto():
         # Cria um novo registro com a data selecionada
         novo_registro = Ponto(
             user_id=current_user.id,
-            data=data_selecionada  # CORREÇÃO AVANÇADA: Usar a data original
+            data=data_selecionada  # CORREÇÃO DEFINITIVA: Usar a data selecionada
         )
         
         # Adiciona observações se o campo existir no formulário
@@ -456,8 +459,10 @@ def editar_ponto(ponto_id):
     # Preenche o formulário com os dados do registro
     if request.method == 'GET':
         form.data.data = ponto.data
-        # CORREÇÃO AVANÇADA: Armazena a data original como string
+        # CORREÇÃO DEFINITIVA: Armazena a data original como string
         form.data_original.data = ponto.data.strftime('%Y-%m-%d')
+        logger.info(f"Data original armazenada no formulário de edição: {form.data_original.data}")
+        
         form.afastamento.data = ponto.afastamento
         form.tipo_afastamento.data = ponto.tipo_afastamento
         
@@ -473,21 +478,23 @@ def editar_ponto(ponto_id):
         form.observacoes.data = ponto.observacoes
     
     if form.validate_on_submit():
-        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        # CORREÇÃO DEFINITIVA: Usar a data original do formulário se disponível
+        data_selecionada = None
         if form.data_original.data:
             try:
                 data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
-                logger.info(f"Usando data original do formulário: {data_selecionada}")
+                logger.info(f"Usando data original do formulário de edição: {data_selecionada}")
             except ValueError:
-                # Fallback para o campo data normal se houver erro
-                data_selecionada = form.data.data
-                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
-        else:
+                logger.warning(f"Erro ao converter data original na edição: {form.data_original.data}")
+                data_selecionada = None
+        
+        # Se não conseguiu usar a data original, usa a data do campo normal
+        if data_selecionada is None:
             data_selecionada = form.data.data
-            logger.info(f"Usando data normal do formulário: {data_selecionada}")
+            logger.info(f"Usando data normal do formulário de edição: {data_selecionada}")
         
         # Atualiza os dados do registro
-        ponto.data = data_selecionada  # CORREÇÃO AVANÇADA: Usar a data original
+        ponto.data = data_selecionada  # CORREÇÃO DEFINITIVA: Usar a data selecionada
         ponto.afastamento = form.afastamento.data
         
         if form.afastamento.data:
@@ -570,7 +577,6 @@ def registrar_atividade(ponto_id):
     
     return render_template('main/registrar_atividade.html', form=form, ponto=ponto)
 
-# IMPORTANTE: Rota visualizar_ponto que estava faltando na correção anterior
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
 def visualizar_ponto(ponto_id):

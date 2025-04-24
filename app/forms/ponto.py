@@ -4,9 +4,9 @@ from wtforms.validators import DataRequired, Optional, Length
 from datetime import datetime
 
 class RegistroPontoForm(FlaskForm):
-    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
+    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # Campo oculto para armazenar a data original selecionada como string
+    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
     data_original = HiddenField()
     
     hora = StringField('Hora', validators=[DataRequired()])
@@ -19,9 +19,9 @@ class RegistroPontoForm(FlaskForm):
     submit = SubmitField('Registrar Ponto')
 
 class RegistroMultiploPontoForm(FlaskForm):
-    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
+    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # Campo oculto para armazenar a data original selecionada como string
+    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
     data_original = HiddenField()
     
     afastamento = BooleanField('Férias ou outros afastamentos')
@@ -72,9 +72,9 @@ class RegistroMultiploPontoForm(FlaskForm):
         return True
 
 class EditarPontoForm(FlaskForm):
-    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
+    # CORREÇÃO DEFINITIVA: Campo data sem valor padrão
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
-    # Campo oculto para armazenar a data original selecionada como string
+    # CORREÇÃO DEFINITIVA: Campo oculto para armazenar a data original como string
     data_original = HiddenField()
     
     afastamento = BooleanField('Férias ou outros afastamentos')
