@@ -1,288 +1,133 @@
 {% extends 'base.html' %}
 
-{% block title %}Registro de Ponto{% endblock %}
+{% block title %}Registrar Múltiplos Pontos{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-6">
-        <h2>Registro de Ponto</h2>
-        <p class="text-muted">Preencha os horários para um mesmo dia</p>
-    </div>
-    <div class="col-md-6 text-end">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title">Horário Atual</h5>
-                <h3 id="relogio" class="display-4 mb-0">00:00:00</h3>
-            </div>
+<div class="container mt-4">
+    <h1 class="h3 mb-4">Registrar Múltiplos Pontos</h1>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Preencha os dados para múltiplos dias</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="formMultiploPonto">
+                <div id="pontos-container">
+                    <div class="ponto-row mb-4 p-3 border rounded">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="data-0">Data</label>
+                                <input type="date" class="form-control" id="data-0" name="datas[]" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="entrada-0">Entrada</label>
+                                <input type="time" class="form-control" id="entrada-0" name="entradas[]">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="saida-almoco-0">Saída para Almoço</label>
+                                <input type="time" class="form-control" id="saida-almoco-0" name="saidas_almoco[]">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="retorno-almoco-0">Retorno do Almoço</label>
+                                <input type="time" class="form-control" id="retorno-almoco-0" name="retornos_almoco[]">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="saida-0">Saída</label>
+                                <input type="time" class="form-control" id="saida-0" name="saidas[]">
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <label for="atividades-0">Atividades Realizadas</label>
+                                <textarea class="form-control" id="atividades-0" name="atividades[]" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <button type="button" class="btn btn-secondary" id="addPonto">
+                        <i class="fas fa-plus"></i> Adicionar Outro Dia
+                    </button>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Registrar Pontos</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-10 mx-auto">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Registro de Horários</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}" id="form-registro-ponto">
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="mb-3">
-                                {{ form.data.label(class="form-label") }}
-                                {{ form.data(class="form-control", type="date") }}
-                                {% for error in form.data.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- INÍCIO DO BLOCO DE AFASTAMENTO - SOLUÇÃO RADICAL -->
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="form-check mb-3">
-                                <input type="checkbox" name="afastamento" id="check_afastamento" class="form-check-input" 
-                                       onchange="document.getElementById('div_tipo_afastamento').style.display = this.checked ? 'block' : 'none';
-                                                document.getElementById('div_horarios').style.display = this.checked ? 'none' : 'flex';
-                                                document.getElementById('hora_entrada_input').disabled = this.checked;
-                                                document.getElementById('hora_saida_almoco_input').disabled = this.checked;
-                                                document.getElementById('hora_retorno_almoco_input').disabled = this.checked;
-                                                document.getElementById('hora_saida_input').disabled = this.checked;
-                                                document.getElementById('btn_hora_entrada').disabled = this.checked;
-                                                document.getElementById('btn_hora_saida_almoco').disabled = this.checked;
-                                                document.getElementById('btn_hora_retorno_almoco').disabled = this.checked;
-                                                document.getElementById('btn_hora_saida').disabled = this.checked;
-                                                if(this.checked) {
-                                                    document.getElementById('hora_entrada_input').value = '';
-                                                    document.getElementById('hora_saida_almoco_input').value = '';
-                                                    document.getElementById('hora_retorno_almoco_input').value = '';
-                                                    document.getElementById('hora_saida_input').value = '';
-                                                    document.getElementById('tipo_afastamento').required = true;
-                                                } else {
-                                                    document.getElementById('tipo_afastamento').required = false;
-                                                }">
-                                <label for="check_afastamento" class="form-check-label fw-bold">Férias ou outros afastamentos</label>
-                                <small class="form-text text-muted d-block">Marque esta opção para registrar férias ou outros tipos de afastamento.</small>
-                            </div>
-                            <div id="div_tipo_afastamento" class="mb-3" style="display: none;">
-                                <label for="tipo_afastamento" class="form-label">Tipo de Afastamento</label>
-                                <select name="tipo_afastamento" id="tipo_afastamento" class="form-select">
-                                    <option value="ferias">Férias</option>
-                                    <option value="licenca_medica">Licença Médica</option>
-                                    <option value="licenca_maternidade">Licença Maternidade/Paternidade</option>
-                                    <option value="abono">Abono</option>
-                                    <option value="outro">Outro</option>
-                                </select>
-                                <small class="form-text text-muted">Selecione o tipo de afastamento para este dia.</small>
-                                <div class="alert alert-info mt-3">
-                                    <i class="fas fa-info-circle me-2"></i> Ao registrar um afastamento, os campos de horário serão desabilitados automaticamente.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- FIM DO BLOCO DE AFASTAMENTO - SOLUÇÃO RADICAL -->
-                    
-                    <div class="row mb-4" id="div_horarios">
-                        <div class="col-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Entrada</h6>
-                                </div>
-                                <div class="card-body">
-                                    <label for="hora_entrada_input" class="form-label">Hora de Entrada</label>
-                                    <input type="time" name="entrada" id="hora_entrada_input" class="form-control">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" 
-                                            id="btn_hora_entrada" 
-                                            onclick="document.getElementById('hora_entrada_input').value = new Date().toTimeString().slice(0, 5);">
-                                        Usar horário atual
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Saída para Almoço</h6>
-                                </div>
-                                <div class="card-body">
-                                    <label for="hora_saida_almoco_input" class="form-label">Hora de Saída para Almoço</label>
-                                    <input type="time" name="saida_almoco" id="hora_saida_almoco_input" class="form-control">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" 
-                                            id="btn_hora_saida_almoco" 
-                                            onclick="document.getElementById('hora_saida_almoco_input').value = new Date().toTimeString().slice(0, 5);">
-                                        Usar horário atual
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Retorno do Almoço</h6>
-                                </div>
-                                <div class="card-body">
-                                    <label for="hora_retorno_almoco_input" class="form-label">Hora de Retorno do Almoço</label>
-                                    <input type="time" name="retorno_almoco" id="hora_retorno_almoco_input" class="form-control">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" 
-                                            id="btn_hora_retorno_almoco" 
-                                            onclick="document.getElementById('hora_retorno_almoco_input').value = new Date().toTimeString().slice(0, 5);">
-                                        Usar horário atual
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Saída</h6>
-                                </div>
-                                <div class="card-body">
-                                    <label for="hora_saida_input" class="form-label">Hora de Saída</label>
-                                    <input type="time" name="saida" id="hora_saida_input" class="form-control">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-hora-atual" 
-                                            id="btn_hora_saida" 
-                                            onclick="document.getElementById('hora_saida_input').value = new Date().toTimeString().slice(0, 5);">
-                                        Usar horário atual
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Atividades Realizadas</h6>
-                                </div>
-                                <div class="card-body">
-                                    {{ form.atividades.label(class="form-label") }}
-                                    {{ form.atividades(class="form-control", rows=4) }}
-                                    <small class="form-text text-muted">{{ form.atividades.description }}</small>
-                                    {% for error in form.atividades.errors %}
-                                    <div class="text-danger">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Observações</h6>
-                                </div>
-                                <div class="card-body">
-                                    {{ form.observacoes.label(class="form-label") }}
-                                    {{ form.observacoes(class="form-control", rows=2) }}
-                                    {% for error in form.observacoes.errors %}
-                                    <div class="text-danger">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg">Registrar Horários</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="card-footer text-center">
-                <p class="text-muted mb-0">Preencha os horários desejados e clique em "Registrar Horários"</p>
-                <p class="text-muted">Você pode preencher apenas os horários que deseja registrar</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Solução de fallback sem JavaScript -->
-<noscript>
-    <style>
-        #div_horarios.js-disabled {
-            display: none !important;
-        }
-        #div_tipo_afastamento.js-enabled {
-            display: block !important;
-        }
-        .noscript-warning {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
-    <div class="noscript-warning">
-        <h4>Atenção: JavaScript está desabilitado</h4>
-        <p>Para melhor experiência, habilite o JavaScript no seu navegador. Algumas funcionalidades podem não funcionar corretamente.</p>
-    </div>
-</noscript>
-{% endblock %}
-
-{% block scripts %}
 <script>
-    // Atualiza o relógio a cada segundo
-    function atualizarRelogio() {
-        const agora = new Date();
-        const horas = agora.getHours().toString().padStart(2, '0');
-        const minutos = agora.getMinutes().toString().padStart(2, '0');
-        const segundos = agora.getSeconds().toString().padStart(2, '0');
-        document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
-    }
-    
-    // Atualiza o relógio imediatamente e depois a cada segundo
-    atualizarRelogio();
-    setInterval(atualizarRelogio, 1000);
-    
-    // Configuração inicial
     document.addEventListener('DOMContentLoaded', function() {
-        // Preenche a data atual no campo de data
-        const hoje = new Date();
-        const ano = hoje.getFullYear();
-        const mes = (hoje.getMonth() + 1).toString().padStart(2, '0');
-        const dia = hoje.getDate().toString().padStart(2, '0');
-        document.getElementById('data').value = `${ano}-${mes}-${dia}`;
+        let pontoIndex = 0;
         
-        // Verifica o estado inicial do checkbox
-        const checkAfastamento = document.getElementById('check_afastamento');
-        if (checkAfastamento.checked) {
-            document.getElementById('div_tipo_afastamento').style.display = 'block';
-            document.getElementById('div_horarios').style.display = 'none';
-            document.getElementById('hora_entrada_input').disabled = true;
-            document.getElementById('hora_saida_almoco_input').disabled = true;
-            document.getElementById('hora_retorno_almoco_input').disabled = true;
-            document.getElementById('hora_saida_input').disabled = true;
-            document.getElementById('btn_hora_entrada').disabled = true;
-            document.getElementById('btn_hora_saida_almoco').disabled = true;
-            document.getElementById('btn_hora_retorno_almoco').disabled = true;
-            document.getElementById('btn_hora_saida').disabled = true;
-            document.getElementById('tipo_afastamento').required = true;
-        } else {
-            document.getElementById('div_tipo_afastamento').style.display = 'none';
-            document.getElementById('div_horarios').style.display = 'flex';
-            document.getElementById('hora_entrada_input').disabled = false;
-            document.getElementById('hora_saida_almoco_input').disabled = false;
-            document.getElementById('hora_retorno_almoco_input').disabled = false;
-            document.getElementById('hora_saida_input').disabled = false;
-            document.getElementById('btn_hora_entrada').disabled = false;
-            document.getElementById('btn_hora_saida_almoco').disabled = false;
-            document.getElementById('btn_hora_retorno_almoco').disabled = false;
-            document.getElementById('btn_hora_saida').disabled = false;
-            document.getElementById('tipo_afastamento').required = false;
-        }
+        document.getElementById('addPonto').addEventListener('click', function() {
+            pontoIndex++;
+            
+            const pontoRow = document.createElement('div');
+            pontoRow.className = 'ponto-row mb-4 p-3 border rounded';
+            
+            pontoRow.innerHTML = `
+                <div class="d-flex justify-content-between mb-2">
+                    <h6 class="font-weight-bold">Registro ${pontoIndex + 1}</h6>
+                    <button type="button" class="btn btn-sm btn-danger remove-ponto">
+                        <i class="fas fa-times"></i> Remover
+                    </button>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="data-${pontoIndex}">Data</label>
+                        <input type="date" class="form-control" id="data-${pontoIndex}" name="datas[]" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="entrada-${pontoIndex}">Entrada</label>
+                        <input type="time" class="form-control" id="entrada-${pontoIndex}" name="entradas[]">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="saida-almoco-${pontoIndex}">Saída para Almoço</label>
+                        <input type="time" class="form-control" id="saida-almoco-${pontoIndex}" name="saidas_almoco[]">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="retorno-almoco-${pontoIndex}">Retorno do Almoço</label>
+                        <input type="time" class="form-control" id="retorno-almoco-${pontoIndex}" name="retornos_almoco[]">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="saida-${pontoIndex}">Saída</label>
+                        <input type="time" class="form-control" id="saida-${pontoIndex}" name="saidas[]">
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="atividades-${pontoIndex}">Atividades Realizadas</label>
+                        <textarea class="form-control" id="atividades-${pontoIndex}" name="atividades[]" rows="2"></textarea>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('pontos-container').appendChild(pontoRow);
+            
+            // Adicionar evento para remover o ponto
+            pontoRow.querySelector('.remove-ponto').addEventListener('click', function() {
+                pontoRow.remove();
+            });
+        });
+        
+        // Validação do formulário
+        document.getElementById('formMultiploPonto').addEventListener('submit', function(e) {
+            const dataInputs = document.querySelectorAll('input[name="datas[]"]');
+            let valid = false;
+            
+            for (const input of dataInputs) {
+                if (input.value) {
+                    valid = true;
+                    break;
+                }
+            }
+            
+            if (!valid) {
+                e.preventDefault();
+                alert('Por favor, preencha pelo menos uma data para registrar ponto.');
+            }
+        });
     });
 </script>
 {% endblock %}

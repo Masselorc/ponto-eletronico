@@ -190,6 +190,127 @@ def registrar_ponto():
     
     return render_template('main/registrar_ponto.html', form=form)
 
+# CORREÇÃO: Adicionar a rota registrar_multiplo_ponto que está faltando
+@main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
+@login_required
+def registrar_multiplo_ponto():
+    """Rota para registrar múltiplos pontos de uma vez."""
+    # Esta é uma implementação básica da funcionalidade
+    # Pode ser expandida conforme necessário
+    
+    if request.method == 'POST':
+        # Processar o formulário de múltiplos pontos
+        datas = request.form.getlist('datas[]')
+        entradas = request.form.getlist('entradas[]')
+        saidas_almoco = request.form.getlist('saidas_almoco[]')
+        retornos_almoco = request.form.getlist('retornos_almoco[]')
+        saidas = request.form.getlist('saidas[]')
+        atividades = request.form.getlist('atividades[]')
+        
+        # Validar que todas as listas têm o mesmo tamanho
+        if not (len(datas) == len(entradas) == len(saidas_almoco) == len(retornos_almoco) == len(saidas) == len(atividades)):
+            flash('Erro ao processar o formulário. Verifique os dados e tente novamente.', 'danger')
+            return redirect(url_for('main.registrar_multiplo_ponto'))
+        
+        # Processar cada registro
+        registros_criados = 0
+        for i in range(len(datas)):
+            try:
+                # Converter a data de string para objeto date
+                data_str = datas[i]
+                if not data_str:
+                    continue
+                
+                data_obj = datetime.strptime(data_str, '%Y-%m-%d').date()
+                
+                # Verificar se já existe um registro para esta data
+                registro_existente = Ponto.query.filter_by(
+                    user_id=current_user.id,
+                    data=data_obj
+                ).first()
+                
+                if registro_existente:
+                    continue
+                
+                # Converter os horários de string para objeto time
+                entrada = None
+                if entradas[i]:
+                    entrada = datetime.strptime(entradas[i], '%H:%M').time()
+                
+                saida_almoco = None
+                if saidas_almoco[i]:
+                    saida_almoco = datetime.strptime(saidas_almoco[i], '%H:%M').time()
+                
+                retorno_almoco = None
+                if retornos_almoco[i]:
+                    retorno_almoco = datetime.strptime(retornos_almoco[i], '%H:%M').time()
+                
+                saida = None
+                if saidas[i]:
+                    saida = datetime.strptime(saidas[i], '%H:%M').time()
+                
+                # Calcular as horas trabalhadas
+                horas_trabalhadas = None
+                if entrada and saida:
+                    entrada_dt = datetime.combine(data_obj, entrada)
+                    saida_dt = datetime.combine(data_obj, saida)
+                    
+                    # Se a saída for antes da entrada, assume que é do dia seguinte
+                    if saida_dt < entrada_dt:
+                        saida_dt = saida_dt + timedelta(days=1)
+                    
+                    # Calcula a diferença em horas
+                    diferenca = saida_dt - entrada_dt
+                    horas_trabalhadas = diferenca.total_seconds() / 3600
+                    
+                    # Se houver almoço, subtrai o tempo de almoço
+                    if saida_almoco and retorno_almoco:
+                        saida_almoco_dt = datetime.combine(data_obj, saida_almoco)
+                        retorno_almoco_dt = datetime.combine(data_obj, retorno_almoco)
+                        
+                        # Se o retorno for antes da saída, assume que é do dia seguinte
+                        if retorno_almoco_dt < saida_almoco_dt:
+                            retorno_almoco_dt = retorno_almoco_dt + timedelta(days=1)
+                        
+                        # Calcula a diferença em horas
+                        diferenca_almoco = retorno_almoco_dt - saida_almoco_dt
+                        horas_trabalhadas -= diferenca_almoco.total_seconds() / 3600
+                
+                # Criar o registro de ponto
+                registro = Ponto(
+                    user_id=current_user.id,
+                    data=data_obj,
+                    entrada=entrada,
+                    saida_almoco=saida_almoco,
+                    retorno_almoco=retorno_almoco,
+                    saida=saida,
+                    horas_trabalhadas=horas_trabalhadas,
+                    atividades=atividades[i]
+                )
+                
+                # Salvar no banco de dados
+                from app import db
+                db.session.add(registro)
+                registros_criados += 1
+            
+            except Exception as e:
+                logger.error(f"Erro ao processar registro {i}: {str(e)}")
+                continue
+        
+        # Commit das alterações
+        from app import db
+        db.session.commit()
+        
+        if registros_criados > 0:
+            flash(f'{registros_criados} registros de ponto criados com sucesso!', 'success')
+        else:
+            flash('Nenhum registro de ponto foi criado. Verifique os dados e tente novamente.', 'warning')
+        
+        return redirect(url_for('main.dashboard'))
+    
+    # Renderizar o template para o método GET
+    return render_template('main/registrar_multiplo_ponto.html')
+
 @main.route('/editar-ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
