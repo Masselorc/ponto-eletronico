@@ -412,6 +412,49 @@ def calendario():
     # CORREÇÃO: Criar lista de datas de feriados para o template
     feriados_datas = list(feriados_dict.keys())
     
+    # CORREÇÃO: Adicionar cálculo de dias úteis, horas trabalhadas, etc. para o template
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Cria um dicionário de afastamentos para fácil acesso
+    afastamentos_dict = {}
+    for registro in registros:
+        if registro.afastamento:
+            afastamentos_dict[registro.data] = registro.tipo_afastamento
+    
+    # Itera pelos dias do mês
+    for dia in range(1, ultimo_dia.day + 1):
+        data_atual = date(ano_atual, mes_atual, dia)
+        
+        # Verifica se é dia útil (segunda a sexta)
+        if data_atual.weekday() < 5:
+            # Verifica se não é feriado e não é dia de afastamento
+            if data_atual not in feriados_dict and data_atual not in afastamentos_dict:
+                dias_uteis += 1
+    
+    # Processa os registros
+    for registro in registros:
+        if registro.afastamento:
+            # Se for um dia de afastamento
+            dias_afastamento += 1
+        elif registro.horas_trabalhadas:
+            # Se tiver horas trabalhadas registradas
+            dias_trabalhados += 1
+            horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcula a carga horária devida (8h por dia útil)
+    carga_horaria_devida = 8 * dias_uteis
+    
+    # Calcula o saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Calcula a média diária de horas trabalhadas
+    media_diaria = 0
+    if dias_trabalhados > 0:
+        media_diaria = horas_trabalhadas / dias_trabalhados
+    
     # Obtém o nome do mês
     nomes_meses = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -498,6 +541,7 @@ def calendario():
         proximo_ano = ano_atual
     
     # CORREÇÃO: Passar as classes date e timedelta para o template
+    # CORREÇÃO: Adicionar variáveis de horas trabalhadas, dias úteis, etc.
     return render_template('main/calendario.html',
                           calendario=calendario_matriz,
                           mes_atual=mes_atual,
@@ -515,7 +559,14 @@ def calendario():
                           usuario=usuario,
                           usuarios=usuarios,
                           date=date,
-                          timedelta=timedelta)
+                          timedelta=timedelta,
+                          dias_uteis=dias_uteis,
+                          dias_trabalhados=dias_trabalhados,
+                          dias_afastamento=dias_afastamento,
+                          horas_trabalhadas=horas_trabalhadas,
+                          carga_horaria_devida=carga_horaria_devida,
+                          saldo_horas=saldo_horas,
+                          media_diaria=media_diaria)
 
 @main.route('/relatorio-mensal')
 @login_required
