@@ -418,7 +418,7 @@ def nova_atividade(ponto_id):
 @admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
 @login_required
 def excluir_atividade(atividade_id):
-    """Exclui uma atividade registrada"""
+    """Exclui uma atividade"""
     atividade = Atividade.query.get_or_404(atividade_id)
     ponto = Ponto.query.get(atividade.ponto_id)
     user_id = ponto.user_id
@@ -428,47 +428,175 @@ def excluir_atividade(atividade_id):
     flash('Atividade excluída com sucesso!', 'success')
     return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
 
-@admin.route('/relatorio/<int:user_id>/pdf')
+@admin.route('/exportar-pdf/<int:user_id>/<int:mes>/<int:ano>')
 @login_required
-def relatorio_usuario_pdf(user_id):
-    """Gera um relatório em PDF para um usuário"""
+def exportar_pdf(user_id, mes, ano):
+    """Exporta o relatório mensal em PDF"""
     user = User.query.get_or_404(user_id)
     
-    # Obtém o mês e ano da URL ou usa o mês atual
-    mes = request.args.get('mes', datetime.now().month, type=int)
-    ano = request.args.get('ano', datetime.now().year, type=int)
-    
-    # Obtém todos os registros do mês selecionado
+    # Obtém o primeiro e último dia do mês
     primeiro_dia = date(ano, mes, 1)
     if mes == 12:
         ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
     else:
         ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
-    # Gera o PDF usando a função utilitária
-    pdf_path = export_registros_pdf(user_id, mes, ano)
+    # Obtém todos os registros do mês selecionado
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
     
-    if pdf_path:
-        return send_file(pdf_path, as_attachment=True, download_name=f'relatorio_{user.matricula}_{mes}_{ano}.pdf')
-    else:
-        flash('Erro ao gerar o PDF. Tente novamente.', 'danger')
-        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
+    # Obtém feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    feriados_datas = [feriado.data for feriado in feriados]
+    
+    # Calcula o saldo de horas do mês
+    dias_uteis = 0
+    for dia in range(1, ultimo_dia.day + 1):
+        data = date(ano, mes, dia)
+        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
+            dias_uteis += 1
+    
+    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
+    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
+    saldo_horas = horas_trabalhadas - horas_esperadas
+    
+    # Gera o PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading1']
+    subtitle_style = styles['Heading2']
+    normal_style = styles['Normal']
+    
+    # Título
+    elements.append(Paragraph(f"Relatório de Ponto - {user.name}", title_style))
+    elements.append(Spacer(1, 12))
+    
+    # Informações do usuário
+    elements.append(Paragraph(f"Matrícula: {user.matricula}", normal_style))
+    elements.append(Paragraph(f"Vínculo: {user.vinculo}", normal_style))
+    elements.append(Spacer(1, 12))
+    
+    # Informações do período
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes - 1]
+    elements.append(Paragraph(f"Período: {nome_mes}/{ano}", subtitle_style))
+    elements.append(Spacer(1, 12))
+    
+    # Resumo
+    elements.append(Paragraph("Resumo:", subtitle_style))
+    elements.append(Paragraph(f"Dias úteis: {dias_uteis}", normal_style))
+    elements.append(Paragraph(f"Horas esperadas: {horas_esperadas:.2f}h", normal_style))
+    elements.append(Paragraph(f"Horas trabalhadas: {horas_trabalhadas:.2f}h", normal_style))
+    elements.append(Paragraph(f"Saldo de horas: {saldo_horas:.2f}h", normal_style))
+    elements.append(Spacer(1, 12))
+    
+    # Tabela de registros
+    elements.append(Paragraph("Registros:", subtitle_style))
+    elements.append(Spacer(1, 6))
+    
+    # Cabeçalho da tabela
+    data = [['Data', 'Entrada', 'Saída Almoço', 'Retorno Almoço', 'Saída', 'Horas']]
+    
+    # Dados da tabela
+    for registro in registros:
+        entrada = registro.entrada.strftime('%H:%M') if registro.entrada else '-'
+        saida_almoco = registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-'
+        retorno_almoco = registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-'
+        saida = registro.saida.strftime('%H:%M') if registro.saida else '-'
+        horas = f"{registro.horas_trabalhadas:.2f}h" if registro.horas_trabalhadas else '-'
+        
+        data.append([
+            registro.data.strftime('%d/%m/%Y'),
+            entrada,
+            saida_almoco,
+            retorno_almoco,
+            saida,
+            horas
+        ])
+    
+    # Cria a tabela
+    table = Table(data)
+    
+    # Estilo da tabela
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+    ])
+    table.setStyle(style)
+    
+    elements.append(table)
+    
+    # Rodapé
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", normal_style))
+    
+    # Gera o PDF
+    doc.build(elements)
+    
+    # Prepara a resposta
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.mimetype = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name}_{mes}_{ano}.pdf'
+    
+    return response
 
-@admin.route('/relatorio/<int:user_id>/excel')
+@admin.route('/exportar-excel/<int:user_id>/<int:mes>/<int:ano>')
 @login_required
-def relatorio_usuario_excel(user_id):
-    """Gera um relatório em Excel para um usuário"""
+def exportar_excel(user_id, mes, ano):
+    """Exporta o relatório mensal em Excel"""
     user = User.query.get_or_404(user_id)
     
-    # Obtém o mês e ano da URL ou usa o mês atual
-    mes = request.args.get('mes', datetime.now().month, type=int)
-    ano = request.args.get('ano', datetime.now().year, type=int)
-    
-    # Gera o Excel usando a função utilitária
-    excel_path = export_registros_excel(user_id, mes, ano)
-    
-    if excel_path:
-        return send_file(excel_path, as_attachment=True, download_name=f'relatorio_{user.matricula}_{mes}_{ano}.xlsx')
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano, mes, 1)
+    if mes == 12:
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
     else:
-        flash('Erro ao gerar o Excel. Tente novamente.', 'danger')
-        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    
+    # Obtém todos os registros do mês selecionado
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
+    # Gera o Excel
+    output = generate_excel_report(user, registros, mes, ano, feriados_dict)
+    
+    # Prepara a resposta
+    response = make_response(output.getvalue())
+    response.mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name}_{mes}_{ano}.xlsx'
+    
+    return response
