@@ -5,7 +5,8 @@ from xhtml2pdf import pisa
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from io import BytesIO
-from app.models.ponto import Ponto, Feriado, Atividade
+from app.models.ponto import Ponto, Atividade
+from app.models.feriado import Feriado  # Importação corrigida
 from app.models.user import User
 from calendar import monthrange
 
@@ -453,99 +454,3 @@ def generate_excel(user_id, mes, ano):
     except Exception as e:
         current_app.logger.error(f"Erro ao gerar Excel: {e}")
         return None
-
-# Funções de compatibilidade para manter a API existente
-def export_registros_pdf(registros, usuario, mes, ano, output_path):
-    """
-    Função de compatibilidade para manter a API existente
-    Exporta registros de ponto para PDF com visual gráfico
-    """
-    try:
-        # Obtém as atividades para cada registro
-        for registro in registros:
-            registro.atividades_lista = Atividade.query.filter_by(ponto_id=registro.id).all()
-        
-        # Calcula estatísticas do mês
-        estatisticas = calcular_estatisticas_mes(usuario.id, mes, ano)
-        
-        # Nomes dos meses em português
-        nomes_meses = [
-            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-        ]
-        nome_mes = nomes_meses[mes - 1]
-        
-        # Prepara o contexto para o template
-        context = {
-            'registros': registros,
-            'usuario': usuario,
-            'mes': mes,
-            'ano': ano,
-            'nome_mes': nome_mes,
-            'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-            'titulo': f'Relatório de Ponto - {nome_mes}/{ano}',
-            'dias_uteis': estatisticas['dias_uteis'],
-            'dias_trabalhados': estatisticas['dias_trabalhados'],
-            'dias_afastamento': estatisticas['dias_afastamento'],
-            'horas_trabalhadas': estatisticas['horas_trabalhadas'],
-            'carga_horaria_devida': estatisticas['carga_horaria_devida'],
-            'saldo_horas': estatisticas['saldo_horas']
-        }
-        
-        # Cria o PDF
-        return create_pdf('exports/relatorio_ponto_pdf.html', output_path, **context)
-    except Exception as e:
-        current_app.logger.error(f"Erro ao exportar PDF: {e}")
-        return False
-
-def export_registros_excel(registros, usuario, mes, ano, output_path):
-    """
-    Função de compatibilidade para manter a API existente
-    Exporta registros de ponto para Excel com dados brutos
-    """
-    try:
-        # Define os cabeçalhos das colunas
-        headers = {
-            'data': 'Data',
-            'dia_semana': 'Dia da Semana',
-            'entrada': 'Entrada',
-            'saida_almoco': 'Saída Almoço',
-            'retorno_almoco': 'Retorno Almoço',
-            'saida': 'Saída',
-            'horas_trabalhadas': 'Horas Trabalhadas',
-            'afastamento': 'Afastamento',
-            'tipo_afastamento': 'Tipo Afastamento',
-            'observacoes': 'Observações',
-            'atividades': 'Atividades'
-        }
-        
-        # Dias da semana em português
-        dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-        
-        # Prepara os dados para o Excel
-        data = []
-        for registro in registros:
-            # Obtém as atividades para este registro
-            atividades = Atividade.query.filter_by(ponto_id=registro.id).all()
-            atividades_texto = "; ".join([a.descricao for a in atividades]) if atividades else ""
-            
-            row = {
-                'data': registro.data.strftime('%d/%m/%Y') if registro.data else '',
-                'dia_semana': dias_semana[registro.data.weekday()] if registro.data else '',
-                'entrada': registro.entrada.strftime('%H:%M') if registro.entrada else '',
-                'saida_almoco': registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '',
-                'retorno_almoco': registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '',
-                'saida': registro.saida.strftime('%H:%M') if registro.saida else '',
-                'horas_trabalhadas': registro.horas_trabalhadas if registro.horas_trabalhadas else 0,
-                'afastamento': 'Sim' if registro.afastamento else 'Não',
-                'tipo_afastamento': registro.tipo_afastamento if registro.tipo_afastamento else '',
-                'observacoes': registro.observacoes if registro.observacoes else '',
-                'atividades': atividades_texto
-            }
-            data.append(row)
-        
-        # Cria o Excel
-        return create_excel(data, headers, output_path)
-    except Exception as e:
-        current_app.logger.error(f"Erro ao exportar Excel: {e}")
-        return False
