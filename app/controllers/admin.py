@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado
+from app.models.feriado import Feriado  # Importação corrigida do modelo Feriado
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
 from app.forms.ponto import RegistroPontoForm, AtividadeForm
@@ -16,10 +16,12 @@ from app.utils.excel_generator import generate_excel_report
 from app.utils.export import export_registros_pdf, export_registros_excel
 import os
 
+# Blueprint para área administrativa - Versão corrigida Abril 2025
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
 @admin.before_request
 def check_admin():
+    """Verifica se o usuário é administrador antes de acessar qualquer rota"""
     if not current_user.is_authenticated or not current_user.is_admin:
         flash('Acesso restrito a administradores', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -27,17 +29,20 @@ def check_admin():
 @admin.route('/')
 @login_required
 def index():
+    """Página inicial da área administrativa"""
     return render_template('admin/index.html')
 
 @admin.route('/usuarios')
 @login_required
 def listar_usuarios():
+    """Lista todos os usuários cadastrados no sistema"""
     usuarios = User.query.all()
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin.route('/usuario/visualizar/<int:user_id>')
 @login_required
 def visualizar_usuario(user_id):
+    """Visualiza detalhes de um usuário específico"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês atual
@@ -95,6 +100,7 @@ def visualizar_usuario(user_id):
 @admin.route('/usuario/novo', methods=['GET', 'POST'])
 @login_required
 def novo_usuario():
+    """Cria um novo usuário no sistema"""
     form = UserForm()
     if form.validate_on_submit():
         user = User(
@@ -124,6 +130,7 @@ def novo_usuario():
 @admin.route('/usuario/editar/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def editar_usuario(user_id):
+    """Edita um usuário existente"""
     user = User.query.get_or_404(user_id)
     form = UserForm(obj=user)
     
@@ -154,6 +161,7 @@ def editar_usuario(user_id):
 @admin.route('/usuario/excluir/<int:user_id>', methods=['POST'])
 @login_required
 def excluir_usuario(user_id):
+    """Exclui um usuário do sistema"""
     user = User.query.get_or_404(user_id)
     
     if user.id == current_user.id:
@@ -168,12 +176,14 @@ def excluir_usuario(user_id):
 @admin.route('/feriados')
 @login_required
 def listar_feriados():
+    """Lista todos os feriados cadastrados"""
     feriados = Feriado.query.order_by(Feriado.data).all()
     return render_template('admin/feriados.html', feriados=feriados)
 
 @admin.route('/feriado/novo', methods=['GET', 'POST'])
 @login_required
 def novo_feriado():
+    """Cadastra um novo feriado"""
     form = FeriadoForm()
     # Busca todos os feriados existentes para exibir na página
     feriados = Feriado.query.order_by(Feriado.data).all()
@@ -193,6 +203,7 @@ def novo_feriado():
 @admin.route('/feriado/excluir/<int:feriado_id>', methods=['POST'])
 @login_required
 def excluir_feriado(feriado_id):
+    """Exclui um feriado cadastrado"""
     feriado = Feriado.query.get_or_404(feriado_id)
     db.session.delete(feriado)
     db.session.commit()
@@ -202,6 +213,7 @@ def excluir_feriado(feriado_id):
 @admin.route('/relatorios')
 @login_required
 def relatorios():
+    """Página de relatórios administrativos"""
     # Busca todos os usuários, incluindo administradores
     usuarios = User.query.all()
     return render_template('admin/relatorios.html', usuarios=usuarios)
@@ -209,6 +221,7 @@ def relatorios():
 @admin.route('/relatorio/<int:user_id>')
 @login_required
 def relatorio_usuario(user_id):
+    """Exibe relatório detalhado de um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
@@ -271,6 +284,7 @@ def relatorio_usuario(user_id):
 @admin.route('/ponto/editar/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
+    """Edita um registro de ponto existente"""
     ponto = Ponto.query.get_or_404(ponto_id)
     
     if request.method == 'POST':
@@ -310,6 +324,7 @@ def editar_ponto(ponto_id):
 @admin.route('/ponto/novo/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def novo_ponto(user_id):
+    """Cria um novo registro de ponto para um usuário"""
     user = User.query.get_or_404(user_id)
     form = RegistroPontoForm()
     
@@ -372,6 +387,7 @@ def novo_ponto(user_id):
 @admin.route('/ponto/excluir/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id):
+    """Exclui um registro de ponto"""
     ponto = Ponto.query.get_or_404(ponto_id)
     user_id = ponto.user_id
     
@@ -383,6 +399,7 @@ def excluir_ponto(ponto_id):
 @admin.route('/atividade/nova/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def nova_atividade(ponto_id):
+    """Registra uma nova atividade para um ponto"""
     ponto = Ponto.query.get_or_404(ponto_id)
     form = AtividadeForm()
     
@@ -401,6 +418,7 @@ def nova_atividade(ponto_id):
 @admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
 @login_required
 def excluir_atividade(atividade_id):
+    """Exclui uma atividade registrada"""
     atividade = Atividade.query.get_or_404(atividade_id)
     ponto = Ponto.query.get(atividade.ponto_id)
     user_id = ponto.user_id
@@ -413,6 +431,7 @@ def excluir_atividade(atividade_id):
 @admin.route('/relatorio/<int:user_id>/pdf')
 @login_required
 def relatorio_usuario_pdf(user_id):
+    """Gera um relatório em PDF para um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
@@ -426,7 +445,7 @@ def relatorio_usuario_pdf(user_id):
     else:
         ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
-    # Gera o PDF
+    # Gera o PDF usando a função utilitária
     pdf_path = export_registros_pdf(user_id, mes, ano)
     
     if pdf_path:
@@ -438,13 +457,14 @@ def relatorio_usuario_pdf(user_id):
 @admin.route('/relatorio/<int:user_id>/excel')
 @login_required
 def relatorio_usuario_excel(user_id):
+    """Gera um relatório em Excel para um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
     mes = request.args.get('mes', datetime.now().month, type=int)
     ano = request.args.get('ano', datetime.now().year, type=int)
     
-    # Gera o Excel
+    # Gera o Excel usando a função utilitária
     excel_path = export_registros_excel(user_id, mes, ano)
     
     if excel_path:

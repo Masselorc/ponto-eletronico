@@ -2,11 +2,16 @@ import os
 from app import create_app, db
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado
+from app.models.feriado import Feriado  # Importação corrigida do modelo Feriado
 from datetime import datetime, date
 
 # Função para inicializar o banco de dados em produção
+# Versão corrigida - Abril 2025
 def init_production_db():
+    """
+    Inicializa o banco de dados em ambiente de produção.
+    Cria tabelas, usuários padrão e feriados de exemplo.
+    """
     app = create_app()
     
     with app.app_context():
@@ -17,7 +22,7 @@ def init_production_db():
             # Verifica se já existe um usuário administrador
             admin = User.query.filter_by(is_admin=True).first()
             if not admin:
-                # Cria um usuário administrador padrão
+                # Cria um usuário administrador padrão usando variáveis de ambiente
                 admin = User(
                     name=os.getenv('ADMIN_NAME', 'Administrador'),
                     email=os.getenv('ADMIN_EMAIL', 'admin@example.com'),
@@ -70,5 +75,6 @@ def init_production_db():
             print(f'Erro ao inicializar o banco de dados: {e}')
             # Não propagar a exceção para permitir que o script continue
 
+# Ponto de entrada principal
 if __name__ == '__main__':
     init_production_db()
