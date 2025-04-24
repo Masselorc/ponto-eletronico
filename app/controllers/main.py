@@ -1,15 +1,13 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.models.user import User
-from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado
+from app.models.ponto import Ponto, Feriado, Atividade
 from app.forms.ponto import RegistroPontoForm, RegistroMultiploPontoForm, EditarPontoForm, AtividadeForm
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 import logging
 import os
 from app.utils.export import generate_pdf, generate_excel
-from app.utils.error_handlers import handle_errors, validate_input
 
 main = Blueprint('main', __name__)
 
@@ -28,7 +26,6 @@ def perfil():
 
 @main.route('/dashboard')
 @login_required
-@handle_errors
 def dashboard():
     user_id = request.args.get('user_id', type=int)
     
@@ -42,13 +39,7 @@ def dashboard():
         user_id = current_user.id
         usuario = current_user
     else:
-        # Validação de entrada
-        try:
-            validate_input(user_id, lambda x: isinstance(x, int) and x > 0, "ID de usuário inválido")
-            usuario = User.query.get_or_404(user_id)
-        except ValueError as e:
-            flash(str(e), 'danger')
-            return redirect(url_for('main.dashboard'))
+        usuario = User.query.get_or_404(user_id)
     
     # Obtém a data atual
     hoje = date.today()
@@ -75,7 +66,7 @@ def dashboard():
     ).all()
     
     # Cria um dicionário de feriados para fácil acesso
-    feriados_dict = {feriado.data: feriado.nome for feriado in feriados}
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     feriados_datas = set(feriados_dict.keys())
     
     # Obtém o registro de hoje, se existir
@@ -117,7 +108,7 @@ def dashboard():
     # Se for admin, obtém a lista de usuários para o seletor
     usuarios = None
     if current_user.is_admin:
-        usuarios = User.query.filter_by(is_active=True).order_by(User.name).all()
+        usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
     
     # Obtém o nome do mês
     nomes_meses = [
@@ -147,26 +138,10 @@ def dashboard():
 
 @main.route('/calendario')
 @login_required
-@handle_errors
 def calendario():
     user_id = request.args.get('user_id', type=int)
     mes = request.args.get('mes', type=int)
     ano = request.args.get('ano', type=int)
-    
-    # Validação de entrada
-    if mes is not None:
-        try:
-            validate_input(mes, lambda x: 1 <= x <= 12, "Mês inválido")
-        except ValueError as e:
-            flash(str(e), 'danger')
-            return redirect(url_for('main.calendario'))
-    
-    if ano is not None:
-        try:
-            validate_input(ano, lambda x: 2000 <= x <= 2100, "Ano inválido")
-        except ValueError as e:
-            flash(str(e), 'danger')
-            return redirect(url_for('main.calendario'))
     
     # Se o usuário não for admin, só pode ver seu próprio calendário
     if user_id and user_id != current_user.id and not current_user.is_admin:
@@ -178,12 +153,7 @@ def calendario():
         user_id = current_user.id
         usuario = current_user
     else:
-        try:
-            validate_input(user_id, lambda x: isinstance(x, int) and x > 0, "ID de usuário inválido")
-            usuario = User.query.get_or_404(user_id)
-        except ValueError as e:
-            flash(str(e), 'danger')
-            return redirect(url_for('main.calendario'))
+        usuario = User.query.get_or_404(user_id)
     
     # Obtém a data atual
     hoje = date.today()
@@ -227,7 +197,7 @@ def calendario():
     feriados_datas = {feriado.data for feriado in feriados}
     
     # Cria um dicionário de feriados para fácil acesso
-    feriados_dict = {feriado.data: feriado.nome for feriado in feriados}
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
     # Calcula estatísticas
     dias_uteis = 0
@@ -272,7 +242,7 @@ def calendario():
     # Se for admin, obtém a lista de usuários para o seletor
     usuarios = None
     if current_user.is_admin:
-        usuarios = User.query.filter_by(is_active=True).order_by(User.name).all()
+        usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
     
     return render_template('main/calendario.html',
                           usuario=usuario,
@@ -297,7 +267,6 @@ def calendario():
 
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
-@handle_errors
 def registrar_ponto():
     form = RegistroPontoForm()
     
@@ -334,7 +303,6 @@ def registrar_ponto():
 
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
-@handle_errors
 def registrar_multiplo_ponto():
     form = RegistroMultiploPontoForm()
     
@@ -352,13 +320,6 @@ def registrar_multiplo_ponto():
     
     if form.validate_on_submit():
         data_selecionada = form.data.data
-        
-        # Validação de entrada
-        try:
-            validate_input(data_selecionada, lambda x: isinstance(x, date), "Data inválida")
-        except ValueError as e:
-            flash(str(e), 'danger')
-            return render_template('main/registrar_multiplo_ponto.html', form=form)
         
         # Verifica se já existe um registro para esta data
         registro_existente = Ponto.query.filter_by(
@@ -399,44 +360,20 @@ def registrar_multiplo_ponto():
         else:
             # Processa os horários apenas se não for afastamento
             if form.entrada.data:
-                try:
-                    hora, minuto = map(int, form.entrada.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de entrada inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de entrada inválido")
-                    novo_registro.entrada = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para entrada: {e}", 'danger')
-                    return render_template('main/registrar_multiplo_ponto.html', form=form)
+                hora, minuto = map(int, form.entrada.data.split(':'))
+                novo_registro.entrada = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
             
             if form.saida_almoco.data:
-                try:
-                    hora, minuto = map(int, form.saida_almoco.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de saída para almoço inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de saída para almoço inválido")
-                    novo_registro.saida_almoco = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para saída de almoço: {e}", 'danger')
-                    return render_template('main/registrar_multiplo_ponto.html', form=form)
+                hora, minuto = map(int, form.saida_almoco.data.split(':'))
+                novo_registro.saida_almoco = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
             
             if form.retorno_almoco.data:
-                try:
-                    hora, minuto = map(int, form.retorno_almoco.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de retorno do almoço inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de retorno do almoço inválido")
-                    novo_registro.retorno_almoco = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para retorno do almoço: {e}", 'danger')
-                    return render_template('main/registrar_multiplo_ponto.html', form=form)
+                hora, minuto = map(int, form.retorno_almoco.data.split(':'))
+                novo_registro.retorno_almoco = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
             
             if form.saida.data:
-                try:
-                    hora, minuto = map(int, form.saida.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de saída inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de saída inválido")
-                    novo_registro.saida = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para saída: {e}", 'danger')
-                    return render_template('main/registrar_multiplo_ponto.html', form=form)
+                hora, minuto = map(int, form.saida.data.split(':'))
+                novo_registro.saida = datetime.combine(data_selecionada, datetime.min.time().replace(hour=hora, minute=minuto))
             
             # Calcula as horas trabalhadas
             novo_registro.calcular_horas_trabalhadas()
@@ -463,122 +400,104 @@ def registrar_multiplo_ponto():
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
-@handle_errors
 def visualizar_ponto(ponto_id):
-    # Validação de entrada
-    try:
-        validate_input(ponto_id, lambda x: isinstance(x, int) and x > 0, "ID de ponto inválido")
-    except ValueError as e:
-        flash(str(e), 'danger')
-        return redirect(url_for('main.dashboard'))
-    
     ponto = Ponto.query.get_or_404(ponto_id)
     
     # Verifica se o usuário tem permissão para visualizar este ponto
     if ponto.user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para visualizar este ponto.', 'danger')
+        flash('Você não tem permissão para visualizar este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
     
-    # Obtém a atividade associada a este ponto, se houver
-    atividade = Atividade.query.filter_by(ponto_id=ponto_id).first()
+    # Obtém o usuário dono do ponto
+    usuario = User.query.get(ponto.user_id)
     
-    return render_template('main/visualizar_ponto.html', ponto=ponto, atividade=atividade)
+    # Obtém as atividades relacionadas a este ponto
+    atividades = Atividade.query.filter_by(ponto_id=ponto.id).all()
+    
+    return render_template('main/visualizar_ponto.html', ponto=ponto, usuario=usuario, atividades=atividades)
 
 @main.route('/editar-ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
-@handle_errors
 def editar_ponto(ponto_id):
-    # Validação de entrada
-    try:
-        validate_input(ponto_id, lambda x: isinstance(x, int) and x > 0, "ID de ponto inválido")
-    except ValueError as e:
-        flash(str(e), 'danger')
-        return redirect(url_for('main.dashboard'))
-    
     ponto = Ponto.query.get_or_404(ponto_id)
     
     # Verifica se o usuário tem permissão para editar este ponto
     if ponto.user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para editar este ponto.', 'danger')
+        flash('Você não tem permissão para editar este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
     
-    form = EditarPontoForm(obj=ponto)
+    form = EditarPontoForm()
     
-    # Obtém a atividade associada a este ponto, se houver
-    atividade = Atividade.query.filter_by(ponto_id=ponto_id).first()
-    if atividade and hasattr(form, 'atividades'):
-        form.atividades.data = atividade.descricao
+    if request.method == 'GET':
+        # Preenche o formulário com os dados existentes
+        form.data.data = ponto.data
+        form.observacoes.data = ponto.observacoes
+        form.afastamento.data = ponto.afastamento
+        form.tipo_afastamento.data = ponto.tipo_afastamento if ponto.tipo_afastamento else 'outro'
+        
+        # Preenche o campo de atividades com a primeira atividade encontrada
+        atividade = Atividade.query.filter_by(ponto_id=ponto.id).first()
+        if atividade:
+            form.atividades.data = atividade.descricao
+        
+        if ponto.entrada:
+            form.entrada.data = ponto.entrada.strftime('%H:%M')
+        
+        if ponto.saida_almoco:
+            form.saida_almoco.data = ponto.saida_almoco.strftime('%H:%M')
+        
+        if ponto.retorno_almoco:
+            form.retorno_almoco.data = ponto.retorno_almoco.strftime('%H:%M')
+        
+        if ponto.saida:
+            form.saida.data = ponto.saida.strftime('%H:%M')
     
     if form.validate_on_submit():
         # Atualiza os dados do ponto
+        ponto.data = form.data.data
+        ponto.observacoes = form.observacoes.data
         ponto.afastamento = form.afastamento.data
         
         if form.afastamento.data:
             ponto.tipo_afastamento = form.tipo_afastamento.data
+            # Limpa os horários se for afastamento
             ponto.entrada = None
             ponto.saida_almoco = None
             ponto.retorno_almoco = None
             ponto.saida = None
-            ponto.horas_trabalhadas = 0
+            ponto.horas_trabalhadas = None
         else:
             ponto.tipo_afastamento = None
             
             # Processa os horários apenas se não for afastamento
             if form.entrada.data:
-                try:
-                    hora, minuto = map(int, form.entrada.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de entrada inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de entrada inválido")
-                    ponto.entrada = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para entrada: {e}", 'danger')
-                    return render_template('main/editar_ponto.html', form=form, ponto=ponto)
+                hora, minuto = map(int, form.entrada.data.split(':'))
+                ponto.entrada = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
             else:
                 ponto.entrada = None
             
             if form.saida_almoco.data:
-                try:
-                    hora, minuto = map(int, form.saida_almoco.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de saída para almoço inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de saída para almoço inválido")
-                    ponto.saida_almoco = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para saída de almoço: {e}", 'danger')
-                    return render_template('main/editar_ponto.html', form=form, ponto=ponto)
+                hora, minuto = map(int, form.saida_almoco.data.split(':'))
+                ponto.saida_almoco = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
             else:
                 ponto.saida_almoco = None
             
             if form.retorno_almoco.data:
-                try:
-                    hora, minuto = map(int, form.retorno_almoco.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de retorno do almoço inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de retorno do almoço inválido")
-                    ponto.retorno_almoco = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para retorno do almoço: {e}", 'danger')
-                    return render_template('main/editar_ponto.html', form=form, ponto=ponto)
+                hora, minuto = map(int, form.retorno_almoco.data.split(':'))
+                ponto.retorno_almoco = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
             else:
                 ponto.retorno_almoco = None
             
             if form.saida.data:
-                try:
-                    hora, minuto = map(int, form.saida.data.split(':'))
-                    validate_input(hora, lambda x: 0 <= x < 24, "Hora de saída inválida")
-                    validate_input(minuto, lambda x: 0 <= x < 60, "Minuto de saída inválido")
-                    ponto.saida = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
-                except (ValueError, TypeError) as e:
-                    flash(f"Formato de hora inválido para saída: {e}", 'danger')
-                    return render_template('main/editar_ponto.html', form=form, ponto=ponto)
+                hora, minuto = map(int, form.saida.data.split(':'))
+                ponto.saida = datetime.combine(ponto.data, datetime.min.time().replace(hour=hora, minute=minuto))
             else:
                 ponto.saida = None
             
             # Calcula as horas trabalhadas
             ponto.calcular_horas_trabalhadas()
         
-        if hasattr(form, 'observacoes'):
-            ponto.observacoes = form.observacoes.data
-        
-        # Salva as alterações
+        # Salva no banco de dados
         from app import db
         db.session.commit()
         
@@ -599,3 +518,263 @@ def editar_ponto(ponto_id):
         return redirect(url_for('main.visualizar_ponto', ponto_id=ponto.id))
     
     return render_template('main/editar_ponto.html', form=form, ponto=ponto)
+
+@main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
+@login_required
+def registrar_atividade(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Verifica se o usuário tem permissão para registrar atividade neste ponto
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para registrar atividade neste ponto.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    form = AtividadeForm()
+    
+    # Obtém a atividade existente, se houver
+    atividade = Atividade.query.filter_by(ponto_id=ponto.id).first()
+    
+    if request.method == 'GET' and atividade:
+        form.descricao.data = atividade.descricao
+    
+    if form.validate_on_submit():
+        from app import db
+        
+        if atividade:
+            # Atualiza a atividade existente
+            atividade.descricao = form.descricao.data
+        else:
+            # Cria uma nova atividade
+            atividade = Atividade(
+                ponto_id=ponto.id,
+                descricao=form.descricao.data
+            )
+            db.session.add(atividade)
+        
+        db.session.commit()
+        flash('Atividade registrada com sucesso!', 'success')
+        return redirect(url_for('main.visualizar_ponto', ponto_id=ponto.id))
+    
+    return render_template('main/registrar_atividade.html', form=form, ponto=ponto)
+
+@main.route('/relatorio-mensal')
+@login_required
+def relatorio_mensal():
+    user_id = request.args.get('user_id', type=int)
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se o usuário não for admin, só pode ver seu próprio relatório
+    if user_id and user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para visualizar o relatório de outros usuários.', 'danger')
+        return redirect(url_for('main.relatorio_mensal'))
+    
+    # Se não for especificado um user_id ou o usuário não for admin, mostra o próprio relatório
+    if not user_id or not current_user.is_admin:
+        user_id = current_user.id
+        usuario = current_user
+    else:
+        usuario = User.query.get_or_404(user_id)
+    
+    # Obtém a data atual
+    hoje = date.today()
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Se for admin, obtém a lista de usuários para o seletor
+    usuarios = None
+    if current_user.is_admin:
+        usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
+    
+    # Obtém as atividades para cada registro
+    for registro in registros:
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
+    
+    return render_template('main/relatorio_mensal.html',
+                          usuario=usuario,
+                          registros=registros,
+                          hoje=hoje,
+                          mes_atual=mes_atual,
+                          ano_atual=ano_atual,
+                          nome_mes=nome_mes,
+                          feriados_dict=feriados_dict,
+                          feriados_datas=feriados_datas,
+                          usuarios=usuarios)
+
+@main.route('/exportar-pdf')
+@login_required
+def exportar_pdf():
+    user_id = request.args.get('user_id', type=int)
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se o usuário não for admin, só pode exportar seu próprio relatório
+    if user_id and user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
+    if not user_id or not current_user.is_admin:
+        user_id = current_user.id
+        usuario = current_user
+    else:
+        usuario = User.query.get_or_404(user_id)
+    
+    # Obtém a data atual
+    hoje = date.today()
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém o nome do mês
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes_atual - 1]
+    
+    # Obtém as atividades para cada registro
+    for registro in registros:
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
+    
+    # Gera o PDF
+    output_path = os.path.join(current_app.static_folder, 'exports', f'relatorio_{usuario.matricula}_{mes_atual}_{ano_atual}_{int(datetime.now().timestamp())}.pdf')
+    
+    # Garante que o diretório de exportação existe
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Gera o PDF
+    pdf_path = generate_pdf(registros, usuario, mes_atual, ano_atual, output_path, feriados_dict, feriados_datas)
+    
+    # Retorna o arquivo para download
+    return redirect(url_for('static', filename=f'exports/{os.path.basename(pdf_path)}'))
+
+@main.route('/exportar-excel')
+@login_required
+def exportar_excel():
+    user_id = request.args.get('user_id', type=int)
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', type=int)
+    
+    # Se o usuário não for admin, só pode exportar seu próprio relatório
+    if user_id and user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
+    if not user_id or not current_user.is_admin:
+        user_id = current_user.id
+        usuario = current_user
+    else:
+        usuario = User.query.get_or_404(user_id)
+    
+    # Obtém a data atual
+    hoje = date.today()
+    
+    # Se não for especificado mês e ano, usa o mês e ano atuais
+    if not mes or not ano:
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+    else:
+        mes_atual = mes
+        ano_atual = ano
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano_atual, mes_atual, 1)
+    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
+    
+    # Obtém os registros de ponto do mês para o usuário
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém os feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    
+    # Cria um dicionário de feriados para fácil acesso
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    feriados_datas = set(feriados_dict.keys())
+    
+    # Obtém as atividades para cada registro
+    for registro in registros:
+        atividade = Atividade.query.filter_by(ponto_id=registro.id).first()
+        registro.atividades = atividade.descricao if atividade else None
+    
+    # Gera o Excel
+    output_path = os.path.join(current_app.static_folder, 'exports', f'relatorio_{usuario.matricula}_{mes_atual}_{ano_atual}_{int(datetime.now().timestamp())}.xlsx')
+    
+    # Garante que o diretório de exportação existe
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Gera o Excel
+    excel_path = generate_excel(registros, usuario, mes_atual, ano_atual, output_path, feriados_dict, feriados_datas)
+    
+    # Retorna o arquivo para download
+    return redirect(url_for('static', filename=f'exports/{os.path.basename(excel_path)}'))

@@ -2,11 +2,9 @@ import os
 from app import create_app, db
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-# IMPORTANTE: Importação corrigida do modelo Feriado
 from app.models.feriado import Feriado
 from datetime import datetime, date
 
-# VERSÃO CORRIGIDA - ABRIL 2025
 # Função para inicializar o banco de dados em produção
 def init_production_db():
     """
@@ -53,7 +51,7 @@ def init_production_db():
                 user.set_password('demo123')
                 db.session.add(user)
                 
-                # ADICIONADO: Feriados de exemplo para o ano de 2025
+                # Adiciona alguns feriados de exemplo
                 feriados = [
                     Feriado(data=date(2025, 1, 1), descricao='Confraternização Universal'),
                     Feriado(data=date(2025, 4, 21), descricao='Tiradentes'),
@@ -76,6 +74,5 @@ def init_production_db():
             print(f'Erro ao inicializar o banco de dados: {e}')
             # Não propagar a exceção para permitir que o script continue
 
-# Ponto de entrada principal
 if __name__ == '__main__':
     init_production_db()

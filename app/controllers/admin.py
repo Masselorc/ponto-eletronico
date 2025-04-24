@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-# IMPORTANTE: Importação corrigida do modelo Feriado
 from app.models.feriado import Feriado
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
@@ -17,13 +16,12 @@ from app.utils.excel_generator import generate_excel_report
 from app.utils.export import export_registros_pdf, export_registros_excel
 import os
 
-# VERSÃO CORRIGIDA - ABRIL 2025
 # Blueprint para área administrativa
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
 @admin.before_request
 def check_admin():
-    # Verifica se o usuário é administrador antes de acessar qualquer rota
+    """Verifica se o usuário é administrador antes de acessar qualquer rota"""
     if not current_user.is_authenticated or not current_user.is_admin:
         flash('Acesso restrito a administradores', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -31,20 +29,20 @@ def check_admin():
 @admin.route('/')
 @login_required
 def index():
-    # Página inicial da área administrativa
+    """Página inicial da área administrativa"""
     return render_template('admin/index.html')
 
 @admin.route('/usuarios')
 @login_required
 def listar_usuarios():
-    # Lista todos os usuários cadastrados no sistema
+    """Lista todos os usuários cadastrados no sistema"""
     usuarios = User.query.all()
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin.route('/usuario/visualizar/<int:user_id>')
 @login_required
 def visualizar_usuario(user_id):
-    # Visualiza detalhes de um usuário específico
+    """Visualiza detalhes de um usuário específico"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês atual
@@ -72,7 +70,7 @@ def visualizar_usuario(user_id):
     # Calcula as horas trabalhadas no mês
     horas_mes = sum(registro.horas_trabalhadas or 0 for registro in registros_mes)
     
-    # Obtém feriados do mês - CORRIGIDO
+    # Obtém feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
@@ -102,7 +100,7 @@ def visualizar_usuario(user_id):
 @admin.route('/usuario/novo', methods=['GET', 'POST'])
 @login_required
 def novo_usuario():
-    # Cria um novo usuário no sistema
+    """Cria um novo usuário no sistema"""
     form = UserForm()
     if form.validate_on_submit():
         user = User(
@@ -132,7 +130,7 @@ def novo_usuario():
 @admin.route('/usuario/editar/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def editar_usuario(user_id):
-    # Edita um usuário existente
+    """Edita um usuário existente"""
     user = User.query.get_or_404(user_id)
     form = UserForm(obj=user)
     
@@ -163,7 +161,7 @@ def editar_usuario(user_id):
 @admin.route('/usuario/excluir/<int:user_id>', methods=['POST'])
 @login_required
 def excluir_usuario(user_id):
-    # Exclui um usuário do sistema
+    """Exclui um usuário do sistema"""
     user = User.query.get_or_404(user_id)
     
     if user.id == current_user.id:
@@ -178,14 +176,14 @@ def excluir_usuario(user_id):
 @admin.route('/feriados')
 @login_required
 def listar_feriados():
-    # Lista todos os feriados cadastrados
+    """Lista todos os feriados cadastrados"""
     feriados = Feriado.query.order_by(Feriado.data).all()
     return render_template('admin/feriados.html', feriados=feriados)
 
 @admin.route('/feriado/novo', methods=['GET', 'POST'])
 @login_required
 def novo_feriado():
-    # Cadastra um novo feriado
+    """Cadastra um novo feriado"""
     form = FeriadoForm()
     # Busca todos os feriados existentes para exibir na página
     feriados = Feriado.query.order_by(Feriado.data).all()
@@ -205,7 +203,7 @@ def novo_feriado():
 @admin.route('/feriado/excluir/<int:feriado_id>', methods=['POST'])
 @login_required
 def excluir_feriado(feriado_id):
-    # Exclui um feriado cadastrado
+    """Exclui um feriado cadastrado"""
     feriado = Feriado.query.get_or_404(feriado_id)
     db.session.delete(feriado)
     db.session.commit()
@@ -215,7 +213,7 @@ def excluir_feriado(feriado_id):
 @admin.route('/relatorios')
 @login_required
 def relatorios():
-    # Página de relatórios administrativos
+    """Página de relatórios administrativos"""
     # Busca todos os usuários, incluindo administradores
     usuarios = User.query.all()
     return render_template('admin/relatorios.html', usuarios=usuarios)
@@ -223,7 +221,7 @@ def relatorios():
 @admin.route('/relatorio/<int:user_id>')
 @login_required
 def relatorio_usuario(user_id):
-    # Exibe relatório detalhado de um usuário
+    """Exibe relatório detalhado de um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
@@ -247,7 +245,7 @@ def relatorio_usuario(user_id):
     # Organiza os registros por data para fácil acesso no template
     registros_por_data = {registro.data: registro for registro in registros}
     
-    # Obtém feriados do mês - CORRIGIDO
+    # Obtém feriados do mês
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data < ultimo_dia
@@ -286,7 +284,7 @@ def relatorio_usuario(user_id):
 @admin.route('/ponto/editar/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
-    # Edita um registro de ponto existente
+    """Edita um registro de ponto existente"""
     ponto = Ponto.query.get_or_404(ponto_id)
     
     if request.method == 'POST':
@@ -326,7 +324,7 @@ def editar_ponto(ponto_id):
 @admin.route('/ponto/novo/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def novo_ponto(user_id):
-    # Cria um novo registro de ponto para um usuário
+    """Cria um novo registro de ponto para um usuário"""
     user = User.query.get_or_404(user_id)
     form = RegistroPontoForm()
     
@@ -389,7 +387,7 @@ def novo_ponto(user_id):
 @admin.route('/ponto/excluir/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id):
-    # Exclui um registro de ponto
+    """Exclui um registro de ponto"""
     ponto = Ponto.query.get_or_404(ponto_id)
     user_id = ponto.user_id
     
@@ -401,7 +399,7 @@ def excluir_ponto(ponto_id):
 @admin.route('/atividade/nova/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def nova_atividade(ponto_id):
-    # Registra uma nova atividade para um ponto
+    """Registra uma nova atividade para um ponto"""
     ponto = Ponto.query.get_or_404(ponto_id)
     form = AtividadeForm()
     
@@ -420,7 +418,7 @@ def nova_atividade(ponto_id):
 @admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
 @login_required
 def excluir_atividade(atividade_id):
-    # Exclui uma atividade registrada
+    """Exclui uma atividade registrada"""
     atividade = Atividade.query.get_or_404(atividade_id)
     ponto = Ponto.query.get(atividade.ponto_id)
     user_id = ponto.user_id
@@ -430,16 +428,22 @@ def excluir_atividade(atividade_id):
     flash('Atividade excluída com sucesso!', 'success')
     return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
 
-# FUNÇÕES DE EXPORTAÇÃO - CORRIGIDAS
 @admin.route('/relatorio/<int:user_id>/pdf')
 @login_required
 def relatorio_usuario_pdf(user_id):
-    # Gera um relatório em PDF para um usuário
+    """Gera um relatório em PDF para um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
     mes = request.args.get('mes', datetime.now().month, type=int)
     ano = request.args.get('ano', datetime.now().year, type=int)
+    
+    # Obtém todos os registros do mês selecionado
+    primeiro_dia = date(ano, mes, 1)
+    if mes == 12:
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
+    else:
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
     # Gera o PDF usando a função utilitária
     pdf_path = export_registros_pdf(user_id, mes, ano)
@@ -453,7 +457,7 @@ def relatorio_usuario_pdf(user_id):
 @admin.route('/relatorio/<int:user_id>/excel')
 @login_required
 def relatorio_usuario_excel(user_id):
-    # Gera um relatório em Excel para um usuário
+    """Gera um relatório em Excel para um usuário"""
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
