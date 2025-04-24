@@ -4,6 +4,115 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/calendario.css') }}">
+<style>
+    .calendario-table {
+        table-layout: fixed;
+    }
+    
+    .calendario-table td {
+        height: 120px;
+        vertical-align: top;
+        padding: 5px;
+        position: relative;
+    }
+    
+    .numero-dia {
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-bottom: 5px;
+    }
+    
+    .dia-outro-mes {
+        background-color: #f8f9fa;
+        color: #adb5bd;
+    }
+    
+    .hoje {
+        background-color: #e8f4f8;
+        border: 2px solid #0d6efd;
+    }
+    
+    .fim-de-semana {
+        background-color: #f8f9fa;
+    }
+    
+    .feriado {
+        background-color: #ffebee;
+    }
+    
+    .registro-completo {
+        margin-top: 5px;
+    }
+    
+    .horarios {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8em;
+        margin-bottom: 3px;
+    }
+    
+    .entrada, .saida {
+        background-color: #e9ecef;
+        padding: 2px 5px;
+        border-radius: 3px;
+    }
+    
+    .horas-badge, .sem-registro-badge, .feriado-badge, .afastamento-badge {
+        display: inline-block;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 0.8em;
+        margin-top: 3px;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .horas-completas {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .horas-parciais {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .sem-registro-badge {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .feriado-badge {
+        background-color: #ffebee;
+        color: #b71c1c;
+    }
+    
+    .afastamento-badge {
+        background-color: #e2d9f3;
+        color: #6f42c1;
+    }
+    
+    .ferias-badge {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .licenca-badge {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .abono-badge {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .acoes-dia {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -167,7 +276,7 @@
                                             
                                             {% if data_atual in feriados_datas %}
                                                 <div class="feriado-badge">
-                                                    <i class="fas fa-star me-1"></i> Feriado
+                                                    <i class="fas fa-star me-1"></i> Feriado: {{ feriados_dict.get(data_atual, 'Feriado') }}
                                                 </div>
                                             {% endif %}
                                         </td>
@@ -224,11 +333,11 @@
                                                         <div class="registro-completo">
                                                             <div class="horarios">
                                                                 {% if registro.entrada %}
-                                                                    <span class="entrada">{{ registro.entrada.strftime('%H:%M') }}</span>
+                                                                    <span class="entrada"><i class="fas fa-sign-in-alt text-success"></i> {{ registro.entrada.strftime('%H:%M') }}</span>
                                                                 {% endif %}
                                                                 
                                                                 {% if registro.saida %}
-                                                                    <span class="saida">{{ registro.saida.strftime('%H:%M') }}</span>
+                                                                    <span class="saida"><i class="fas fa-sign-out-alt text-danger"></i> {{ registro.saida.strftime('%H:%M') }}</span>
                                                                 {% endif %}
                                                             </div>
                                                             <div class="horas-badge {% if registro.horas_trabalhadas >= 8 %}horas-completas{% else %}horas-parciais{% endif %}">
@@ -262,13 +371,13 @@
                                                 
                                                 {% if data_atual in feriados_datas %}
                                                     <div class="feriado-badge">
-                                                        <i class="fas fa-star me-1"></i> Feriado
+                                                        <i class="fas fa-star me-1"></i> Feriado: {{ feriados_dict.get(data_atual, 'Feriado') }}
                                                     </div>
                                                 {% endif %}
                                             </td>
                                         {% else %}
-                                            {% set dia_proximo = dia_atual - total_dias %}
-                                            <td class="dia-outro-mes">{{ dia_proximo }}</td>
+                                            {% set dia_proximo = ultimo_dia + timedelta(days=(dia_atual - total_dias)) %}
+                                            <td class="dia-outro-mes">{{ dia_proximo.day }}</td>
                                         {% endif %}
                                     {% endfor %}
                                 </tr>
@@ -281,41 +390,40 @@
     </div>
 </div>
 
-<!-- Resumo do Mês -->
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Resumo do Mês ({{ nome_mes }} de {{ ano_atual }})</h5>
+                <h5 class="mb-0">Registros do Mês</h5>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3">
-                        <div class="card bg-light">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Dias Úteis</h6>
                                 <h3 class="card-title">{{ dias_uteis }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card bg-light">
+                    <div class="col-md-3">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Dias Trabalhados</h6>
                                 <h3 class="card-title">{{ dias_trabalhados }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card bg-light">
+                    <div class="col-md-3">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Dias de Afastamento</h6>
                                 <h3 class="card-title">{{ dias_afastamento }}</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card bg-light">
+                    <div class="col-md-3">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Dias Pendentes</h6>
                                 <h3 class="card-title">{{ dias_uteis - dias_trabalhados - dias_afastamento }}</h3>
@@ -324,183 +432,109 @@
                     </div>
                 </div>
                 
-                <div class="row mt-3">
-                    <div class="col-md-4 mb-3">
-                        <div class="card bg-light">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Horas Trabalhadas</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(horas_trabalhadas) }}</h3>
+                                <h3 class="card-title">{{ "%.1f"|format(horas_trabalhadas) }}h</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card bg-light">
+                    <div class="col-md-4">
+                        <div class="card">
                             <div class="card-body text-center">
                                 <h6 class="card-subtitle mb-2 text-muted">Carga Horária Devida</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(carga_horaria_devida) }}</h3>
-                                <small class="text-muted">8h × {{ dias_uteis - dias_afastamento }} dias úteis efetivos</small>
+                                <h3 class="card-title">{{ "%.1f"|format(carga_horaria_devida) }}h</h3>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card {% if saldo_horas >= 0 %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                    <div class="col-md-4">
+                        <div class="card">
                             <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 {% if saldo_horas >= 0 %}text-white{% else %}text-white{% endif %}">Saldo de Horas</h6>
-                                <h3 class="card-title">{{ "%.1f"|format(saldo_horas) }}</h3>
+                                <h6 class="card-subtitle mb-2 text-muted">Saldo de Horas</h6>
+                                <h3 class="card-title {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.1f"|format(saldo_horas) }}h
+                                </h3>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer text-end">
-                <a href="{{ url_for('main.dashboard', user_id=usuario.id) }}" class="btn btn-outline-primary">
-                    <i class="fas fa-tachometer-alt me-2"></i>Ver Dashboard
-                </a>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Entrada</th>
+                                <th>Saída Almoço</th>
+                                <th>Retorno Almoço</th>
+                                <th>Saída</th>
+                                <th>Horas</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for registro in registros.values()|sort(attribute='data') %}
+                            <tr>
+                                <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    {% if registro.afastamento %}
+                                        {% if registro.tipo_afastamento == "ferias" %}
+                                            <span class="badge bg-info">Férias</span>
+                                        {% elif registro.tipo_afastamento == "licenca_medica" %}
+                                            <span class="badge bg-warning">Licença Médica</span>
+                                        {% elif registro.tipo_afastamento == "licenca_maternidade" %}
+                                            <span class="badge bg-warning">Licença Maternidade</span>
+                                        {% elif registro.tipo_afastamento == "abono" %}
+                                            <span class="badge bg-info">Abono</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Afastamento</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-success">Trabalho</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }}</td>
+                                <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--' }}</td>
+                                <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--' }}</td>
+                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}</td>
+                                <td>
+                                    {% if registro.afastamento %}
+                                        --
+                                    {% else %}
+                                        {{ "%.1f"|format(registro.horas_trabalhadas) if registro.horas_trabalhadas else '0.0' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center">Nenhum registro encontrado para este mês</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block styles %}
-<style>
-    .calendario-table {
-        table-layout: fixed;
-    }
-    
-    .calendario-table td {
-        height: 120px;
-        vertical-align: top;
-        padding: 5px;
-        position: relative;
-    }
-    
-    .numero-dia {
-        font-weight: bold;
-        font-size: 1.2em;
-        margin-bottom: 5px;
-    }
-    
-    .dia-outro-mes {
-        background-color: #f8f9fa;
-        color: #adb5bd;
-    }
-    
-    .hoje {
-        background-color: #e8f4f8;
-        border: 2px solid #0d6efd;
-    }
-    
-    .fim-de-semana {
-        background-color: #f8f9fa;
-    }
-    
-    .feriado {
-        background-color: #ffebee;
-    }
-    
-    .registro-completo {
-        margin-top: 5px;
-    }
-    
-    .horarios {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.8em;
-        margin-bottom: 3px;
-    }
-    
-    .entrada, .saida {
-        background-color: #e9ecef;
-        padding: 2px 5px;
-        border-radius: 3px;
-    }
-    
-    .horas-badge, .sem-registro-badge, .feriado-badge, .afastamento-badge {
-        display: inline-block;
-        padding: 3px 6px;
-        border-radius: 3px;
-        font-size: 0.8em;
-        margin-top: 3px;
-        width: 100%;
-        text-align: center;
-    }
-    
-    .horas-completas {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    
-    .horas-parciais {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-    
-    .sem-registro-badge {
-        background-color: #e9ecef;
-        color: #6c757d;
-    }
-    
-    .feriado-badge {
-        background-color: #ffebee;
-        color: #b71c1c;
-    }
-    
-    .afastamento-badge {
-        background-color: #e2d9f3;
-        color: #6f42c1;
-    }
-    
-    .ferias-badge {
-        background-color: #d1ecf1;
-        color: #0c5460;
-    }
-    
-    .licenca-badge {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-    
-    .abono-badge {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    
-    .outro-badge {
-        background-color: #e2d9f3;
-        color: #6f42c1;
-    }
-    
-    .acoes-dia {
-        position: absolute;
-        bottom: 5px;
-        right: 5px;
-    }
-</style>
-{% endblock %}
-
-{% block scripts %}
 <script>
-    // Seletor de usuário para administradores
     document.addEventListener('DOMContentLoaded', function() {
+        const usuarioSelect = document.getElementById('usuario-select');
         const btnVisualizar = document.getElementById('btn-visualizar');
+        
         if (btnVisualizar) {
             btnVisualizar.addEventListener('click', function() {
-                const usuarioId = document.getElementById('usuario-select').value;
-                const urlAtual = new URL(window.location.href);
-                const params = new URLSearchParams(urlAtual.search);
-                
-                // Preserva os parâmetros de mês e ano
-                const mes = params.get('mes');
-                const ano = params.get('ano');
-                
-                let url = `/calendario/${usuarioId}`;
-                
-                if (mes && ano) {
-                    url += `?mes=${mes}&ano=${ano}`;
-                }
-                
-                window.location.href = url;
+                const userId = usuarioSelect.value;
+                window.location.href = "{{ url_for('main.calendario') }}?user_id=" + userId;
             });
         }
     });

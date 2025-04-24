@@ -84,6 +84,7 @@
                                 <th>Retorno Almoço</th>
                                 <th>Saída</th>
                                 <th>Horas Trabalhadas</th>
+                                <th>Atividades</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -93,18 +94,18 @@
                                 {% set registro = registros_por_data.get(data_atual) %}
                                 {% set is_feriado = data_atual in feriados_datas %}
                                 
-                                {% if registro or (data_atual.weekday() < 5 and not is_feriado) %}
-                                <tr>
+                                {% if registro or (data_atual.weekday() < 5 and not is_feriado) or is_feriado %}
+                                <tr {% if is_feriado %}class="table-danger"{% endif %}>
                                     <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
                                     
                                     {% if is_feriado %}
-                                        <td colspan="5" class="text-center">
+                                        <td colspan="6" class="text-center">
                                             <span class="badge bg-danger">
                                                 <i class="fas fa-star me-1"></i> Feriado: {{ feriados_dict.get(data_atual, 'Feriado') }}
                                             </span>
                                         </td>
                                     {% elif registro and registro.afastamento %}
-                                        <td colspan="5" class="text-center">
+                                        <td colspan="6" class="text-center">
                                             <span class="badge bg-purple">
                                                 {% if registro.tipo_afastamento == 'ferias' %}
                                                     <i class="fas fa-umbrella-beach me-1"></i> Férias
@@ -133,6 +134,13 @@
                                                 <span class="badge bg-secondary">Pendente</span>
                                             {% endif %}
                                         </td>
+                                        <td>
+                                            {% if registro.atividades %}
+                                                {{ registro.atividades }}
+                                            {% else %}
+                                                <span class="text-muted">Sem atividades registradas</span>
+                                            {% endif %}
+                                        </td>
                                     {% else %}
                                         <td>--:--</td>
                                         <td>--:--</td>
@@ -140,6 +148,9 @@
                                         <td>--:--</td>
                                         <td>
                                             <span class="badge bg-secondary">Sem registro</span>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">Sem atividades registradas</span>
                                         </td>
                                     {% endif %}
                                     
@@ -168,7 +179,7 @@
                                 {% endif %}
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center">Nenhum registro encontrado para este mês</td>
+                                <td colspan="8" class="text-center">Nenhum registro encontrado para este mês</td>
                             </tr>
                             {% endfor %}
                         </tbody>
