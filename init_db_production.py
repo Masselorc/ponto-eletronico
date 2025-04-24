@@ -2,11 +2,12 @@ import os
 from app import create_app, db
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado  # Importação corrigida do modelo Feriado
+# IMPORTANTE: Importação corrigida do modelo Feriado
+from app.models.feriado import Feriado
 from datetime import datetime, date
 
+# VERSÃO CORRIGIDA - ABRIL 2025
 # Função para inicializar o banco de dados em produção
-# Versão corrigida - Abril 2025
 def init_production_db():
     """
     Inicializa o banco de dados em ambiente de produção.
@@ -52,7 +53,7 @@ def init_production_db():
                 user.set_password('demo123')
                 db.session.add(user)
                 
-                # Adiciona alguns feriados de exemplo
+                # ADICIONADO: Feriados de exemplo para o ano de 2025
                 feriados = [
                     Feriado(data=date(2025, 1, 1), descricao='Confraternização Universal'),
                     Feriado(data=date(2025, 4, 21), descricao='Tiradentes'),
