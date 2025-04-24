@@ -1,7 +1,24 @@
 from app import db
 from datetime import datetime, date, timedelta
+from app.models.feriado import Feriado
 
 class Ponto(db.Model):
+    """
+    Modelo para representar registros de ponto no sistema.
+    
+    Atributos:
+        id (int): Identificador único do registro de ponto
+        user_id (int): ID do usuário associado ao registro
+        data (date): Data do registro
+        entrada (datetime): Horário de entrada
+        saida_almoco (datetime): Horário de saída para almoço
+        retorno_almoco (datetime): Horário de retorno do almoço
+        saida (datetime): Horário de saída
+        horas_trabalhadas (float): Total de horas trabalhadas
+        afastamento (bool): Indica se é um registro de afastamento
+        tipo_afastamento (str): Tipo de afastamento, se aplicável
+        observacoes (str): Observações sobre o registro
+    """
     __tablename__ = 'pontos'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -20,13 +37,30 @@ class Ponto(db.Model):
     atividades = db.relationship('Atividade', backref='ponto', lazy=True, cascade="all, delete-orphan")
     
     def calcular_horas_trabalhadas(self):
-        """Calcula as horas trabalhadas com base nos horários registrados"""
+        """
+        Calcula as horas trabalhadas com base nos horários registrados.
+        
+        Se for um registro de afastamento, as horas trabalhadas são zero.
+        Caso contrário, calcula com base nos horários de entrada, saída para almoço,
+        retorno do almoço e saída.
+        
+        Validações são aplicadas para garantir que os horários estejam em ordem cronológica.
+        """
         if self.afastamento:
             self.horas_trabalhadas = 0
             return
             
         total_horas = 0
         
+        # Validar ordem cronológica dos horários
+        if self.entrada and self.saida_almoco and self.entrada > self.saida_almoco:
+            # Se os horários estiverem fora de ordem, não calcula
+            return
+            
+        if self.retorno_almoco and self.saida and self.retorno_almoco > self.saida:
+            # Se os horários estiverem fora de ordem, não calcula
+            return
+            
         # Período da manhã (entrada até saída para almoço)
         if self.entrada and self.saida_almoco:
             delta_manha = self.saida_almoco - self.entrada
@@ -45,9 +79,19 @@ class Ponto(db.Model):
         self.horas_trabalhadas = round(total_horas, 1)
     
     def __repr__(self):
+        """Representação em string do objeto."""
         return f'<Ponto {self.data} - Usuário {self.user_id}>'
 
 class Atividade(db.Model):
+    """
+    Modelo para representar atividades associadas a registros de ponto.
+    
+    Atributos:
+        id (int): Identificador único da atividade
+        ponto_id (int): ID do registro de ponto associado
+        descricao (str): Descrição da atividade
+        created_at (datetime): Data e hora de criação da atividade
+    """
     __tablename__ = 'atividades'
     __table_args__ = {'extend_existing': True}
     
@@ -57,31 +101,5 @@ class Atividade(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
+        """Representação em string do objeto."""
         return f'<Atividade {self.id} - Ponto {self.ponto_id}>'
-
-class Feriado(db.Model):
-    __tablename__ = 'feriados'
-    __table_args__ = {'extend_existing': True}
-    
-    id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.Date, nullable=False, unique=True)
-    descricao = db.Column(db.String(100), nullable=False)
-    
-    @property
-    def nome(self):
-        return self.descricao
-        
-    @property
-    def tipo(self):
-        return 'nacional'
-        
-    @property
-    def created_at(self):
-        return datetime.now()
-        
-    @property
-    def updated_at(self):
-        return datetime.now()
-    
-    def __repr__(self):
-        return f'<Feriado {self.data} - {self.descricao}>'
