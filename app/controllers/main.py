@@ -1,11 +1,14 @@
 from datetime import datetime, date, timedelta
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.models.ponto import Ponto
 from app.models.user import User
 from app.models.feriado import Feriado
 from app.forms.ponto import RegistroPontoForm, RegistroMultiploPontoForm, EditarPontoForm
+from app.utils.export import export_registros_pdf, export_registros_excel
+import os
 import logging
+from datetime import datetime
 
 # Configuração de logging
 logger = logging.getLogger(__name__)
@@ -285,6 +288,9 @@ def registrar_multiplo_ponto():
             form.data.data = data_selecionada
         except ValueError:
             flash('Formato de data inválido.', 'danger')
+    else:
+        # Preenche com a data atual se não for fornecida
+        form.data.data = datetime.now().date()
     
     if form.validate_on_submit():
         data_selecionada = form.data.data
@@ -402,11 +408,8 @@ def editar_ponto(ponto_id):
             ponto.saida_almoco = None
             ponto.retorno_almoco = None
             ponto.saida = None
-            ponto.horas_trabalhadas = None
-            logger.info(f"Atualizando registro para afastamento: {form.tipo_afastamento.data}")
+            ponto.horas_trabalhadas = 0
         else:
-            ponto.tipo_afastamento = None
-            
             # Processa os horários apenas se não for afastamento
             if form.entrada.data:
                 hora, minuto = map(int, form.entrada.data.split(':'))
@@ -444,20 +447,169 @@ def editar_ponto(ponto_id):
     
     return render_template('main/editar_ponto.html', form=form, ponto=ponto)
 
+@main.route('/excluir-ponto/<int:ponto_id>', methods=['POST'])
+@login_required
+def excluir_ponto(ponto_id):
+    ponto = Ponto.query.get_or_404(ponto_id)
+    
+    # Verifica se o usuário tem permissão para excluir este ponto
+    if not current_user.is_admin:
+        flash('Você não tem permissão para excluir registros.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Exclui o registro
+    from app import db
+    db.session.delete(ponto)
+    db.session.commit()
+    
+    flash('Registro de ponto excluído com sucesso!', 'success')
+    return redirect(url_for('main.calendario', user_id=ponto.user_id))
+
 @main.route('/perfil')
 @login_required
 def perfil():
     return render_template('main/perfil.html')
 
-@main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
+@main.route('/exportar-pdf/<int:user_id>/<int:mes>/<int:ano>')
 @login_required
-def registrar_atividade(ponto_id):
-    ponto = Ponto.query.get_or_404(ponto_id)
-    
-    # Verifica se o usuário tem permissão para registrar atividade neste ponto
-    if ponto.user_id != current_user.id:
-        flash('Você não tem permissão para registrar atividade neste ponto.', 'danger')
+def exportar_pdf(user_id, mes, ano):
+    # Verifica se o usuário tem permissão para exportar este relatório
+    if user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para exportar este relatório.', 'danger')
         return redirect(url_for('main.dashboard'))
     
-    # Implementação futura
-    return render_template('main/registrar_atividade.html', ponto=ponto)
+    # Obtém o usuário
+    usuario = User.query.get_or_404(user_id)
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano, mes, 1)
+    if mes == 12:
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
+    else:
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    
+    # Obtém todos os registros do mês
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Obtém feriados do mês
+    feriados = Feriado.query.filter(
+        Feriado.data >= primeiro_dia,
+        Feriado.data <= ultimo_dia
+    ).all()
+    feriados_datas = [feriado.data for feriado in feriados]
+    
+    # Nomes dos meses em português
+    nomes_meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    nome_mes = nomes_meses[mes - 1]  # Ajuste para índice 0-based
+    
+    # Calcular estatísticas do mês
+    dias_uteis = 0
+    dias_trabalhados = 0
+    dias_afastamento = 0
+    horas_trabalhadas = 0
+    
+    # Calcular dias úteis e estatísticas
+    for dia in range(1, ultimo_dia.day + 1):
+        data = date(ano, mes, dia)
+        
+        # Verifica se é dia útil (seg-sex e não é feriado)
+        if data.weekday() < 5 and data not in feriados_datas:
+            dias_uteis += 1
+            
+            # Verifica se tem registro para este dia
+            registro = next((r for r in registros if r.data == data), None)
+            if registro:
+                # Verifica se é afastamento
+                if registro.afastamento:
+                    dias_afastamento += 1
+                # Se não for afastamento e tiver horas trabalhadas, conta como dia trabalhado
+                elif registro.horas_trabalhadas:
+                    dias_trabalhados += 1
+                    horas_trabalhadas += registro.horas_trabalhadas
+    
+    # Calcular carga horária devida (8h por dia útil, excluindo afastamentos)
+    dias_uteis_efetivos = dias_uteis - dias_afastamento
+    carga_horaria_devida = dias_uteis_efetivos * 8
+    
+    # Calcular saldo de horas
+    saldo_horas = horas_trabalhadas - carga_horaria_devida
+    
+    # Cria o diretório de exportação se não existir
+    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
+    os.makedirs(export_dir, exist_ok=True)
+    
+    # Define o nome do arquivo
+    filename = f"relatorio_{usuario.matricula}_{mes:02d}_{ano}.pdf"
+    output_path = os.path.join(export_dir, filename)
+    
+    # Exporta o PDF
+    context = {
+        'registros': registros,
+        'usuario': usuario,
+        'mes': mes,
+        'ano': ano,
+        'nome_mes': nome_mes,
+        'dias_uteis': dias_uteis,
+        'dias_trabalhados': dias_trabalhados,
+        'dias_afastamento': dias_afastamento,
+        'horas_trabalhadas': horas_trabalhadas,
+        'carga_horaria_devida': carga_horaria_devida,
+        'saldo_horas': saldo_horas
+    }
+    
+    success = export_registros_pdf(registros, usuario, mes, ano, output_path)
+    
+    if success:
+        return send_file(output_path, as_attachment=True)
+    else:
+        flash('Erro ao gerar o PDF. Tente novamente.', 'danger')
+        return redirect(url_for('main.calendario', user_id=user_id))
+
+@main.route('/exportar-excel/<int:user_id>/<int:mes>/<int:ano>')
+@login_required
+def exportar_excel(user_id, mes, ano):
+    # Verifica se o usuário tem permissão para exportar este relatório
+    if user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para exportar este relatório.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+    # Obtém o usuário
+    usuario = User.query.get_or_404(user_id)
+    
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano, mes, 1)
+    if mes == 12:
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
+    else:
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
+    
+    # Obtém todos os registros do mês
+    registros = Ponto.query.filter(
+        Ponto.user_id == user_id,
+        Ponto.data >= primeiro_dia,
+        Ponto.data <= ultimo_dia
+    ).order_by(Ponto.data).all()
+    
+    # Cria o diretório de exportação se não existir
+    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
+    os.makedirs(export_dir, exist_ok=True)
+    
+    # Define o nome do arquivo
+    filename = f"dados_ponto_{usuario.matricula}_{mes:02d}_{ano}.xlsx"
+    output_path = os.path.join(export_dir, filename)
+    
+    # Exporta o Excel
+    success = export_registros_excel(registros, usuario, mes, ano, output_path)
+    
+    if success:
+        return send_file(output_path, as_attachment=True)
+    else:
+        flash('Erro ao gerar o Excel. Tente novamente.', 'danger')
+        return redirect(url_for('main.calendario', user_id=user_id))

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titulo }}</title>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ titulo }}</h1>
+        <p>Usuário: {{ usuario.name }} ({{ usuario.matricula }})</p>
+        <p>Vínculo: {{ usuario.vinculo }}</p>
+        <p>Gerado em: {{ data_geracao }}</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Resumo do Mês</h2>
+        </div>
+        <div class="card-body">
+            <table>
+                <tr>
+                    <th>Dias Úteis</th>
+                    <th>Dias Trabalhados</th>
+                    <th>Dias de Afastamento</th>
+                    <th>Dias Pendentes</th>
+                </tr>
+                <tr>
+                    <td class="text-center">{{ dias_uteis }}</td>
+                    <td class="text-center">{{ dias_trabalhados }}</td>
+                    <td class="text-center">{{ dias_afastamento }}</td>
+                    <td class="text-center">{{ dias_uteis - dias_trabalhados - dias_afastamento }}</td>
+                </tr>
+            </table>
+
+            <table>
+                <tr>
+                    <th>Horas Trabalhadas</th>
+                    <th>Carga Horária Devida</th>
+                    <th>Saldo de Horas</th>
+                </tr>
+                <tr>
+                    <td class="text-center">{{ "%.1f"|format(horas_trabalhadas) }}</td>
+                    <td class="text-center">{{ "%.1f"|format(carga_horaria_devida) }}</td>
+                    <td class="text-center">
+                        <span class="badge {% if saldo_horas >= 0 %}badge-success{% else %}badge-danger{% endif %}">
+                            {{ "%.1f"|format(saldo_horas) }}
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Registros Detalhados</h2>
+        </div>
+        <div class="card-body">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Entrada</th>
+                        <th>Saída Almoço</th>
+                        <th>Retorno Almoço</th>
+                        <th>Saída</th>
+                        <th>Horas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros %}
+                    <tr>
+                        <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if registro.afastamento %}
+                                {% if registro.tipo_afastamento == "ferias" %}
+                                    <span class="badge badge-info">Férias</span>
+                                {% elif registro.tipo_afastamento == "licenca_medica" %}
+                                    <span class="badge badge-warning">Licença Médica</span>
+                                {% elif registro.tipo_afastamento == "licenca_maternidade" %}
+                                    <span class="badge badge-warning">Licença Maternidade</span>
+                                {% elif registro.tipo_afastamento == "abono" %}
+                                    <span class="badge badge-info">Abono</span>
+                                {% else %}
+                                    <span class="badge badge-info">Afastamento</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge badge-success">Trabalho</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                        <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                        <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                        <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                        <td class="text-center">
+                            {% if registro.afastamento %}
+                                -
+                            {% else %}
+                                {{ "%.1f"|format(registro.horas_trabalhadas) if registro.horas_trabalhadas else '0.0' }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if registro.observacoes %}
+                    <tr>
+                        <td colspan="7" class="text-muted">
+                            <strong>Observações:</strong> {{ registro.observacoes }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Sistema de Ponto Eletrônico - SENAPPEN</p>
+        <p>Este documento foi gerado automaticamente e não requer assinatura.</p>
+    </div>
+</body>
+</html>

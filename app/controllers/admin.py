@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, make_response
+from flask import Blueprint, render_template, redirect, url_for, flash, request, make_response, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade, Feriado
@@ -12,6 +12,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from app.utils.excel_generator import generate_excel_report
+from app.utils.export import export_registros_pdf, export_registros_excel
+import os
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -172,6 +174,9 @@ def listar_feriados():
 @login_required
 def novo_feriado():
     form = FeriadoForm()
+    # Busca todos os feriados existentes para exibir na página
+    feriados = Feriado.query.order_by(Feriado.data).all()
+    
     if form.validate_on_submit():
         feriado = Feriado(
             data=form.data.data,
@@ -180,9 +185,9 @@ def novo_feriado():
         db.session.add(feriado)
         db.session.commit()
         flash('Feriado registrado com sucesso!', 'success')
-        return redirect(url_for('admin.listar_feriados'))
+        return redirect(url_for('admin.novo_feriado'))
     
-    return render_template('admin/form_feriado.html', form=form, title='Novo Feriado')
+    return render_template('admin/form_feriado.html', form=form, title='Novo Feriado', feriados=feriados)
 
 @admin.route('/feriado/excluir/<int:feriado_id>', methods=['POST'])
 @login_required
@@ -191,7 +196,7 @@ def excluir_feriado(feriado_id):
     db.session.delete(feriado)
     db.session.commit()
     flash('Feriado excluído com sucesso!', 'success')
-    return redirect(url_for('admin.listar_feriados'))
+    return redirect(url_for('admin.novo_feriado'))
 
 @admin.route('/relatorios')
 @login_required
@@ -209,18 +214,22 @@ def relatorio_usuario(user_id):
     mes = request.args.get('mes', datetime.now().month, type=int)
     ano = request.args.get('ano', datetime.now().year, type=int)
     
-    # Obtém todos os registros do mês selecionado
-    primeiro_dia = datetime(ano, mes, 1).date()
+    # Obtém o primeiro e último dia do mês
+    primeiro_dia = date(ano, mes, 1)
     if mes == 12:
-        ultimo_dia = datetime(ano + 1, 1, 1).date()
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
     else:
-        ultimo_dia = datetime(ano, mes + 1, 1).date()
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
+    # Obtém todos os registros do mês selecionado
     registros = Ponto.query.filter(
         Ponto.user_id == user_id,
         Ponto.data >= primeiro_dia,
         Ponto.data < ultimo_dia
     ).order_by(Ponto.data).all()
+    
+    # Organiza os registros por data para fácil acesso no template
+    registros_por_data = {registro.data: registro for registro in registros}
     
     # Obtém feriados do mês
     feriados = Feriado.query.filter(
@@ -229,12 +238,13 @@ def relatorio_usuario(user_id):
     ).all()
     feriados_datas = [feriado.data for feriado in feriados]
     
+    # Cria um dicionário de feriados para exibir as descrições
+    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
+    
     # Calcula o saldo de horas do mês
     dias_uteis = 0
-    for dia in range(1, ultimo_dia.day if mes != 12 else 32):
-        data = datetime(ano, mes, dia).date()
-        if data.month != mes:  # Para meses com menos de 31 dias
-            break
+    for dia in range(1, ultimo_dia.day + 1):
+        data = date(ano, mes, dia)
         if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
             dias_uteis += 1
     
@@ -245,8 +255,14 @@ def relatorio_usuario(user_id):
     return render_template('admin/relatorio_usuario.html', 
                           user=user,
                           registros=registros,
+                          registros_por_data=registros_por_data,
                           mes=mes,
                           ano=ano,
+                          primeiro_dia=primeiro_dia,
+                          ultimo_dia=ultimo_dia,
+                          feriados_datas=feriados_datas,
+                          feriados_dict=feriados_dict,
+                          date=date,
                           horas_esperadas=horas_esperadas,
                           horas_trabalhadas=horas_trabalhadas,
                           saldo_horas=saldo_horas)
@@ -295,6 +311,15 @@ def editar_ponto(ponto_id):
 def novo_ponto(user_id):
     user = User.query.get_or_404(user_id)
     form = RegistroPontoForm()
+    
+    # Se uma data for fornecida via GET, preenche o formulário
+    data_str = request.args.get('data')
+    if data_str:
+        try:
+            data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
+            form.data.data = data_selecionada
+        except ValueError:
+            flash('Formato de data inválido.', 'danger')
     
     if form.validate_on_submit():
         data_selecionada = form.data.data
@@ -394,11 +419,11 @@ def relatorio_usuario_pdf(user_id):
     ano = request.args.get('ano', datetime.now().year, type=int)
     
     # Obtém todos os registros do mês selecionado
-    primeiro_dia = datetime(ano, mes, 1).date()
+    primeiro_dia = date(ano, mes, 1)
     if mes == 12:
-        ultimo_dia = datetime(ano + 1, 1, 1).date()
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
     else:
-        ultimo_dia = datetime(ano, mes + 1, 1).date()
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
     registros = Ponto.query.filter(
         Ponto.user_id == user_id,
@@ -406,126 +431,22 @@ def relatorio_usuario_pdf(user_id):
         Ponto.data < ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # Obtém feriados do mês
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data < ultimo_dia
-    ).all()
-    feriados_datas = [feriado.data for feriado in feriados]
+    # Cria o diretório de exportação se não existir
+    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
+    os.makedirs(export_dir, exist_ok=True)
     
-    # Calcula o saldo de horas do mês
-    dias_uteis = 0
-    for dia in range(1, ultimo_dia.day if mes != 12 else 32):
-        data = datetime(ano, mes, dia).date()
-        if data.month != mes:  # Para meses com menos de 31 dias
-            break
-        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
-            dias_uteis += 1
+    # Define o nome do arquivo
+    filename = f"relatorio_{user.matricula}_{mes:02d}_{ano}.pdf"
+    output_path = os.path.join(export_dir, filename)
     
-    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
-    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
-    saldo_horas = horas_trabalhadas - horas_esperadas
+    # Exporta o PDF
+    success = export_registros_pdf(registros, user, mes, ano, output_path)
     
-    # Nomes dos meses em português
-    nomes_meses = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    nome_mes = nomes_meses[mes - 1]
-    
-    # Criar PDF
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
-    
-    # Estilos
-    styles = getSampleStyleSheet()
-    title_style = styles['Heading1']
-    subtitle_style = styles['Heading2']
-    normal_style = styles['Normal']
-    
-    # Título
-    elements.append(Paragraph(f"Relatório de Banco de Horas", title_style))
-    elements.append(Paragraph(f"Funcionário: {user.name} ({user.matricula})", subtitle_style))
-    elements.append(Paragraph(f"Período: {nome_mes} de {ano}", subtitle_style))
-    elements.append(Spacer(1, 12))
-    
-    # Resumo
-    elements.append(Paragraph("Resumo do Banco de Horas", subtitle_style))
-    
-    resumo_data = [
-        ["Horas Esperadas", "Horas Trabalhadas", "Saldo de Horas"],
-        [f"{horas_esperadas:.1f}", f"{horas_trabalhadas:.1f}", f"{saldo_horas:.1f}"]
-    ]
-    
-    resumo_table = Table(resumo_data)
-    resumo_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    
-    elements.append(resumo_table)
-    elements.append(Spacer(1, 24))
-    
-    # Registros detalhados
-    elements.append(Paragraph("Registros Detalhados", subtitle_style))
-    
-    # Cabeçalhos da tabela
-    registros_data = [
-        ["Data", "Entrada", "Saída Almoço", "Retorno Almoço", "Saída", "Horas"]
-    ]
-    
-    # Dados dos registros
-    for registro in registros:
-        data_formatada = registro.data.strftime("%d/%m/%Y")
-        
-        entrada = registro.entrada.strftime("%H:%M") if registro.entrada else "--:--"
-        saida_almoco = registro.saida_almoco.strftime("%H:%M") if registro.saida_almoco else "--:--"
-        retorno_almoco = registro.retorno_almoco.strftime("%H:%M") if registro.retorno_almoco else "--:--"
-        saida = registro.saida.strftime("%H:%M") if registro.saida else "--:--"
-        
-        if registro.afastamento:
-            horas = "Afastamento"
-        elif registro.horas_trabalhadas:
-            horas = f"{registro.horas_trabalhadas:.1f}"
-        else:
-            horas = "Pendente"
-        
-        registros_data.append([
-            data_formatada, entrada, saida_almoco, retorno_almoco, saida, horas
-        ])
-    
-    registros_table = Table(registros_data)
-    registros_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 0), (-1, -1), 8)
-    ]))
-    
-    elements.append(registros_table)
-    
-    # Construir PDF
-    doc.build(elements)
-    
-    # Preparar resposta
-    pdf_data = buffer.getvalue()
-    buffer.close()
-    
-    response = make_response(pdf_data)
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name.replace(" ", "_")}_{mes}_{ano}.pdf'
-    
-    return response
+    if success:
+        return send_file(output_path, as_attachment=True)
+    else:
+        flash('Erro ao gerar o PDF. Tente novamente.', 'danger')
+        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))
 
 @admin.route('/relatorio/<int:user_id>/excel')
 @login_required
@@ -537,11 +458,11 @@ def relatorio_usuario_excel(user_id):
     ano = request.args.get('ano', datetime.now().year, type=int)
     
     # Obtém todos os registros do mês selecionado
-    primeiro_dia = datetime(ano, mes, 1).date()
+    primeiro_dia = date(ano, mes, 1)
     if mes == 12:
-        ultimo_dia = datetime(ano + 1, 1, 1).date()
+        ultimo_dia = date(ano + 1, 1, 1) - timedelta(days=1)
     else:
-        ultimo_dia = datetime(ano, mes + 1, 1).date()
+        ultimo_dia = date(ano, mes + 1, 1) - timedelta(days=1)
     
     registros = Ponto.query.filter(
         Ponto.user_id == user_id,
@@ -549,47 +470,19 @@ def relatorio_usuario_excel(user_id):
         Ponto.data < ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # Obtém feriados do mês
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data < ultimo_dia
-    ).all()
-    feriados_datas = [feriado.data for feriado in feriados]
+    # Cria o diretório de exportação se não existir
+    export_dir = os.path.join(current_app.root_path, 'static', 'exports')
+    os.makedirs(export_dir, exist_ok=True)
     
-    # Calcula o saldo de horas do mês
-    dias_uteis = 0
-    for dia in range(1, ultimo_dia.day if mes != 12 else 32):
-        data = datetime(ano, mes, dia).date()
-        if data.month != mes:  # Para meses com menos de 31 dias
-            break
-        if data.weekday() < 5 and data not in feriados_datas:  # 0-4 são dias de semana (seg-sex)
-            dias_uteis += 1
+    # Define o nome do arquivo
+    filename = f"dados_ponto_{user.matricula}_{mes:02d}_{ano}.xlsx"
+    output_path = os.path.join(export_dir, filename)
     
-    horas_esperadas = dias_uteis * 8  # 8 horas por dia útil
-    horas_trabalhadas = sum(registro.horas_trabalhadas or 0 for registro in registros)
-    saldo_horas = horas_trabalhadas - horas_esperadas
+    # Exporta o Excel
+    success = export_registros_excel(registros, user, mes, ano, output_path)
     
-    # Gerar Excel
-    excel_data = generate_excel_report(
-        user, 
-        registros, 
-        mes, 
-        ano, 
-        horas_esperadas, 
-        horas_trabalhadas, 
-        saldo_horas
-    )
-    
-    # Nomes dos meses em português
-    nomes_meses = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    nome_mes = nomes_meses[mes - 1]
-    
-    # Preparar resposta
-    response = make_response(excel_data)
-    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name.replace(" ", "_")}_{mes}_{ano}.xlsx'
-    
-    return response
+    if success:
+        return send_file(output_path, as_attachment=True)
+    else:
+        flash('Erro ao gerar o Excel. Tente novamente.', 'danger')
+        return redirect(url_for('admin.relatorio_usuario', user_id=user_id))

@@ -5,6 +5,7 @@ import os
 import sqlite3
 from dotenv import load_dotenv
 import logging
+import shutil
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -62,14 +63,48 @@ def migrate_db(app):
         app.logger.error(f"Erro ao executar a migração do banco de dados: {e}")
         # Não propagar a exceção para não impedir a inicialização da aplicação
 
+def ensure_instance_directory(app):
+    """Garante que o diretório instance exista e tenha as permissões corretas"""
+    try:
+        instance_path = app.instance_path
+        app.logger.info(f"Verificando diretório instance: {instance_path}")
+        
+        # Cria o diretório instance se não existir
+        if not os.path.exists(instance_path):
+            os.makedirs(instance_path, exist_ok=True)
+            app.logger.info(f"Diretório instance criado: {instance_path}")
+        
+        # Garante que o diretório tenha permissões adequadas
+        os.chmod(instance_path, 0o755)
+        app.logger.info(f"Permissões do diretório instance ajustadas")
+        
+        # No ambiente Render, verifica se o diretório está no disco persistente
+        if os.environ.get('RENDER'):
+            render_disk_path = '/opt/render/project/src/instance'
+            if instance_path != render_disk_path:
+                app.logger.warning(f"Diretório instance não está no caminho esperado do disco persistente do Render")
+                
+                # Se o diretório do disco persistente existir, mas não for o mesmo que instance_path
+                if os.path.exists(render_disk_path) and instance_path != render_disk_path:
+                    app.logger.info(f"Copiando dados do banco de dados para o disco persistente")
+                    
+                    # Copia arquivos .db do diretório instance para o disco persistente
+                    for file in os.listdir(instance_path):
+                        if file.endswith('.db'):
+                            src = os.path.join(instance_path, file)
+                            dst = os.path.join(render_disk_path, file)
+                            shutil.copy2(src, dst)
+                            app.logger.info(f"Arquivo {file} copiado para o disco persistente")
+    
+    except Exception as e:
+        app.logger.error(f"Erro ao verificar/criar diretório instance: {e}")
+
 def create_app():
     # Cria e configura a aplicação
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Configurar logging mais detalhado
+    # Configuração de logging mais detalhado
     if not app.debug:
         app.logger.setLevel(logging.INFO)
         handler = logging.StreamHandler()
@@ -78,12 +113,27 @@ def create_app():
         ))
         app.logger.addHandler(handler)
     
+    # Configuração do banco de dados para garantir persistência no Render
+    if os.environ.get('RENDER'):
+        # No ambiente Render, use o caminho absoluto para o banco de dados no disco persistente
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////opt/render/project/src/instance/ponto_eletronico.db'
+        app.logger.info("Ambiente Render detectado. Usando caminho absoluto para o banco de dados no disco persistente.")
+    else:
+        # Em ambiente de desenvolvimento, use o caminho relativo
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///instance/ponto_eletronico.db')
+        app.logger.info("Usando caminho relativo para o banco de dados em ambiente de desenvolvimento.")
+    
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
     # Inicializa extensões com a aplicação
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
     with app.app_context():
+        # Garante que o diretório instance exista e tenha as permissões corretas
+        ensure_instance_directory(app)
+        
         # Cria as tabelas se não existirem
         db.create_all()
         
