@@ -29,10 +29,22 @@
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.registrar_multiplo_ponto') }}">
-                            <i class="fas fa-tasks me-1"></i>Registro de Ponto
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="registroDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-tasks me-1"></i>Registros
                         </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.registrar_multiplo_ponto') }}">
+                                    <i class="fas fa-list-check me-1"></i>Registrar Ponto
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.registrar_ferias') }}">
+                                    <i class="fas fa-umbrella-beach me-1"></i>Registrar Férias
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.calendario') }}">

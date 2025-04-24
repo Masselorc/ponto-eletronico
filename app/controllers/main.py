@@ -133,8 +133,8 @@ def dashboard():
                           saldo_horas=saldo_horas,
                           media_diaria=media_diaria,
                           feriados_dict=feriados_dict,
-                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
-                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
+                          usuario=usuario,
+                          usuarios=usuarios)
 
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
@@ -362,6 +362,9 @@ def calendario():
     # Cria um dicionário de feriados para fácil acesso
     feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
     
+    # CORREÇÃO: Criar lista de datas de feriados para o template
+    feriados_datas = list(feriados_dict.keys())
+    
     # Obtém o nome do mês
     nomes_meses = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -457,8 +460,14 @@ def calendario():
                           ano_anterior=ano_anterior,
                           mes_seguinte=mes_seguinte,
                           ano_seguinte=ano_seguinte,
-                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
-                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
+                          usuario=usuario,
+                          usuarios=usuarios,
+                          registros=registros_dict,
+                          feriados_dict=feriados_dict,
+                          feriados_datas=feriados_datas,
+                          hoje=hoje,
+                          primeiro_dia=primeiro_dia,
+                          ultimo_dia=ultimo_dia)
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
@@ -612,8 +621,8 @@ def relatorio_mensal():
                           saldo_horas=saldo_horas,
                           media_diaria=media_diaria,
                           feriados_dict=feriados_dict,
-                          usuario=usuario,  # CORREÇÃO: Adicionada a variável usuario
-                          usuarios=usuarios)  # CORREÇÃO: Adicionada a variável usuarios
+                          usuario=usuario,
+                          usuarios=usuarios)
 
 @main.route('/perfil')
 @login_required
@@ -629,12 +638,12 @@ def perfil():
 def registrar_multiplo_ponto():
     """Rota para registrar múltiplos pontos de uma só vez."""
     if request.method == 'POST':
-        # Obtém os dados do formulário
-        datas = request.form.getlist('data[]')
-        entradas = request.form.getlist('entrada[]')
-        saidas_almoco = request.form.getlist('saida_almoco[]')
-        retornos_almoco = request.form.getlist('retorno_almoco[]')
-        saidas = request.form.getlist('saida[]')
+        # CORREÇÃO: Corrigir os nomes dos campos para corresponder ao formulário HTML
+        datas = request.form.getlist('datas[]')
+        entradas = request.form.getlist('entradas[]')
+        saidas_almoco = request.form.getlist('saidas_almoco[]')
+        retornos_almoco = request.form.getlist('retornos_almoco[]')
+        saidas = request.form.getlist('saidas[]')
         atividades = request.form.getlist('atividades[]')
         
         # Processa cada registro
