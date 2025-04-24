@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto
 from app.models.feriado import Feriado
-from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroFeriasForm
+from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 import logging
@@ -269,16 +269,17 @@ def editar_ponto(ponto_id):
     
     return render_template('main/editar_ponto.html', form=form, registro=registro)
 
-@main.route('/registrar-ferias', methods=['GET', 'POST'])
+# CORREÇÃO: Modificar para permitir registro de diferentes tipos de afastamento
+@main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
-def registrar_ferias():
-    """Rota para registrar férias."""
-    form = RegistroFeriasForm()
+def registrar_afastamento():
+    """Rota para registrar afastamento (férias, licença, etc.)."""
+    form = RegistroAfastamentoForm()
     
     if form.validate_on_submit():
         # CORREÇÃO: Usar a data do formulário em vez da data atual
         data_selecionada = form.data.data
-        logger.info(f"Data selecionada no formulário de férias: {data_selecionada}")
+        logger.info(f"Data selecionada no formulário de afastamento: {data_selecionada}")
         
         # Verifica se já existe um registro para esta data
         registro_existente = Ponto.query.filter_by(
@@ -290,12 +291,12 @@ def registrar_ferias():
             flash('Já existe um registro para esta data.', 'danger')
             return redirect(url_for('main.dashboard'))
         
-        # Cria um novo registro de férias
+        # Cria um novo registro de afastamento
         registro = Ponto(
             user_id=current_user.id,
             data=data_selecionada,
             afastamento=True,
-            tipo_afastamento='Férias'
+            tipo_afastamento=form.tipo_afastamento.data
         )
         
         # Salva no banco de dados
@@ -303,10 +304,17 @@ def registrar_ferias():
         db.session.add(registro)
         db.session.commit()
         
-        flash('Registro de férias criado com sucesso!', 'success')
+        flash('Registro de afastamento criado com sucesso!', 'success')
         return redirect(url_for('main.dashboard'))
     
-    return render_template('main/registrar_ferias.html', form=form)
+    return render_template('main/registrar_afastamento.html', form=form)
+
+# Mantém a rota de férias para compatibilidade com código existente
+@main.route('/registrar-ferias', methods=['GET', 'POST'])
+@login_required
+def registrar_ferias():
+    """Rota para registrar férias (redirecionamento para compatibilidade)."""
+    return redirect(url_for('main.registrar_afastamento'))
 
 @main.route('/calendario')
 @login_required
@@ -451,6 +459,7 @@ def calendario():
         mes_seguinte = mes_atual + 1
         ano_seguinte = ano_atual
     
+    # CORREÇÃO: Passar a classe timedelta para o template
     return render_template('main/calendario.html',
                           calendario=calendario_matriz,
                           mes_atual=mes_atual,
@@ -467,7 +476,8 @@ def calendario():
                           feriados_datas=feriados_datas,
                           hoje=hoje,
                           primeiro_dia=primeiro_dia,
-                          ultimo_dia=ultimo_dia)
+                          ultimo_dia=ultimo_dia,
+                          timedelta=timedelta)  # CORREÇÃO: Passar a classe timedelta
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
@@ -720,6 +730,8 @@ def registrar_multiplo_ponto():
             
             # Cria um novo registro de ponto
             atividade_texto = atividades[i] if i < len(atividades) else ""
+            
+            # CORREÇÃO: Corrigir o erro de tipo incompatível
             registro = Ponto(
                 user_id=current_user.id,
                 data=data_selecionada,
@@ -728,7 +740,9 @@ def registrar_multiplo_ponto():
                 retorno_almoco=retorno_almoco,
                 saida=saida,
                 horas_trabalhadas=horas_trabalhadas,
-                atividades=atividade_texto
+                atividades=atividade_texto,
+                afastamento=False,  # Garante que o campo afastamento seja definido
+                tipo_afastamento=None  # Garante que o campo tipo_afastamento seja definido como None
             )
             
             # Salva no banco de dados

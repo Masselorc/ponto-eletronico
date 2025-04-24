@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Afastamento{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Registrar Afastamento</h1>
+            <p class="lead">Registre férias, licenças ou outros tipos de afastamento</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Formulário de Registro de Afastamento</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-3">
+                    <label for="data" class="form-label">Data</label>
+                    {{ form.data(class="form-control", type="date", required=true) }}
+                    {% if form.data.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.data.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="tipo_afastamento" class="form-label">Tipo de Afastamento</label>
+                    {{ form.tipo_afastamento(class="form-control", required=true) }}
+                    {% if form.tipo_afastamento.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.tipo_afastamento.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Registrar Afastamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

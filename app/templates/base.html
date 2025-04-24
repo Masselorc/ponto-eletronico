@@ -3,73 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Ponto Eletrônico - {% block title %}{% endblock %}</title>
+    <title>{% block title %}Sistema de Ponto Eletrônico{% endblock %}</title>
+    
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    {% if current_user.is_authenticated %}
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
-                <i class="fas fa-clock me-2"></i>Ponto Eletrônico
+                <i class="fas fa-clock me-2"></i>
+                Sistema de Ponto
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                {% if current_user.is_authenticated %}
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="registroDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-tasks me-1"></i>Registros
+                        <a class="nav-link dropdown-toggle" href="#" id="registrosDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-clipboard-list me-1"></i> Registros
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu" aria-labelledby="registrosDropdown">
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('main.registrar_multiplo_ponto') }}">
-                                    <i class="fas fa-list-check me-1"></i>Registrar Ponto
+                                <a class="dropdown-item" href="{{ url_for('main.registrar_ponto') }}">
+                                    <i class="fas fa-clock me-1"></i> Registrar Ponto
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('main.registrar_ferias') }}">
-                                    <i class="fas fa-umbrella-beach me-1"></i>Registrar Férias
+                                <a class="dropdown-item" href="{{ url_for('main.registrar_multiplo_ponto') }}">
+                                    <i class="fas fa-clock me-1"></i> Registrar Múltiplos Pontos
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.registrar_afastamento') }}">
+                                    <i class="fas fa-umbrella-beach me-1"></i> Registrar Afastamento
                                 </a>
                             </li>
                         </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.calendario') }}">
-                            <i class="fas fa-calendar-alt me-1"></i>Calendário
+                            <i class="fas fa-calendar-alt me-1"></i> Calendário
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.relatorio_mensal') }}">
+                            <i class="fas fa-chart-bar me-1"></i> Relatório Mensal
                         </a>
                     </li>
                     {% if current_user.is_admin %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-shield me-1"></i>Administração
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-shield me-1"></i> Administração
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu" aria-labelledby="adminDropdown">
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.listar_usuarios') }}">
-                                    <i class="fas fa-users me-1"></i>Usuários
+                                    <i class="fas fa-users me-1"></i> Usuários
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}">
-                                    <i class="fas fa-calendar-day me-1"></i>Feriados
+                                <a class="dropdown-item" href="{{ url_for('admin.feriados') }}">
+                                    <i class="fas fa-calendar-day me-1"></i> Feriados
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.relatorios') }}">
-                                    <i class="fas fa-chart-bar me-1"></i>Relatórios
+                                    <i class="fas fa-file-alt me-1"></i> Relatórios
                                 </a>
                             </li>
                         </ul>
@@ -78,56 +94,74 @@
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>{{ current_user.name }}
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-1"></i> {{ current_user.name }}
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('main.perfil') }}">
-                                    <i class="fas fa-id-card me-1"></i>Perfil
+                                    <i class="fas fa-id-card me-1"></i> Perfil
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                    <i class="fas fa-sign-out-alt me-1"></i>Sair
+                                    <i class="fas fa-sign-out-alt me-1"></i> Sair
                                 </a>
                             </li>
                         </ul>
                     </li>
                 </ul>
+                {% else %}
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">
+                            <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                        </a>
+                    </li>
+                </ul>
+                {% endif %}
             </div>
         </div>
     </nav>
-    {% endif %}
-
-    <div class="container mt-4">
+    
+    <!-- Flash Messages -->
+    <div class="container mt-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
-        {% block content %}{% endblock %}
     </div>
-
-    <footer class="footer mt-5 py-3 bg-light">
-        <div class="container text-center">
-            <span class="text-muted">Sistema de Ponto Eletrônico &copy; 2025</span>
+    
+    <!-- Main Content -->
+    {% block content %}{% endblock %}
+    
+    <!-- Footer -->
+    <footer class="bg-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">&copy; 2025 Sistema de Ponto Eletrônico</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0">Versão 1.0.0</p>
+                </div>
+            </div>
         </div>
     </footer>
-
-    <!-- Bootstrap JS Bundle with Popper -->
+    
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>

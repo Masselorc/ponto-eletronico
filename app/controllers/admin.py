@@ -23,6 +23,13 @@ def index():
     
     return render_template('admin/index.html')
 
+# CORREÇÃO: Adicionar alias para a rota listar_feriados para compatibilidade com templates existentes
+@admin.route('/admin/feriados')
+@login_required
+def feriados():
+    """Alias para listar_feriados para compatibilidade com templates existentes."""
+    return listar_feriados()
+
 @admin.route('/admin/feriados')
 @login_required
 def listar_feriados():
