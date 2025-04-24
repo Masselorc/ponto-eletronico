@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
@@ -660,9 +660,6 @@ def relatorio_mensal():
                           saldo_horas=saldo_horas,
                           feriados_dict=feriados_dict,
                           usuarios=usuarios)
-
-# Adiciona a função send_file que estava faltando
-from flask import send_file
 
 @main.route('/exportar-relatorio/<int:user_id>/<int:mes>/<int:ano>/<formato>')
 @login_required
