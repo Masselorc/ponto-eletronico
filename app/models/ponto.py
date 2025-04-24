@@ -49,9 +49,10 @@ class Ponto(db.Model):
 
 class Atividade(db.Model):
     __tablename__ = 'atividades'
+    __table_args__ = {'extend_existing': True}
     
     id = db.Column(db.Integer, primary_key=True)
-    ponto_id = db.Column(db.Integer, db.ForeignKey('pontos.id'), nullable=False)
+    ponto_id = db.Column(db.Integer, db.ForeignKey('pontos.id', ondelete='CASCADE'), nullable=False)
     descricao = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
