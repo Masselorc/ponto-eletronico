@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 def index():
     return redirect(url_for('main.dashboard'))
 
+@main.route('/perfil')
+@login_required
+def perfil():
+    """Rota para exibir o perfil do usuário."""
+    return render_template('main/perfil.html', usuario=current_user)
+
 @main.route('/dashboard')
 @login_required
 def dashboard():

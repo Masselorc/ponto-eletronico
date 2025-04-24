@@ -1,151 +1,64 @@
 {% extends 'base.html' %}
 
-{% block title %}Perfil do Usuário{% endblock %}
+{% block title %}Perfil{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container">
     <div class="row">
-        <div class="col-md-4">
-            <div class="card">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Foto de Perfil</h5>
-                </div>
-                <div class="card-body text-center">
-                    {% if current_user.foto_path and current_user.foto_path != 'default.png' %}
-                        {% if current_user.foto_path.startswith('http') %}
-                            <img src="{{ current_user.foto_path }}" 
-                                 alt="Foto de {{ current_user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 200px; max-height: 200px;">
-                        {% elif current_user.foto_path.startswith('/') %}
-                            <img src="{{ url_for('static', filename=current_user.foto_path.lstrip('/')) }}" 
-                                 alt="Foto de {{ current_user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 200px; max-height: 200px;">
-                        {% elif 'app/static/' in current_user.foto_path %}
-                            <img src="{{ url_for('static', filename=current_user.foto_path.replace('app/static/', '')) }}" 
-                                 alt="Foto de {{ current_user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 200px; max-height: 200px;">
-                        {% elif current_user.name.lower() == 'marcelo' %}
-                            <img src="{{ url_for('static', filename='uploads/fotos/marcelo.png') }}" 
-                                 alt="Foto de {{ current_user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 200px; max-height: 200px;">
-                        {% else %}
-                            <img src="{{ url_for('static', filename=current_user.foto_path) }}" 
-                                 alt="Foto de {{ current_user.name }}" 
-                                 class="img-fluid rounded-circle mb-3" 
-                                 style="max-width: 200px; max-height: 200px;">
-                        {% endif %}
-                    {% else %}
-                        <div class="bg-light rounded-circle d-inline-flex justify-content-center align-items-center mb-3" 
-                             style="width: 200px; height: 200px;">
-                            <i class="fas fa-user fa-5x text-secondary"></i>
-                        </div>
-                    {% endif %}
-                    <h4>{{ current_user.name }}</h4>
-                    <p class="text-muted">{{ current_user.cargo }}</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Informações Pessoais</h5>
+                    <h3 class="mb-0"><i class="fas fa-id-card me-2"></i>Perfil do Usuário</h3>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Matrícula:</div>
-                        <div class="col-md-8">{{ current_user.matricula }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">E-mail:</div>
-                        <div class="col-md-8">{{ current_user.email }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Cargo:</div>
-                        <div class="col-md-8">{{ current_user.cargo }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">UF:</div>
-                        <div class="col-md-8">{{ current_user.uf }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Telefone:</div>
-                        <div class="col-md-8">{{ current_user.telefone }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Vínculo:</div>
-                        <div class="col-md-8">{{ current_user.vinculo }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Data de Cadastro:</div>
-                        <div class="col-md-8">{{ current_user.data_cadastro.strftime('%d/%m/%Y') }}</div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Tipo de Usuário:</div>
-                        <div class="col-md-8">
-                            {% if current_user.is_admin %}
-                                <span class="badge bg-danger">Cadastrador</span>
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            {% if usuario.foto %}
+                            <img src="{{ url_for('static', filename='uploads/' + usuario.foto) }}" alt="Foto de perfil" class="img-fluid rounded-circle profile-image mb-3" style="max-width: 150px; max-height: 150px;">
                             {% else %}
-                                <span class="badge bg-primary">Funcionário</span>
+                            <div class="profile-placeholder rounded-circle mb-3 mx-auto d-flex align-items-center justify-content-center bg-light" style="width: 150px; height: 150px;">
+                                <i class="fas fa-user fa-4x text-secondary"></i>
+                            </div>
                             {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <h4 class="mb-3">{{ usuario.name }}</h4>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-envelope me-2"></i>Email:</span>
+                                <span>{{ usuario.email }}</span>
+                            </div>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-id-badge me-2"></i>Matrícula:</span>
+                                <span>{{ usuario.matricula }}</span>
+                            </div>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-user-shield me-2"></i>Função:</span>
+                                <span>{% if usuario.is_admin %}Administrador{% else %}Usuário{% endif %}</span>
+                            </div>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-calendar-check me-2"></i>Cadastrado em:</span>
+                                <span>{{ usuario.created_at.strftime('%d/%m/%Y') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-info-circle me-2"></i>Informações Adicionais</h5>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-building me-2"></i>Departamento:</span>
+                                <span>{{ usuario.departamento or 'Não informado' }}</span>
+                            </div>
+                            <div class="info-item mb-2">
+                                <span class="fw-bold"><i class="fas fa-briefcase me-2"></i>Cargo:</span>
+                                <span>{{ usuario.cargo or 'Não informado' }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('main.editar_perfil') }}" class="btn btn-primary">
-                        <i class="fas fa-edit me-2"></i>Editar Perfil
-                    </a>
-                    <a href="{{ url_for('main.alterar_senha') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-key me-2"></i>Alterar Senha
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Resumo de Atividades</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Total de Registros</h6>
-                                    <h3 class="card-title">{{ total_registros }}</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Horas Trabalhadas (Mês)</h6>
-                                    <h3 class="card-title">{{ "%.1f"|format(horas_mes) }}h</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h6 class="card-subtitle mb-2 text-muted">Saldo do Banco de Horas</h6>
-                                    <h3 class="card-title {% if saldo_horas >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                        {{ "%.1f"|format(saldo_horas) }}h
-                                    </h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer text-end">
                     <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Voltar para Dashboard
+                        <i class="fas fa-arrow-left me-1"></i>Voltar
                     </a>
                 </div>
             </div>
