@@ -1,108 +1,150 @@
+"""
+ARQUIVO MODIFICADO - Abril 2025
+Correção de importações e inicialização do banco de dados
+Este arquivo foi corrigido para resolver problemas de importação e inicialização
+"""
+
 import os
+import sys
+import traceback
+from datetime import datetime, timedelta
+from flask import Flask
 from app import create_app, db
 from app.models.user import User
-from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado
-from datetime import datetime, date
-import traceback
-import sys
+from app.models.feriado import Feriado  # MODIFICAÇÃO: Importação corrigida do modelo Feriado
 
-# Função para inicializar o banco de dados em produção
-def init_production_db():
-    """
-    Inicializa o banco de dados em ambiente de produção.
-    Cria tabelas, usuários padrão e feriados de exemplo.
-    """
-    try:
-        # Imprime informações de debug para ajudar a identificar problemas
-        print("Iniciando inicialização do banco de dados de produção...")
-        print(f"Python version: {sys.version}")
-        print(f"Diretório atual: {os.getcwd()}")
+# MODIFICAÇÃO: Adicionado tratamento de exceções e logging detalhado
+try:
+    print("Iniciando script de inicialização do banco de dados para produção...")
+    
+    # Configuração do ambiente
+    os.environ['FLASK_ENV'] = 'production'
+    
+    # Criação da aplicação
+    print("Criando aplicação Flask...")
+    app = create_app()
+    
+    # Contexto da aplicação
+    print("Entrando no contexto da aplicação...")
+    with app.app_context():
+        print("Verificando se o banco de dados existe...")
         
-        # Cria a aplicação com configurações de produção
-        app = create_app()
+        # Cria todas as tabelas se não existirem
+        print("Criando tabelas do banco de dados...")
+        db.create_all()
         
-        with app.app_context():
+        # Verifica se já existe um usuário administrador
+        print("Verificando se existe usuário administrador...")
+        admin = User.query.filter_by(email='admin@example.com').first()
+        
+        if not admin:
+            print("Criando usuário administrador padrão...")
+            admin = User(
+                name='Administrador',
+                email='admin@example.com',
+                matricula='000000',
+                cargo='Administrador',  # MODIFICAÇÃO: Campo adicionado
+                uf='DF',               # MODIFICAÇÃO: Campo adicionado
+                telefone='(00) 00000-0000',  # MODIFICAÇÃO: Campo adicionado
+                foto_path='default.png',     # MODIFICAÇÃO: Campo adicionado
+                vinculo='Servidor',
+                is_admin=True,
+                is_active=True
+            )
+            admin.set_password('admin123')
+            db.session.add(admin)
+            
+            # MODIFICAÇÃO: Adicionado tratamento de exceções para a criação do usuário
             try:
-                # Cria todas as tabelas definidas nos modelos
-                print("Criando tabelas no banco de dados...")
-                db.create_all()
-                
-                # Verifica se já existe um usuário administrador
-                print("Verificando se já existe um usuário administrador...")
-                admin = User.query.filter_by(is_admin=True).first()
-                
-                if not admin:
-                    print("Criando usuário administrador...")
-                    # Cria um usuário administrador padrão usando variáveis de ambiente
-                    admin = User(
-                        name=os.getenv('ADMIN_NAME', 'Administrador'),
-                        email=os.getenv('ADMIN_EMAIL', 'admin@example.com'),
-                        matricula=os.getenv('ADMIN_MATRICULA', 'ADMIN001'),
-                        cargo=os.getenv('ADMIN_CARGO', 'Administrador'),
-                        uf=os.getenv('ADMIN_UF', 'DF'),
-                        telefone=os.getenv('ADMIN_TELEFONE', '(61) 99999-9999'),
-                        vinculo=os.getenv('ADMIN_VINCULO', 'SENAPPEN - Administração'),
-                        foto_path=os.getenv('ADMIN_FOTO_PATH', 'default.png'),
-                        is_admin=True
-                    )
-                    
-                    print("Definindo senha do administrador...")
-                    admin.set_password(os.getenv('ADMIN_PASSWORD', 'admin123'))
-                    db.session.add(admin)
-                    
-                    print("Criando usuário de demonstração...")
-                    # Cria um usuário comum para demonstração
-                    user = User(
-                        name='Usuário Demonstração',
-                        email='demo@example.com',
-                        matricula='DEMO001',
-                        cargo='Analista',
-                        uf='DF',
-                        telefone='(61) 88888-8888',
-                        vinculo='SENAPPEN - Demonstração',
-                        foto_path='default.png',
-                        is_admin=False
-                    )
-                    user.set_password('demo123')
-                    db.session.add(user)
-                    
-                    print("Adicionando feriados de exemplo...")
-                    # Adiciona alguns feriados de exemplo
-                    feriados = [
-                        Feriado(data=date(2025, 1, 1), descricao='Confraternização Universal'),
-                        Feriado(data=date(2025, 4, 21), descricao='Tiradentes'),
-                        Feriado(data=date(2025, 5, 1), descricao='Dia do Trabalho'),
-                        Feriado(data=date(2025, 9, 7), descricao='Independência do Brasil'),
-                        Feriado(data=date(2025, 10, 12), descricao='Nossa Senhora Aparecida'),
-                        Feriado(data=date(2025, 11, 2), descricao='Finados'),
-                        Feriado(data=date(2025, 11, 15), descricao='Proclamação da República'),
-                        Feriado(data=date(2025, 12, 25), descricao='Natal')
-                    ]
-                    
-                    for feriado in feriados:
-                        db.session.add(feriado)
-                    
-                    print("Realizando commit das alterações...")
-                    db.session.commit()
-                    print('Banco de dados de produção inicializado com sucesso!')
-                else:
-                    print('Banco de dados já inicializado.')
+                db.session.commit()
+                print("Usuário administrador criado com sucesso!")
             except Exception as e:
                 db.session.rollback()
-                print(f'Erro ao inicializar o banco de dados: {e}')
+                print(f"Erro ao criar usuário administrador: {str(e)}")
                 print(traceback.format_exc())
-                # Não propagar a exceção para permitir que o script continue
-    except Exception as e:
-        print(f'Erro ao criar aplicação: {e}')
-        print(traceback.format_exc())
+                sys.exit(1)
+        else:
+            print("Usuário administrador já existe.")
+        
+        # Verifica se já existem feriados cadastrados
+        print("Verificando se existem feriados cadastrados...")
+        feriados_count = Feriado.query.count()
+        
+        if feriados_count == 0:
+            print("Cadastrando feriados nacionais para 2024...")
+            
+            # Lista de feriados nacionais para 2024
+            feriados_2024 = [
+                {'data': datetime(2024, 1, 1), 'descricao': 'Confraternização Universal'},
+                {'data': datetime(2024, 2, 12), 'descricao': 'Carnaval'},
+                {'data': datetime(2024, 2, 13), 'descricao': 'Carnaval'},
+                {'data': datetime(2024, 2, 14), 'descricao': 'Quarta-feira de Cinzas'},
+                {'data': datetime(2024, 3, 29), 'descricao': 'Sexta-feira Santa'},
+                {'data': datetime(2024, 3, 31), 'descricao': 'Páscoa'},
+                {'data': datetime(2024, 4, 21), 'descricao': 'Tiradentes'},
+                {'data': datetime(2024, 5, 1), 'descricao': 'Dia do Trabalho'},
+                {'data': datetime(2024, 5, 30), 'descricao': 'Corpus Christi'},
+                {'data': datetime(2024, 9, 7), 'descricao': 'Independência do Brasil'},
+                {'data': datetime(2024, 10, 12), 'descricao': 'Nossa Senhora Aparecida'},
+                {'data': datetime(2024, 11, 2), 'descricao': 'Finados'},
+                {'data': datetime(2024, 11, 15), 'descricao': 'Proclamação da República'},
+                {'data': datetime(2024, 12, 25), 'descricao': 'Natal'}
+            ]
+            
+            # MODIFICAÇÃO: Adicionado feriados para 2025
+            print("Cadastrando feriados nacionais para 2025...")
+            feriados_2025 = [
+                {'data': datetime(2025, 1, 1), 'descricao': 'Confraternização Universal'},
+                {'data': datetime(2025, 3, 3), 'descricao': 'Carnaval'},
+                {'data': datetime(2025, 3, 4), 'descricao': 'Carnaval'},
+                {'data': datetime(2025, 3, 5), 'descricao': 'Quarta-feira de Cinzas'},
+                {'data': datetime(2025, 4, 18), 'descricao': 'Sexta-feira Santa'},
+                {'data': datetime(2025, 4, 20), 'descricao': 'Páscoa'},
+                {'data': datetime(2025, 4, 21), 'descricao': 'Tiradentes'},
+                {'data': datetime(2025, 5, 1), 'descricao': 'Dia do Trabalho'},
+                {'data': datetime(2025, 6, 19), 'descricao': 'Corpus Christi'},
+                {'data': datetime(2025, 9, 7), 'descricao': 'Independência do Brasil'},
+                {'data': datetime(2025, 10, 12), 'descricao': 'Nossa Senhora Aparecida'},
+                {'data': datetime(2025, 11, 2), 'descricao': 'Finados'},
+                {'data': datetime(2025, 11, 15), 'descricao': 'Proclamação da República'},
+                {'data': datetime(2025, 12, 25), 'descricao': 'Natal'}
+            ]
+            
+            # Adiciona os feriados de 2024
+            for feriado_data in feriados_2024:
+                feriado = Feriado(
+                    data=feriado_data['data'].date(),
+                    descricao=feriado_data['descricao']
+                )
+                db.session.add(feriado)
+            
+            # Adiciona os feriados de 2025
+            for feriado_data in feriados_2025:
+                feriado = Feriado(
+                    data=feriado_data['data'].date(),
+                    descricao=feriado_data['descricao']
+                )
+                db.session.add(feriado)
+            
+            # MODIFICAÇÃO: Adicionado tratamento de exceções para a criação dos feriados
+            try:
+                db.session.commit()
+                print(f"Feriados cadastrados com sucesso! Total: {len(feriados_2024) + len(feriados_2025)}")
+            except Exception as e:
+                db.session.rollback()
+                print(f"Erro ao cadastrar feriados: {str(e)}")
+                print(traceback.format_exc())
+                sys.exit(1)
+        else:
+            print(f"Já existem {feriados_count} feriados cadastrados.")
+        
+        print("Inicialização do banco de dados concluída com sucesso!")
 
-# Executa a função apenas se este arquivo for executado diretamente
-if __name__ == '__main__':
-    try:
-        init_production_db()
-    except Exception as e:
-        print(f"Erro fatal durante a execução: {e}")
-        print(traceback.format_exc())
-        # Saída com código de erro para indicar falha
-        sys.exit(1)
+except Exception as e:
+    print(f"ERRO CRÍTICO durante a inicialização do banco de dados: {str(e)}")
+    print("Detalhes do erro:")
+    print(traceback.format_exc())
+    sys.exit(1)
+
+# MODIFICAÇÃO: Fim do arquivo com comentário explícito
+# Este arquivo foi corrigido em Abril 2025 para resolver problemas de importação

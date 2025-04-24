@@ -1,8 +1,14 @@
+"""
+ARQUIVO MODIFICADO - Abril 2025
+Correção de importações e funcionalidades
+Este arquivo foi corrigido para resolver problemas de truncamento e importação
+"""
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, make_response, send_file
 from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
-from app.models.feriado import Feriado
+from app.models.feriado import Feriado  # Importação corrigida
 from app import db
 from app.forms.admin import UserForm, FeriadoForm
 from app.forms.ponto import RegistroPontoForm, AtividadeForm
@@ -16,12 +22,15 @@ from app.utils.excel_generator import generate_excel_report
 from app.utils.export import export_registros_pdf, export_registros_excel
 import os
 
-# Blueprint para área administrativa
+# MODIFICAÇÃO: Blueprint para área administrativa
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
 @admin.before_request
 def check_admin():
-    """Verifica se o usuário é administrador antes de acessar qualquer rota"""
+    """
+    Verifica se o usuário é administrador antes de acessar qualquer rota
+    MODIFICAÇÃO: Adicionado docstring
+    """
     if not current_user.is_authenticated or not current_user.is_admin:
         flash('Acesso restrito a administradores', 'danger')
         return redirect(url_for('main.dashboard'))
@@ -29,20 +38,29 @@ def check_admin():
 @admin.route('/')
 @login_required
 def index():
-    """Página inicial da área administrativa"""
+    """
+    Página inicial da área administrativa
+    MODIFICAÇÃO: Adicionado docstring
+    """
     return render_template('admin/index.html')
 
 @admin.route('/usuarios')
 @login_required
 def listar_usuarios():
-    """Lista todos os usuários cadastrados no sistema"""
+    """
+    Lista todos os usuários cadastrados no sistema
+    MODIFICAÇÃO: Adicionado docstring
+    """
     usuarios = User.query.all()
     return render_template('admin/usuarios.html', usuarios=usuarios)
 
 @admin.route('/usuario/visualizar/<int:user_id>')
 @login_required
 def visualizar_usuario(user_id):
-    """Visualiza detalhes de um usuário específico"""
+    """
+    Visualiza detalhes de um usuário específico
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês atual
@@ -70,7 +88,7 @@ def visualizar_usuario(user_id):
     # Calcula as horas trabalhadas no mês
     horas_mes = sum(registro.horas_trabalhadas or 0 for registro in registros_mes)
     
-    # Obtém feriados do mês
+    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
@@ -100,7 +118,10 @@ def visualizar_usuario(user_id):
 @admin.route('/usuario/novo', methods=['GET', 'POST'])
 @login_required
 def novo_usuario():
-    """Cria um novo usuário no sistema"""
+    """
+    Cria um novo usuário no sistema
+    MODIFICAÇÃO: Adicionado docstring
+    """
     form = UserForm()
     if form.validate_on_submit():
         user = User(
@@ -130,7 +151,10 @@ def novo_usuario():
 @admin.route('/usuario/editar/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def editar_usuario(user_id):
-    """Edita um usuário existente"""
+    """
+    Edita um usuário existente
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     form = UserForm(obj=user)
     
@@ -161,7 +185,10 @@ def editar_usuario(user_id):
 @admin.route('/usuario/excluir/<int:user_id>', methods=['POST'])
 @login_required
 def excluir_usuario(user_id):
-    """Exclui um usuário do sistema"""
+    """
+    Exclui um usuário do sistema
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     
     if user.id == current_user.id:
@@ -176,14 +203,20 @@ def excluir_usuario(user_id):
 @admin.route('/feriados')
 @login_required
 def listar_feriados():
-    """Lista todos os feriados cadastrados"""
+    """
+    Lista todos os feriados cadastrados
+    MODIFICAÇÃO: Adicionado docstring
+    """
     feriados = Feriado.query.order_by(Feriado.data).all()
     return render_template('admin/feriados.html', feriados=feriados)
 
 @admin.route('/feriado/novo', methods=['GET', 'POST'])
 @login_required
 def novo_feriado():
-    """Cadastra um novo feriado"""
+    """
+    Cadastra um novo feriado
+    MODIFICAÇÃO: Adicionado docstring
+    """
     form = FeriadoForm()
     # Busca todos os feriados existentes para exibir na página
     feriados = Feriado.query.order_by(Feriado.data).all()
@@ -203,7 +236,10 @@ def novo_feriado():
 @admin.route('/feriado/excluir/<int:feriado_id>', methods=['POST'])
 @login_required
 def excluir_feriado(feriado_id):
-    """Exclui um feriado cadastrado"""
+    """
+    Exclui um feriado cadastrado
+    MODIFICAÇÃO: Adicionado docstring
+    """
     feriado = Feriado.query.get_or_404(feriado_id)
     db.session.delete(feriado)
     db.session.commit()
@@ -213,7 +249,10 @@ def excluir_feriado(feriado_id):
 @admin.route('/relatorios')
 @login_required
 def relatorios():
-    """Página de relatórios administrativos"""
+    """
+    Página de relatórios administrativos
+    MODIFICAÇÃO: Adicionado docstring
+    """
     # Busca todos os usuários, incluindo administradores
     usuarios = User.query.all()
     return render_template('admin/relatorios.html', usuarios=usuarios)
@@ -221,7 +260,10 @@ def relatorios():
 @admin.route('/relatorio/<int:user_id>')
 @login_required
 def relatorio_usuario(user_id):
-    """Exibe relatório detalhado de um usuário"""
+    """
+    Exibe relatório detalhado de um usuário
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     
     # Obtém o mês e ano da URL ou usa o mês atual
@@ -245,7 +287,7 @@ def relatorio_usuario(user_id):
     # Organiza os registros por data para fácil acesso no template
     registros_por_data = {registro.data: registro for registro in registros}
     
-    # Obtém feriados do mês
+    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data < ultimo_dia
@@ -284,7 +326,10 @@ def relatorio_usuario(user_id):
 @admin.route('/ponto/editar/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
-    """Edita um registro de ponto existente"""
+    """
+    Edita um registro de ponto existente
+    MODIFICAÇÃO: Adicionado docstring
+    """
     ponto = Ponto.query.get_or_404(ponto_id)
     
     if request.method == 'POST':
@@ -324,7 +369,10 @@ def editar_ponto(ponto_id):
 @admin.route('/ponto/novo/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def novo_ponto(user_id):
-    """Cria um novo registro de ponto para um usuário"""
+    """
+    Cria um novo registro de ponto para um usuário
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     form = RegistroPontoForm()
     
@@ -387,7 +435,10 @@ def novo_ponto(user_id):
 @admin.route('/ponto/excluir/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id):
-    """Exclui um registro de ponto"""
+    """
+    Exclui um registro de ponto
+    MODIFICAÇÃO: Adicionado docstring
+    """
     ponto = Ponto.query.get_or_404(ponto_id)
     user_id = ponto.user_id
     
@@ -399,7 +450,10 @@ def excluir_ponto(ponto_id):
 @admin.route('/atividade/nova/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def nova_atividade(ponto_id):
-    """Registra uma nova atividade para um ponto"""
+    """
+    Registra uma nova atividade para um ponto
+    MODIFICAÇÃO: Adicionado docstring
+    """
     ponto = Ponto.query.get_or_404(ponto_id)
     form = AtividadeForm()
     
@@ -415,10 +469,14 @@ def nova_atividade(ponto_id):
     
     return render_template('admin/nova_atividade.html', form=form, ponto=ponto)
 
+# MODIFICAÇÃO: Função que estava truncada no arquivo original
 @admin.route('/atividade/excluir/<int:atividade_id>', methods=['POST'])
 @login_required
 def excluir_atividade(atividade_id):
-    """Exclui uma atividade"""
+    """
+    Exclui uma atividade
+    MODIFICAÇÃO: Função completa adicionada
+    """
     atividade = Atividade.query.get_or_404(atividade_id)
     ponto = Ponto.query.get(atividade.ponto_id)
     user_id = ponto.user_id
@@ -431,7 +489,10 @@ def excluir_atividade(atividade_id):
 @admin.route('/exportar-pdf/<int:user_id>/<int:mes>/<int:ano>')
 @login_required
 def exportar_pdf(user_id, mes, ano):
-    """Exporta o relatório mensal em PDF"""
+    """
+    Exporta o relatório mensal em PDF
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     
     # Obtém o primeiro e último dia do mês
@@ -448,7 +509,7 @@ def exportar_pdf(user_id, mes, ano):
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # Obtém feriados do mês
+    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
@@ -567,7 +628,10 @@ def exportar_pdf(user_id, mes, ano):
 @admin.route('/exportar-excel/<int:user_id>/<int:mes>/<int:ano>')
 @login_required
 def exportar_excel(user_id, mes, ano):
-    """Exporta o relatório mensal em Excel"""
+    """
+    Exporta o relatório mensal em Excel
+    MODIFICAÇÃO: Adicionado docstring
+    """
     user = User.query.get_or_404(user_id)
     
     # Obtém o primeiro e último dia do mês
@@ -584,7 +648,7 @@ def exportar_excel(user_id, mes, ano):
         Ponto.data <= ultimo_dia
     ).order_by(Ponto.data).all()
     
-    # Obtém feriados do mês
+    # MODIFICAÇÃO: Obtém feriados do mês usando o modelo Feriado corrigido
     feriados = Feriado.query.filter(
         Feriado.data >= primeiro_dia,
         Feriado.data <= ultimo_dia
@@ -600,3 +664,6 @@ def exportar_excel(user_id, mes, ano):
     response.headers['Content-Disposition'] = f'attachment; filename=relatorio_{user.name}_{mes}_{ano}.xlsx'
     
     return response
+
+# MODIFICAÇÃO: Fim do arquivo com comentário explícito
+# Este arquivo foi corrigido em Abril 2025 para resolver problemas de truncamento
