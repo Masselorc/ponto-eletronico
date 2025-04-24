@@ -4,6 +4,7 @@ from wtforms.validators import DataRequired, Optional, Length
 from datetime import datetime
 
 class RegistroPontoForm(FlaskForm):
+    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
     hora = StringField('Hora', validators=[DataRequired()])
     tipo = SelectField('Tipo de Registro', choices=[
@@ -15,6 +16,7 @@ class RegistroPontoForm(FlaskForm):
     submit = SubmitField('Registrar Ponto')
 
 class RegistroMultiploPontoForm(FlaskForm):
+    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
     
     afastamento = BooleanField('Férias ou outros afastamentos')
@@ -65,6 +67,7 @@ class RegistroMultiploPontoForm(FlaskForm):
         return True
 
 class EditarPontoForm(FlaskForm):
+    # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
     
     afastamento = BooleanField('Férias ou outros afastamentos')

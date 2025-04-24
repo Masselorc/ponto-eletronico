@@ -6,7 +6,9 @@ class Ponto(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    data = db.Column(db.Date, nullable=False, default=date.today)
+    # IMPORTANTE: Campo data sem valor padrão para evitar que a data atual seja usada automaticamente
+    # Isso garante que a data selecionada pelo usuário seja sempre usada
+    data = db.Column(db.Date, nullable=False)
     entrada = db.Column(db.Time, nullable=True)
     saida_almoco = db.Column(db.Time, nullable=True)
     retorno_almoco = db.Column(db.Time, nullable=True)
@@ -29,17 +31,20 @@ class Ponto(db.Model):
         
         # Período da manhã (entrada até saída para almoço)
         if self.entrada and self.saida_almoco:
-            delta_manha = datetime.combine(date.today(), self.saida_almoco) - datetime.combine(date.today(), self.entrada)
+            # IMPORTANTE: Usar a data do registro (self.data) em vez de date.today()
+            delta_manha = datetime.combine(self.data, self.saida_almoco) - datetime.combine(self.data, self.entrada)
             total_horas += delta_manha.total_seconds() / 3600
             
         # Período da tarde (retorno do almoço até saída)
         if self.retorno_almoco and self.saida:
-            delta_tarde = datetime.combine(date.today(), self.saida) - datetime.combine(date.today(), self.retorno_almoco)
+            # IMPORTANTE: Usar a data do registro (self.data) em vez de date.today()
+            delta_tarde = datetime.combine(self.data, self.saida) - datetime.combine(self.data, self.retorno_almoco)
             total_horas += delta_tarde.total_seconds() / 3600
             
         # Se não tiver registro de almoço, mas tiver entrada e saída
         if self.entrada and self.saida and not (self.saida_almoco or self.retorno_almoco):
-            delta_total = datetime.combine(date.today(), self.saida) - datetime.combine(date.today(), self.entrada)
+            # IMPORTANTE: Usar a data do registro (self.data) em vez de date.today()
+            delta_total = datetime.combine(self.data, self.saida) - datetime.combine(self.data, self.entrada)
             total_horas = delta_total.total_seconds() / 3600
             
         self.horas_trabalhadas = round(total_horas, 1)
