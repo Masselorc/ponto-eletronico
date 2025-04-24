@@ -155,6 +155,41 @@
                         </div>
                     </div>
                     
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Atividades Realizadas</h6>
+                                </div>
+                                <div class="card-body">
+                                    {{ form.atividades.label(class="form-label") }}
+                                    {{ form.atividades(class="form-control", rows=4) }}
+                                    <small class="form-text text-muted">{{ form.atividades.description }}</small>
+                                    {% for error in form.atividades.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Observações</h6>
+                                </div>
+                                <div class="card-body">
+                                    {{ form.observacoes.label(class="form-label") }}
+                                    {{ form.observacoes(class="form-control", rows=2) }}
+                                    {% for error in form.observacoes.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="row">
                         <div class="col-md-12">
                             <div class="d-grid">

@@ -32,6 +32,8 @@ class RegistroMultiploPontoForm(FlaskForm):
     saida = StringField('Hora de Saída', validators=[Optional()])
     
     observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
+    atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=1000)],
+                              description='Descreva as atividades realizadas neste dia')
     
     submit = SubmitField('Registrar Horários')
     
@@ -80,6 +82,8 @@ class EditarPontoForm(FlaskForm):
     saida = StringField('Hora de Saída', validators=[Optional()])
     
     observacoes = TextAreaField('Observações', validators=[Optional(), Length(max=500)])
+    atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=1000)],
+                              description='Descreva as atividades realizadas neste dia')
     
     submit = SubmitField('Atualizar Registro')
     

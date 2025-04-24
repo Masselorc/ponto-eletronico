@@ -14,4 +14,3 @@ pdfkit==1.0.0
 openpyxl==3.1.2
 xlsxwriter==3.1.9
 xhtml2pdf==0.2.11
-pip==25.0.1
