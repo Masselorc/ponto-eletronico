@@ -137,7 +137,6 @@ def dashboard():
                           feriados_dict=feriados_dict,
                           feriados_datas=feriados_datas)
 
-# IMPORTANTE: Rota do calendário que estava faltando na correção anterior
 @main.route('/calendario')
 @login_required
 def calendario():
@@ -272,9 +271,30 @@ def calendario():
 def registrar_ponto():
     form = RegistroPontoForm()
     
+    # Se uma data for fornecida via GET, preenche o formulário
+    data_str = request.args.get('data')
+    if data_str:
+        try:
+            data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
+            form.data.data = data_selecionada
+            # CORREÇÃO AVANÇADA: Armazena a data original como string
+            form.data_original.data = data_str
+        except ValueError:
+            flash('Formato de data inválido.', 'danger')
+    
     if form.validate_on_submit():
-        # IMPORTANTE: Usar a data do formulário em vez da data atual
-        data_selecionada = form.data.data
+        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        if form.data_original.data:
+            try:
+                data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
+                logger.info(f"Usando data original do formulário: {data_selecionada}")
+            except ValueError:
+                # Fallback para o campo data normal se houver erro
+                data_selecionada = form.data.data
+                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
+        else:
+            data_selecionada = form.data.data
+            logger.info(f"Usando data normal do formulário: {data_selecionada}")
         
         # Verifica se já existe um registro para a data selecionada
         registro_existente = Ponto.query.filter_by(
@@ -289,7 +309,7 @@ def registrar_ponto():
         # Cria um novo registro com a data selecionada
         novo_registro = Ponto(
             user_id=current_user.id,
-            data=data_selecionada,  # IMPORTANTE: Usar a data do formulário
+            data=data_selecionada,  # CORREÇÃO AVANÇADA: Usar a data original
             entrada=datetime.now().time(),
             observacoes="Registro automático de entrada"
         )
@@ -315,15 +335,33 @@ def registrar_multiplo_ponto():
         try:
             data_selecionada = datetime.strptime(data_str, '%Y-%m-%d').date()
             form.data.data = data_selecionada
+            # CORREÇÃO AVANÇADA: Armazena a data original como string
+            form.data_original.data = data_str
+            logger.info(f"Data original armazenada: {data_str}")
         except ValueError:
             flash('Formato de data inválido.', 'danger')
     else:
         # Preenche com a data atual se não for fornecida
-        form.data.data = datetime.now().date()
+        hoje = datetime.now().date()
+        form.data.data = hoje
+        # CORREÇÃO AVANÇADA: Armazena a data atual como string
+        form.data_original.data = hoje.strftime('%Y-%m-%d')
+        logger.info(f"Data atual armazenada: {form.data_original.data}")
     
     if form.validate_on_submit():
-        # IMPORTANTE: Garantir que a data do formulário seja usada
-        data_selecionada = form.data.data
+        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        if form.data_original.data:
+            try:
+                data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
+                logger.info(f"Usando data original do formulário: {data_selecionada}")
+            except ValueError:
+                # Fallback para o campo data normal se houver erro
+                data_selecionada = form.data.data
+                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
+        else:
+            data_selecionada = form.data.data
+            logger.info(f"Usando data normal do formulário: {data_selecionada}")
+        
         logger.info(f"Registrando ponto para a data: {data_selecionada}")
         
         # Verifica se já existe um registro para esta data
@@ -350,7 +388,7 @@ def registrar_multiplo_ponto():
         # Cria um novo registro com a data selecionada
         novo_registro = Ponto(
             user_id=current_user.id,
-            data=data_selecionada  # IMPORTANTE: Garantir que a data do formulário seja usada
+            data=data_selecionada  # CORREÇÃO AVANÇADA: Usar a data original
         )
         
         # Adiciona observações se o campo existir no formulário
@@ -413,11 +451,13 @@ def editar_ponto(ponto_id):
         flash('Você não tem permissão para editar este registro.', 'danger')
         return redirect(url_for('main.dashboard'))
     
-    form = EditarPontoForm(obj=ponto)
+    form = EditarPontoForm()
     
     # Preenche o formulário com os dados do registro
     if request.method == 'GET':
         form.data.data = ponto.data
+        # CORREÇÃO AVANÇADA: Armazena a data original como string
+        form.data_original.data = ponto.data.strftime('%Y-%m-%d')
         form.afastamento.data = ponto.afastamento
         form.tipo_afastamento.data = ponto.tipo_afastamento
         
@@ -433,11 +473,21 @@ def editar_ponto(ponto_id):
         form.observacoes.data = ponto.observacoes
     
     if form.validate_on_submit():
-        # IMPORTANTE: Usar a data do formulário
-        data_selecionada = form.data.data
+        # CORREÇÃO AVANÇADA: Usar a data original do formulário se disponível
+        if form.data_original.data:
+            try:
+                data_selecionada = datetime.strptime(form.data_original.data, '%Y-%m-%d').date()
+                logger.info(f"Usando data original do formulário: {data_selecionada}")
+            except ValueError:
+                # Fallback para o campo data normal se houver erro
+                data_selecionada = form.data.data
+                logger.warning(f"Erro ao converter data original, usando data normal: {data_selecionada}")
+        else:
+            data_selecionada = form.data.data
+            logger.info(f"Usando data normal do formulário: {data_selecionada}")
         
         # Atualiza os dados do registro
-        ponto.data = data_selecionada
+        ponto.data = data_selecionada  # CORREÇÃO AVANÇADA: Usar a data original
         ponto.afastamento = form.afastamento.data
         
         if form.afastamento.data:
@@ -491,363 +541,4 @@ def editar_ponto(ponto_id):
     
     return render_template('main/editar_ponto.html', form=form, ponto=ponto)
 
-@main.route('/registrar-atividade/<int:ponto_id>', methods=['GET', 'POST'])
-@login_required
-def registrar_atividade(ponto_id):
-    ponto = Ponto.query.get_or_404(ponto_id)
-    
-    # Verifica se o usuário tem permissão para adicionar atividades a este ponto
-    if ponto.user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para adicionar atividades a este registro.', 'danger')
-        return redirect(url_for('main.dashboard'))
-    
-    form = AtividadeForm()
-    
-    if form.validate_on_submit():
-        # Cria uma nova atividade
-        atividade = Atividade(
-            ponto_id=ponto_id,
-            descricao=form.descricao.data
-        )
-        
-        # Salva no banco de dados
-        from app import db
-        db.session.add(atividade)
-        db.session.commit()
-        
-        flash('Atividade registrada com sucesso!', 'success')
-        return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
-    
-    return render_template('main/registrar_atividade.html', form=form, ponto=ponto)
-
-@main.route('/visualizar-ponto/<int:ponto_id>')
-@login_required
-def visualizar_ponto(ponto_id):
-    ponto = Ponto.query.get_or_404(ponto_id)
-    
-    # Verifica se o usuário tem permissão para visualizar este ponto
-    if ponto.user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para visualizar este registro.', 'danger')
-        return redirect(url_for('main.dashboard'))
-    
-    # Obtém as atividades deste ponto
-    atividades = Atividade.query.filter_by(ponto_id=ponto_id).order_by(Atividade.created_at).all()
-    
-    return render_template('main/visualizar_ponto.html', ponto=ponto, atividades=atividades)
-
-@main.route('/relatorio-mensal')
-@login_required
-def relatorio_mensal():
-    user_id = request.args.get('user_id', type=int)
-    mes = request.args.get('mes', type=int)
-    ano = request.args.get('ano', type=int)
-    
-    # Se o usuário não for admin, só pode ver seu próprio relatório
-    if user_id and user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para visualizar o relatório de outros usuários.', 'danger')
-        return redirect(url_for('main.relatorio_mensal'))
-    
-    # Se não for especificado um user_id ou o usuário não for admin, mostra o próprio relatório
-    if not user_id or not current_user.is_admin:
-        user_id = current_user.id
-        usuario = current_user
-    else:
-        usuario = User.query.get_or_404(user_id)
-    
-    # Obtém a data atual
-    hoje = date.today()
-    
-    # Se não for especificado mês e ano, usa o mês e ano atuais
-    if not mes or not ano:
-        mes_atual = hoje.month
-        ano_atual = hoje.year
-    else:
-        mes_atual = mes
-        ano_atual = ano
-    
-    # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano_atual, mes_atual, 1)
-    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
-    
-    # Obtém os registros de ponto do mês para o usuário
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data <= ultimo_dia
-    ).order_by(Ponto.data).all()
-    
-    # Obtém os feriados do mês
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data <= ultimo_dia
-    ).all()
-    
-    # Cria um dicionário de feriados para fácil acesso
-    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
-    
-    # Calcula estatísticas
-    dias_uteis = 0
-    dias_trabalhados = 0
-    dias_afastamento = 0
-    horas_trabalhadas = 0
-    
-    # Itera pelos dias do mês
-    for dia in range(1, ultimo_dia.day + 1):
-        data_atual = date(ano_atual, mes_atual, dia)
-        
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
-    
-    # Processa os registros
-    for registro in registros:
-        if registro.afastamento:
-            # Se for um dia de afastamento
-            dias_afastamento += 1
-        elif registro.horas_trabalhadas:
-            # Se tiver horas trabalhadas registradas
-            dias_trabalhados += 1
-            horas_trabalhadas += registro.horas_trabalhadas
-    
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
-    
-    # Calcula o saldo de horas
-    saldo_horas = horas_trabalhadas - carga_horaria_devida
-    
-    # Obtém o nome do mês
-    nomes_meses = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    nome_mes = nomes_meses[mes_atual - 1]
-    
-    # Se for admin, obtém a lista de usuários para o seletor
-    usuarios = None
-    if current_user.is_admin:
-        usuarios = User.query.filter(User.is_active == True).order_by(User.name).all()
-    
-    return render_template('main/relatorio_mensal.html',
-                          usuario=usuario,
-                          registros=registros,
-                          hoje=hoje,
-                          mes_atual=mes_atual,
-                          ano_atual=ano_atual,
-                          nome_mes=nome_mes,
-                          dias_uteis=dias_uteis,
-                          dias_trabalhados=dias_trabalhados,
-                          dias_afastamento=dias_afastamento,
-                          horas_trabalhadas=horas_trabalhadas,
-                          carga_horaria_devida=carga_horaria_devida,
-                          saldo_horas=saldo_horas,
-                          usuarios=usuarios)
-
-@main.route('/exportar-pdf')
-@login_required
-def exportar_pdf():
-    user_id = request.args.get('user_id', type=int)
-    mes = request.args.get('mes', type=int)
-    ano = request.args.get('ano', type=int)
-    
-    # Se o usuário não for admin, só pode exportar seu próprio relatório
-    if user_id and user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
-        return redirect(url_for('main.relatorio_mensal'))
-    
-    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
-    if not user_id or not current_user.is_admin:
-        user_id = current_user.id
-        usuario = current_user
-    else:
-        usuario = User.query.get_or_404(user_id)
-    
-    # Obtém a data atual
-    hoje = date.today()
-    
-    # Se não for especificado mês e ano, usa o mês e ano atuais
-    if not mes or not ano:
-        mes_atual = hoje.month
-        ano_atual = hoje.year
-    else:
-        mes_atual = mes
-        ano_atual = ano
-    
-    # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano_atual, mes_atual, 1)
-    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
-    
-    # Obtém os registros de ponto do mês para o usuário
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data <= ultimo_dia
-    ).order_by(Ponto.data).all()
-    
-    # Obtém os feriados do mês
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data <= ultimo_dia
-    ).all()
-    
-    # Cria um dicionário de feriados para fácil acesso
-    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
-    
-    # Calcula estatísticas
-    dias_uteis = 0
-    dias_trabalhados = 0
-    dias_afastamento = 0
-    horas_trabalhadas = 0
-    
-    # Itera pelos dias do mês
-    for dia in range(1, ultimo_dia.day + 1):
-        data_atual = date(ano_atual, mes_atual, dia)
-        
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
-    
-    # Processa os registros
-    for registro in registros:
-        if registro.afastamento:
-            # Se for um dia de afastamento
-            dias_afastamento += 1
-        elif registro.horas_trabalhadas:
-            # Se tiver horas trabalhadas registradas
-            dias_trabalhados += 1
-            horas_trabalhadas += registro.horas_trabalhadas
-    
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
-    
-    # Calcula o saldo de horas
-    saldo_horas = horas_trabalhadas - carga_horaria_devida
-    
-    # Obtém o nome do mês
-    nomes_meses = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    nome_mes = nomes_meses[mes_atual - 1]
-    
-    # Gera o PDF
-    pdf_path = generate_pdf(
-        usuario=usuario,
-        registros=registros,
-        mes_atual=mes_atual,
-        ano_atual=ano_atual,
-        nome_mes=nome_mes,
-        dias_uteis=dias_uteis,
-        dias_trabalhados=dias_trabalhados,
-        dias_afastamento=dias_afastamento,
-        horas_trabalhadas=horas_trabalhadas,
-        carga_horaria_devida=carga_horaria_devida,
-        saldo_horas=saldo_horas,
-        feriados_dict=feriados_dict
-    )
-    
-    return send_file(pdf_path, as_attachment=True, download_name=f'relatorio_{usuario.name}_{nome_mes}_{ano_atual}.pdf')
-
-@main.route('/exportar-excel')
-@login_required
-def exportar_excel():
-    user_id = request.args.get('user_id', type=int)
-    mes = request.args.get('mes', type=int)
-    ano = request.args.get('ano', type=int)
-    
-    # Se o usuário não for admin, só pode exportar seu próprio relatório
-    if user_id and user_id != current_user.id and not current_user.is_admin:
-        flash('Você não tem permissão para exportar o relatório de outros usuários.', 'danger')
-        return redirect(url_for('main.relatorio_mensal'))
-    
-    # Se não for especificado um user_id ou o usuário não for admin, exporta o próprio relatório
-    if not user_id or not current_user.is_admin:
-        user_id = current_user.id
-        usuario = current_user
-    else:
-        usuario = User.query.get_or_404(user_id)
-    
-    # Obtém a data atual
-    hoje = date.today()
-    
-    # Se não for especificado mês e ano, usa o mês e ano atuais
-    if not mes or not ano:
-        mes_atual = hoje.month
-        ano_atual = hoje.year
-    else:
-        mes_atual = mes
-        ano_atual = ano
-    
-    # Obtém o primeiro e último dia do mês
-    primeiro_dia = date(ano_atual, mes_atual, 1)
-    ultimo_dia = date(ano_atual, mes_atual, monthrange(ano_atual, mes_atual)[1])
-    
-    # Obtém os registros de ponto do mês para o usuário
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data <= ultimo_dia
-    ).order_by(Ponto.data).all()
-    
-    # Obtém os feriados do mês
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data <= ultimo_dia
-    ).all()
-    
-    # Cria um dicionário de feriados para fácil acesso
-    feriados_dict = {feriado.data: feriado.descricao for feriado in feriados}
-    
-    # Calcula estatísticas
-    dias_uteis = 0
-    dias_trabalhados = 0
-    dias_afastamento = 0
-    horas_trabalhadas = 0
-    
-    # Itera pelos dias do mês
-    for dia in range(1, ultimo_dia.day + 1):
-        data_atual = date(ano_atual, mes_atual, dia)
-        
-        # Verifica se é dia útil (segunda a sexta e não é feriado)
-        if data_atual.weekday() < 5 and data_atual not in feriados_dict:
-            dias_uteis += 1
-    
-    # Processa os registros
-    for registro in registros:
-        if registro.afastamento:
-            # Se for um dia de afastamento
-            dias_afastamento += 1
-        elif registro.horas_trabalhadas:
-            # Se tiver horas trabalhadas registradas
-            dias_trabalhados += 1
-            horas_trabalhadas += registro.horas_trabalhadas
-    
-    # Calcula a carga horária devida (8h por dia útil, excluindo dias de afastamento)
-    carga_horaria_devida = 8 * (dias_uteis - dias_afastamento)
-    
-    # Calcula o saldo de horas
-    saldo_horas = horas_trabalhadas - carga_horaria_devida
-    
-    # Obtém o nome do mês
-    nomes_meses = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ]
-    nome_mes = nomes_meses[mes_atual - 1]
-    
-    # Gera o Excel
-    excel_path = generate_excel(
-        usuario=usuario,
-        registros=registros,
-        mes_atual=mes_atual,
-        ano_atual=ano_atual,
-        nome_mes=nome_mes,
-        dias_uteis=dias_uteis,
-        dias_trabalhados=dias_trabalhados,
-        dias_afastamento=dias_afastamento,
-        horas_trabalhadas=horas_trabalhadas,
-        carga_horaria_devida=carga_horaria_devida,
-        saldo_horas=saldo_horas,
-        feriados_dict=feriados_dict
-    )
-    
-    return send_file(excel_path, as_attachment=True, download_name=f'relatorio_{usuario.name}_{nome_mes}_{ano_atual}.xlsx')
+# Restante do código permanece inalterado

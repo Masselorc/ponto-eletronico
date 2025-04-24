@@ -1,11 +1,14 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, SubmitField, BooleanField, SelectField, TextAreaField
+from wtforms import StringField, DateField, SubmitField, BooleanField, SelectField, TextAreaField, HiddenField
 from wtforms.validators import DataRequired, Optional, Length
 from datetime import datetime
 
 class RegistroPontoForm(FlaskForm):
     # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
+    # Campo oculto para armazenar a data original selecionada como string
+    data_original = HiddenField()
+    
     hora = StringField('Hora', validators=[DataRequired()])
     tipo = SelectField('Tipo de Registro', choices=[
         ('entrada', 'Entrada'),
@@ -18,6 +21,8 @@ class RegistroPontoForm(FlaskForm):
 class RegistroMultiploPontoForm(FlaskForm):
     # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
+    # Campo oculto para armazenar a data original selecionada como string
+    data_original = HiddenField()
     
     afastamento = BooleanField('Férias ou outros afastamentos')
     tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
@@ -69,6 +74,8 @@ class RegistroMultiploPontoForm(FlaskForm):
 class EditarPontoForm(FlaskForm):
     # IMPORTANTE: Campo data sem valor padrão para garantir que a data selecionada pelo usuário seja usada
     data = DateField('Data', format='%Y-%m-%d', validators=[DataRequired()])
+    # Campo oculto para armazenar a data original selecionada como string
+    data_original = HiddenField()
     
     afastamento = BooleanField('Férias ou outros afastamentos')
     tipo_afastamento = SelectField('Tipo de Afastamento', choices=[
