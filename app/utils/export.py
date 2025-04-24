@@ -454,3 +454,7 @@ def generate_excel(user_id, mes, ano):
     except Exception as e:
         current_app.logger.error(f"Erro ao gerar Excel: {e}")
         return None
+
+# Aliases para compatibilidade com o código existente
+export_registros_pdf = generate_pdf
+export_registros_excel = generate_excel
