@@ -8,3 +8,4 @@ pandas==2.0.0
 reportlab==3.6.12
 werkzeug==2.3.7
 python-dotenv==1.0.0
+gunicorn==21.2.0
