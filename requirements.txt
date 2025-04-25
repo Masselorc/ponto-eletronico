@@ -1,11 +1,40 @@
+# Flask e extensões principais
 flask==2.3.3
 flask-sqlalchemy==3.0.5
 flask-login==0.6.2
 flask-wtf==1.1.1
-email-validator==2.0.0
+email-validator==2.0.0 # Dependência do Flask-WTF para validação de email
+
+# Bibliotecas de dados e utilitários
 numpy==1.24.3
 pandas==2.0.0
-reportlab==3.6.12
 werkzeug==2.3.7
 python-dotenv==1.0.0
+
+# Servidor WSGI (para produção)
 gunicorn==21.2.0
+
+# --- CORREÇÃO: Dependências para Exportação ---
+reportlab==3.6.12 # Já estava, necessário para PDF
+xhtml2pdf==0.2.11 # Adicionado para conversão HTML -> PDF (usado em utils/export.py)
+# html5lib # xhtml2pdf depende disso, pip deve instalar automaticamente, mas pode ser adicionado se houver problemas
+openpyxl==3.1.2 # Adicionado explicitamente (usado como engine pelo pandas em utils/export.py)
+XlsxWriter==3.1.9 # Adicionado (estava em requirements-additional.txt)
+# ---------------------------------------------
+
+# Outras dependências que podem ser úteis ou eram implícitas (adicionadas por segurança)
+Pillow>=9.0.0 # Dependência do ReportLab para imagens, boa prática listar explicitamente
+six>=1.5 # Dependência comum
+python-dateutil>=2.8.2 # Dependência do Pandas
+pytz>=2020.1 # Dependência do Pandas
+tzdata>=2022.1 # Dependência do Pandas
+MarkupSafe>=2.1.1 # Dependência do Jinja2/Flask
+itsdangerous>=2.1.2 # Dependência do Flask
+click>=8.1.3 # Dependência do Flask
+blinker>=1.6.2 # Dependência do Flask/SQLAlchemy signals
+WTForms>=3.0.0 # Dependência do Flask-WTF (versão pode ser ajustada se necessário)
+dnspython>=2.0.0 # Dependência do email-validator
+idna>=2.0.0 # Dependência do email-validator
+packaging # Dependência do gunicorn
+greenlet>=1 # Dependência do SQLAlchemy
+typing-extensions>=4.6.0 # Dependência do SQLAlchemy
