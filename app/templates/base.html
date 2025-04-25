@@ -5,28 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Ponto Eletrônico{% endblock %}</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous"> {# Atualizada versão do Bootstrap para 5.3.0 #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" /> {# Atualizada versão do Font Awesome #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-    {% block extra_css %}{% endblock %} {# Bloco para CSS adicional específico da página #}
+    {% block extra_css %}{% endblock %}
 </head>
-<body class="d-flex flex-column min-vh-100"> {# Garante que o footer fique no final #}
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm"> {# Adicionado shadow #}
+<body class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}"> {# Link dinâmico #}
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
                 <i class="fas fa-clock me-2"></i>
                 Sistema de Ponto
             </a>
-            {# Apenas mostra o botão de toggle se o usuário estiver logado #}
             {% if current_user.is_authenticated %}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0"> {# Ajustes de margem/padding do Bootstrap 5 #}
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
                             <i class="fas fa-tachometer-alt me-1"></i> Dashboard
@@ -64,7 +63,6 @@
                             <i class="fas fa-chart-bar me-1"></i> Relatório Mensal
                         </a>
                     </li>
-                    {# Menu de Administração visível apenas para admins #}
                     {% if current_user.is_admin %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -77,9 +75,7 @@
                                 </a>
                             </li>
                             <li>
-                                {# --- CORREÇÃO DO ENDPOINT --- #}
                                 <a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}">
-                                {# ----------------------------- #}
                                     <i class="fas fa-calendar-day me-2"></i> Feriados
                                 </a>
                             </li>
@@ -92,11 +88,9 @@
                     </li>
                     {% endif %}
                 </ul>
-                {# Dropdown do Usuário Logado #}
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            {# Adiciona uma imagem de perfil placeholder se não houver foto #}
                             {% if current_user.foto_path %}
                                 <img src="{{ url_for('static', filename=current_user.foto_path) }}" alt="Foto" class="rounded-circle me-1" style="width: 25px; height: 25px; object-fit: cover;">
                             {% else %}
@@ -128,7 +122,6 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {# Mapeia categorias para classes de alerta do Bootstrap #}
                     {% set alert_class = 'alert-' + category if category in ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'] else 'alert-secondary' %}
                     <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
                         {{ message }}
@@ -139,13 +132,15 @@
         {% endwith %}
     </div>
 
-    <main class="container mt-4 flex-shrink-0"> {# flex-shrink-0 para o footer funcionar bem #}
+    <main class="container mt-4 flex-shrink-0">
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer mt-auto py-3 bg-light"> {# mt-auto empurra o footer para baixo #}
+    <footer class="footer mt-auto py-3 bg-light">
         <div class="container text-center">
-            <span class="text-muted">Sistema de Ponto Eletrônico &copy; {{ now().year }}</span> {# Ano dinâmico #}
+            {# --- CORREÇÃO: Usar a variável datetime injetada --- #}
+            <span class="text-muted">Sistema de Ponto Eletrônico &copy; {{ datetime.utcnow().year }}</span>
+            {# --------------------------------------------------- #}
         </div>
     </footer>
 
@@ -153,6 +148,6 @@
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
-    {% block extra_js %}{% endblock %} {# Bloco para JS adicional específico da página #}
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

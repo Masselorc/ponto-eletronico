@@ -6,6 +6,9 @@ import sqlite3
 from dotenv import load_dotenv
 import logging
 import shutil
+# --- CORREÇÃO: Importar datetime ---
+from datetime import datetime
+# -----------------------------------
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -15,173 +18,183 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 
 def migrate_db(app):
-    """Adiciona as colunas necessárias à tabela pontos se não existirem"""
+    """Adiciona as colunas necessárias às tabelas se não existirem"""
     try:
-        # Usar diretamente a conexão do SQLAlchemy em vez de tentar acessar o arquivo
-        app.logger.info("Iniciando migração do banco de dados...")
-        
-        # Verificar se a tabela pontos existe
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='pontos'"))
-        if not result.fetchone():
-            app.logger.info("Tabela 'pontos' não existe. Será criada automaticamente pelo SQLAlchemy.")
-            return
-        
-        # Verificar se as colunas já existem
-        result = db.session.execute(db.text("PRAGMA table_info(pontos)"))
-        columns = [column[1] for column in result.fetchall()]
-        
-        # Adicionar a coluna afastamento se não existir
-        if 'afastamento' not in columns:
-            app.logger.info("Adicionando coluna 'afastamento' à tabela pontos...")
-            db.session.execute(db.text("ALTER TABLE pontos ADD COLUMN afastamento BOOLEAN DEFAULT 0"))
-            db.session.commit()
-            app.logger.info("Coluna 'afastamento' adicionada com sucesso!")
-        else:
-            app.logger.info("Coluna 'afastamento' já existe.")
-        
-        # Adicionar a coluna tipo_afastamento se não existir
-        if 'tipo_afastamento' not in columns:
-            app.logger.info("Adicionando coluna 'tipo_afastamento' à tabela pontos...")
-            db.session.execute(db.text("ALTER TABLE pontos ADD COLUMN tipo_afastamento VARCHAR(100)"))
-            db.session.commit()
-            app.logger.info("Coluna 'tipo_afastamento' adicionada com sucesso!")
-        else:
-            app.logger.info("Coluna 'tipo_afastamento' já existe.")
-        
-        # Adicionar a coluna observacoes se não existir
-        if 'observacoes' not in columns:
-            app.logger.info("Adicionando coluna 'observacoes' à tabela pontos...")
-            db.session.execute(db.text("ALTER TABLE pontos ADD COLUMN observacoes TEXT"))
-            db.session.commit()
-            app.logger.info("Coluna 'observacoes' adicionada com sucesso!")
-        else:
-            app.logger.info("Coluna 'observacoes' já existe.")
-        
-        # Verificar se a tabela atividades existe
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='atividades'"))
-        if not result.fetchone():
-            app.logger.info("Tabela 'atividades' não existe. Criando...")
-            db.session.execute(db.text("""
-                CREATE TABLE atividades (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ponto_id INTEGER NOT NULL,
-                    descricao TEXT NOT NULL,
-                    FOREIGN KEY (ponto_id) REFERENCES pontos (id) ON DELETE CASCADE
-                )
-            """))
-            db.session.commit()
-            app.logger.info("Tabela 'atividades' criada com sucesso!")
-        else:
-            app.logger.info("Tabela 'atividades' já existe.")
-        
-        app.logger.info("Migração do banco de dados concluída com sucesso!")
-        
+        app.logger.info("Iniciando migração do banco de dados (se necessário)...")
+        with app.app_context(): # Garante contexto da aplicação
+             with db.engine.connect() as connection:
+
+                # Função helper para verificar e adicionar coluna
+                def ensure_column(conn, table, col_name, col_def):
+                    cursor = conn.execute(db.text(f"PRAGMA table_info({table})"))
+                    columns = [c[1] for c in cursor.fetchall()]
+                    if col_name not in columns:
+                        app.logger.info(f"Adicionando coluna '{col_name}' à tabela '{table}'...")
+                        # Executar ALTER TABLE dentro da conexão existente
+                        conn.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"))
+                        # Para SQLite, commit pode não ser necessário para ALTER, mas não prejudica
+                        # Se a conexão não estiver em autocommit, um commit pode ser necessário
+                        # conn.commit() # Descomente se necessário, mas geralmente DDL é auto-commit
+                        app.logger.info(f"Coluna '{col_name}' adicionada com sucesso!")
+                    else:
+                         app.logger.info(f"Coluna '{col_name}' já existe na tabela '{table}'.")
+
+                # Verificar se a tabela pontos existe
+                result_table = connection.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='pontos'"))
+                if result_table.fetchone():
+                    # Adicionar colunas à tabela pontos
+                    ensure_column(connection, 'pontos', 'afastamento', 'BOOLEAN DEFAULT 0')
+                    ensure_column(connection, 'pontos', 'tipo_afastamento', 'VARCHAR(100)')
+                    ensure_column(connection, 'pontos', 'observacoes', 'TEXT')
+                else:
+                    app.logger.info("Tabela 'pontos' não encontrada. Será criada por db.create_all().")
+
+                # Verificar se a tabela atividades existe
+                result_table = connection.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='atividades'"))
+                if result_table.fetchone():
+                     # Adicionar coluna à tabela atividades
+                    ensure_column(connection, 'atividades', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+                else:
+                     app.logger.info("Tabela 'atividades' não encontrada. Será criada por db.create_all().")
+
+                # Verificar se a tabela users existe
+                result_table = connection.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'"))
+                if result_table.fetchone():
+                    # Adicionar coluna à tabela users
+                    ensure_column(connection, 'users', 'is_active_db', 'BOOLEAN NOT NULL DEFAULT 1')
+                else:
+                    app.logger.info("Tabela 'users' não encontrada. Será criada por db.create_all().")
+
+
+        app.logger.info("Migração/Verificação do banco de dados concluída.")
+
     except Exception as e:
-        app.logger.error(f"Erro ao executar a migração do banco de dados: {e}")
-        # Não propagar a exceção para não impedir a inicialização da aplicação
+        app.logger.error(f"Erro ao executar a migração do banco de dados: {e}", exc_info=True)
+        # Considerar relançar o erro se a migração for crítica para o startup
+        # raise
 
 def ensure_instance_directory(app):
     """Garante que o diretório instance exista e tenha as permissões corretas"""
     try:
         instance_path = app.instance_path
         app.logger.info(f"Verificando diretório instance: {instance_path}")
-        
+
         # Cria o diretório instance se não existir
         if not os.path.exists(instance_path):
             os.makedirs(instance_path, exist_ok=True)
             app.logger.info(f"Diretório instance criado: {instance_path}")
-        
-        # Garante que o diretório tenha permissões adequadas
-        os.chmod(instance_path, 0o777)  # Permissões mais amplas para garantir acesso
-        app.logger.info(f"Permissões do diretório instance ajustadas")
-        
+
+        # Garante que o diretório tenha permissões adequadas (importante no Render)
+        try:
+             os.chmod(instance_path, 0o777) # Permissões mais amplas para garantir acesso
+             app.logger.info(f"Permissões do diretório instance ajustadas para 777")
+        except OSError as e:
+             app.logger.warning(f"Não foi possível alterar permissões do diretório instance: {e}")
+
+
         # No ambiente Render, verifica se o diretório está no disco persistente
+        render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', '/opt/render/project/src/instance')
         if os.environ.get('RENDER'):
-            render_disk_path = '/opt/render/project/src/instance'
-            
+            app.logger.info(f"Ambiente Render detectado. Verificando disco persistente em: {render_disk_mount_path}")
+
             # Garante que o diretório no disco persistente exista
-            if not os.path.exists(render_disk_path):
-                os.makedirs(render_disk_path, exist_ok=True)
-                os.chmod(render_disk_path, 0o777)  # Permissões mais amplas
-                app.logger.info(f"Diretório no disco persistente criado: {render_disk_path}")
-            
-            # Se o diretório do disco persistente existir, mas não for o mesmo que instance_path
-            if instance_path != render_disk_path:
-                app.logger.info(f"Sincronizando dados do banco de dados com o disco persistente")
-                
-                # Copia arquivos .db do diretório instance para o disco persistente
-                for file in os.listdir(instance_path):
-                    if file.endswith('.db'):
-                        src = os.path.join(instance_path, file)
-                        dst = os.path.join(render_disk_path, file)
-                        shutil.copy2(src, dst)
-                        app.logger.info(f"Arquivo {file} copiado para o disco persistente")
-    
+            if not os.path.exists(render_disk_mount_path):
+                os.makedirs(render_disk_mount_path, exist_ok=True)
+                try:
+                    os.chmod(render_disk_mount_path, 0o777) # Permissões mais amplas
+                    app.logger.info(f"Diretório no disco persistente criado: {render_disk_mount_path}")
+                except OSError as e:
+                    app.logger.warning(f"Não foi possível alterar permissões do diretório no disco persistente: {e}")
+
     except Exception as e:
-        app.logger.error(f"Erro ao verificar/criar diretório instance: {e}")
-        # Registra o erro, mas não interrompe a execução
+        app.logger.error(f"Erro ao verificar/criar diretório instance: {e}", exc_info=True)
+
 
 def create_app():
     # Cria e configura a aplicação
-    app = Flask(__name__)
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chave-secreta-padrao')
-    
-    # Configuração de logging mais detalhado
-    if not app.debug:
-        app.logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
+    app = Flask(__name__, instance_relative_config=True) # instance_relative_config=True é boa prática
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev') # Usar 'dev' apenas para desenvolvimento
+
+    # Configuração de logging
+    log_level = logging.DEBUG if os.environ.get('DEBUG', 'False').lower() == 'true' else logging.INFO
+    app.logger.setLevel(log_level)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
+    handler.setFormatter(formatter)
+    if not app.logger.handlers:
         app.logger.addHandler(handler)
-    
-    # Configuração do banco de dados para garantir persistência no Render
+
+    # Configuração do banco de dados
+    render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', app.instance_path) # Usar instance_path como fallback
+    db_name = 'ponto_eletronico.db'
+    default_db_path = os.path.join(render_disk_mount_path, db_name)
+
     if os.environ.get('RENDER'):
-        # No ambiente Render, use o caminho absoluto para o banco de dados no disco persistente
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////opt/render/project/src/instance/ponto_eletronico.db'
-        app.logger.info("Ambiente Render detectado. Usando caminho absoluto para o banco de dados no disco persistente.")
+        db_uri = f'sqlite:///{default_db_path}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        app.logger.info(f"Ambiente Render detectado. Usando banco de dados em: {db_uri}")
     else:
-        # Em ambiente de desenvolvimento, use o caminho relativo
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///instance/ponto_eletronico.db')
-        app.logger.info("Usando caminho relativo para o banco de dados em ambiente de desenvolvimento.")
-    
+        # Em desenvolvimento, usa instance_path que agora é relativo à raiz da app
+        dev_db_path = os.path.join(app.instance_path, db_name)
+        db_uri = f'sqlite:///{dev_db_path}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        app.logger.info(f"Ambiente de desenvolvimento. Usando banco de dados em: {db_uri}")
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Inicializa extensões com a aplicação
+
+    # Inicializa extensões
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    
+    login_manager.login_message = "Por favor, faça login para acessar esta página."
+    login_manager.login_message_category = "warning" # Usar warning para mais destaque
+
     with app.app_context():
-        # Garante que o diretório instance exista e tenha as permissões corretas
+        # Garante diretório instance
         ensure_instance_directory(app)
-        
+
         try:
-            # Cria as tabelas se não existirem
+            # Cria tabelas se não existirem
             db.create_all()
-            
-            # Executa a migração para adicionar as colunas necessárias
-            # Importante: isso deve ser feito antes de registrar os blueprints
+            app.logger.info("db.create_all() executado.")
+
+            # Executa a migração/verificação de colunas
             migrate_db(app)
         except Exception as e:
-            app.logger.error(f"Erro durante a inicialização do banco de dados: {e}")
-            # Não propagar a exceção para permitir que a aplicação continue
-    
-    # Registra blueprints após a migração do banco de dados
+            app.logger.error(f"Erro durante a inicialização do banco de dados (create_all/migrate_db): {e}", exc_info=True)
+            raise # Re-lançar o erro é importante para saber que a inicialização falhou
+
+    # --- CORREÇÃO: Adicionar processador de contexto para datetime ---
+    @app.context_processor
+    def inject_now():
+        return {'datetime': datetime} # Disponibiliza o módulo datetime inteiro
+    # -------------------------------------------------------------
+
+    # Importar e registrar blueprints DEPOIS da inicialização e migração
     from app.controllers.auth import auth as auth_blueprint
     app.register_blueprint(auth_blueprint)
-    
+
     from app.controllers.main import main as main_blueprint
     app.register_blueprint(main_blueprint)
-    
+
     from app.controllers.admin import admin as admin_blueprint
     app.register_blueprint(admin_blueprint)
-    
-    # Carrega o modelo User para o login_manager
+
+    # Importar modelos DEPOIS de db.init_app()
     from app.models.user import User
-    
+
+    # Configura o user_loader
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
-    
+        try:
+            # Tenta converter para int e buscar o usuário
+            return User.query.get(int(user_id))
+        except (ValueError, TypeError) as e:
+             app.logger.error(f"Erro ao carregar usuário - ID inválido '{user_id}': {e}")
+             return None
+        except Exception as e:
+            app.logger.error(f"Erro inesperado ao carregar usuário {user_id}: {e}", exc_info=True)
+            return None
+
+    app.logger.info("Aplicação criada e configurada com sucesso.")
     return app
