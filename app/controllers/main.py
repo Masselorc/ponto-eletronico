@@ -12,7 +12,8 @@ import logging
 import os
 import tempfile
 import pandas as pd
-# from app.utils.export import generate_pdf, generate_excel # Importações movidas para dentro das funções
+# Importar utils apenas quando necessário para evitar erros de importação cíclica ou prematura
+# from app.utils.export import generate_pdf, generate_excel
 
 main = Blueprint('main', __name__)
 
@@ -129,8 +130,7 @@ def dashboard():
     except Exception as e:
         logger.error(f"Erro ao carregar dashboard: {e}", exc_info=True)
         flash('Erro ao carregar o dashboard. Tente novamente.', 'danger')
-        # Fallback para evitar erro 500 completo
-        hoje = date.today() # Garante que hoje está definido
+        hoje = date.today() # Garante que hoje está definido no escopo do except
         return render_template('main/dashboard.html', registros=[], mes_atual=hoje.month, ano_atual=hoje.year, nome_mes="Mês Atual", dias_uteis=0, dias_trabalhados=0, dias_afastamento=0, horas_trabalhadas=0, carga_horaria_devida=0, saldo_horas=0, media_diaria=0, usuario=current_user, usuarios=None)
 
 
@@ -141,13 +141,13 @@ def registrar_ponto():
     form = RegistroPontoForm()
     if request.method == 'GET':
         data_query = request.args.get('data')
-        # --- CORREÇÃO: SyntaxError - try/except indentado ---
         if data_query:
+            # --- CORREÇÃO: SyntaxError - try/except indentado ---
             try:
                 form.data.data = date.fromisoformat(data_query)
             except ValueError:
                 flash('Data URL inválida.', 'warning')
-        # ----------------------------------------------------
+            # ----------------------------------------------------
 
     if form.validate_on_submit():
         try:
@@ -360,18 +360,37 @@ def relatorio_mensal():
 @login_required
 def relatorio_mensal_pdf():
     """Gera o relatório mensal em PDF."""
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
-    if current_user.is_admin and user_id_req: usuario_req = User.query.get(user_id_req);
-    if usuario_req: usuario_alvo = usuario_req; else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user
+    if current_user.is_admin and user_id_req:
+        usuario_req = User.query.get(user_id_req)
+        # --- CORREÇÃO: Bloco if/else formatado corretamente ---
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+        # ------------------------------------------------------
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
     try:
-        from app.utils.export import generate_pdf; pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
-        if pdf_rel_path: pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path);
-        if os.path.exists(pdf_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
-        else: logger.error(f"PDF não encontrado: {pdf_abs_path}"); flash('Erro: PDF não encontrado.', 'danger')
-        else: flash('Erro ao gerar PDF.', 'danger')
-    except Exception as e: logger.error(f"Erro gerar/enviar PDF: {e}", exc_info=True); flash('Erro inesperado ao gerar PDF.', 'danger')
+        from app.utils.export import generate_pdf # Importa aqui para evitar erro circular/prematuro
+        pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
+        if pdf_rel_path:
+            pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
+            if os.path.exists(pdf_abs_path):
+                 nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                 download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                 return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
+            else:
+                 logger.error(f"PDF não encontrado: {pdf_abs_path}")
+                 flash('Erro: PDF não encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar PDF.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro gerar/enviar PDF: {e}", exc_info=True)
+        flash('Erro inesperado ao gerar PDF.', 'danger')
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
 
@@ -379,18 +398,37 @@ def relatorio_mensal_pdf():
 @login_required
 def relatorio_mensal_excel():
     """Gera o relatório mensal em Excel."""
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
-    if current_user.is_admin and user_id_req: usuario_req = User.query.get(user_id_req);
-    if usuario_req: usuario_alvo = usuario_req; else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user
+    if current_user.is_admin and user_id_req:
+        usuario_req = User.query.get(user_id_req)
+         # --- CORREÇÃO: Bloco if/else formatado corretamente ---
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+         # ------------------------------------------------------
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
     try:
-        from app.utils.export import generate_excel; excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
-        if excel_rel_path: excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path);
-        if os.path.exists(excel_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"; return send_file(excel_abs_path, as_attachment=True, download_name=download_name, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        else: logger.error(f"Excel não encontrado: {excel_abs_path}"); flash('Erro: Excel não encontrado.', 'danger')
-        else: flash('Erro ao gerar Excel.', 'danger')
-    except Exception as e: logger.error(f"Erro gerar/enviar Excel: {e}", exc_info=True); flash('Erro inesperado ao gerar Excel.', 'danger')
+        from app.utils.export import generate_excel # Importa aqui
+        excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
+        if excel_rel_path:
+            excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path)
+            if os.path.exists(excel_abs_path):
+                 nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                 download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"
+                 return send_file(excel_abs_path, as_attachment=True, download_name=download_name, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            else:
+                 logger.error(f"Excel não encontrado: {excel_abs_path}")
+                 flash('Erro: Excel não encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar Excel.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro gerar/enviar Excel: {e}", exc_info=True)
+        flash('Erro inesperado ao gerar Excel.', 'danger')
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
 
@@ -398,11 +436,15 @@ def relatorio_mensal_excel():
 @login_required
 def visualizar_ponto(ponto_id): # Assinatura corrigida
     """Exibe detalhes de um registro de ponto."""
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id);
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all(); usuario_dono = User.query.get(registro.user_id)
-    if not usuario_dono: flash('Usuário não encontrado.', 'danger'); return redirect(url_for('main.dashboard'))
+    registro = Ponto.query.get_or_404(ponto_id)
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Permissão negada.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
+    usuario_dono = User.query.get(registro.user_id)
+    if not usuario_dono:
+         flash('Usuário não encontrado.', 'danger')
+         return redirect(url_for('main.dashboard'))
     return render_template('main/visualizar_ponto.html', registro=registro, atividades=atividades, usuario=usuario_dono, title="Visualizar Registro")
 
 
@@ -410,11 +452,19 @@ def visualizar_ponto(ponto_id): # Assinatura corrigida
 @login_required
 def excluir_ponto(ponto_id): # Assinatura corrigida
     """Exclui um registro de ponto."""
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id); data_registro = registro.data
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    try: db.session.delete(registro); db.session.commit(); flash('Registro excluído!', 'success')
-    except Exception as e: db.session.rollback(); logger.error(f"Erro excluir ponto {ponto_id}: {e}", exc_info=True); flash('Erro ao excluir.', 'danger')
+    registro = Ponto.query.get_or_404(ponto_id)
+    data_registro = registro.data
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Permissão negada.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    try:
+        db.session.delete(registro)
+        db.session.commit()
+        flash('Registro excluído!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erro excluir ponto {ponto_id}: {e}", exc_info=True)
+        flash('Erro ao excluir.', 'danger')
     return redirect(url_for('main.dashboard', mes=data_registro.month, ano=data_registro.year))
 
 
@@ -422,9 +472,10 @@ def excluir_ponto(ponto_id): # Assinatura corrigida
 @login_required
 def perfil():
     """Exibe o perfil do usuário logado."""
-    # ... (código mantido) ...
-    usuario_atualizado = User.query.get(current_user.id);
-    if not usuario_atualizado: flash('Erro ao carregar perfil.', 'danger'); return redirect(url_for('main.dashboard'))
+    usuario_atualizado = User.query.get(current_user.id)
+    if not usuario_atualizado:
+         flash('Erro ao carregar perfil.', 'danger')
+         return redirect(url_for('main.dashboard'))
     return render_template('main/perfil.html', usuario=usuario_atualizado, title="Meu Perfil")
 
 
@@ -513,3 +564,4 @@ def registrar_atividade(ponto_id): # Assinatura corrigida
                            ponto=ponto,
                            form=form, # Passa o objeto form
                            title="Registrar/Editar Atividade")
+
