@@ -18,8 +18,9 @@ Classes:
 
 from datetime import date, time, datetime
 from flask_wtf import FlaskForm
+# CORREÇÃO: Adicionado 'validators' à importação do WTForms
 from wtforms import (StringField, SubmitField, SelectField, TimeField, DateField,
-                     TextAreaField, FieldList, FormField)
+                     TextAreaField, FieldList, FormField, validators)
 from wtforms.validators import DataRequired, Optional, ValidationError
 
 # Validador customizado para garantir que a hora esteja no formato correto
@@ -27,8 +28,15 @@ def time_check(form, field):
     """Validador para garantir que a hora esteja no formato HH:MM."""
     if field.data:
         try:
-            time.fromisoformat(field.data.strftime('%H:%M'))
-        except ValueError:
+            # Tenta converter para objeto time para validação implícita do formato
+            # Não precisamos mais do strftime aqui se o campo for TimeField
+            if isinstance(field.data, time):
+                 # Já é um objeto time, formato provavelmente correto
+                 pass
+            else:
+                 # Tenta converter de string, se falhar, levanta erro
+                 time.fromisoformat(str(field.data)) # Converte para string por segurança
+        except (ValueError, TypeError):
             raise ValidationError('Formato de hora inválido. Use HH:MM.')
 
 class RegistroPontoForm(FlaskForm):
@@ -76,6 +84,7 @@ class AfastamentoForm(FlaskForm):
     """Formulário para registrar um período de afastamento."""
     data_inicio = DateField('Data de Início', validators=[DataRequired()], default=date.today)
     data_fim = DateField('Data Final', validators=[DataRequired()], default=date.today)
+    # CORREÇÃO: Usando validators.Length importado corretamente
     motivo = StringField('Motivo', validators=[DataRequired(), validators.Length(min=3, max=100)])
     submit = SubmitField('Registrar Afastamento')
 
@@ -88,5 +97,6 @@ class AfastamentoForm(FlaskForm):
 class AtividadeForm(FlaskForm):
     """Formulário para registrar uma atividade externa ou home office."""
     data = DateField('Data', validators=[DataRequired()], default=date.today)
+    # CORREÇÃO: Usando validators.Length importado corretamente
     descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), validators.Length(min=5, max=200)])
     submit = SubmitField('Registrar Atividade')
