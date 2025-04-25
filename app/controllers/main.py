@@ -32,30 +32,34 @@ from io import BytesIO
 
 # Imports de terceiros
 from flask import (Blueprint, flash, redirect, render_template, request,
-                   send_file, url_for)
+                   send_file, url_for, current_app) # Adicionado current_app se necessário
 from flask_login import current_user, login_required
 from sqlalchemy import desc
 
 # Imports locais
 from app import db
+# Importar formulários de ponto
 from app.forms.ponto import (AfastamentoForm, AtividadeForm, DateForm,
                              EditarPontoForm, MultiRegistroPontoForm,
                              RegistroPontoForm)
+# Importar modelos
 from app.models.feriado import Feriado
 from app.models.ponto import Afastamento, Atividade, Ponto
 from app.models.user import User
+# Importar utilitários
 from app.utils.export import (gerar_relatorio_excel_bytes,
                               gerar_relatorio_pdf_bytes)
 from app.utils.helpers import (calcular_horas_trabalhadas_dia,
                                calcular_saldo_banco_horas,
                                get_afastamentos_no_mes, get_atividades_no_mes,
-                               get_dias_uteis_no_mes, get_feriados_no_mes)
+                               get_dias_uteis_no_mes, get_feriados_no_mes, formatar_timedelta) # Adicionado formatar_timedelta se usado aqui
+
 
 # Configuração do Blueprint
 main = Blueprint('main', __name__)
 
 # Configuração do logging
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO) # Configuração global geralmente feita em __init__
 logger = logging.getLogger(__name__)
 
 # --- Rotas Principais ---
@@ -69,38 +73,46 @@ def dashboard():
 
     Exibe os registros de ponto do dia atual e um resumo do mês.
     """
-    hoje = date.today()
-    pontos_hoje = Ponto.query.filter_by(user_id=current_user.id, data=hoje).order_by(Ponto.hora).all()
-    horas_trabalhadas_hoje, _ = calcular_horas_trabalhadas_dia(pontos_hoje)
+    try: # Adiciona try/except geral para robustez da rota
+        hoje = date.today()
+        pontos_hoje = Ponto.query.filter_by(user_id=current_user.id, data=hoje).order_by(Ponto.hora).all()
+        horas_trabalhadas_hoje, _ = calcular_horas_trabalhadas_dia(pontos_hoje)
 
-    # Calcula o saldo de banco de horas do mês atual
-    saldo_mes_atual = calcular_saldo_banco_horas(current_user.id, hoje.year, hoje.month)
+        # Calcula o saldo de banco de horas do mês atual
+        saldo_mes_atual = calcular_saldo_banco_horas(current_user.id, hoje.year, hoje.month)
 
-    # Busca o último registro de ponto para determinar o próximo tipo (Entrada/Saída)
-    ultimo_ponto = Ponto.query.filter_by(user_id=current_user.id).order_by(Ponto.timestamp.desc()).first()
-    proximo_tipo = 'Saída' if ultimo_ponto and ultimo_ponto.tipo == 'Entrada' else 'Entrada'
+        # Busca o último registro de ponto para determinar o próximo tipo (Entrada/Saída)
+        ultimo_ponto = Ponto.query.filter_by(user_id=current_user.id).order_by(Ponto.timestamp.desc()).first()
+        proximo_tipo = 'Saída' if ultimo_ponto and ultimo_ponto.tipo == 'Entrada' else 'Entrada'
 
-    # Verifica se há um afastamento ativo hoje
-    afastamento_hoje = Afastamento.query.filter(
-        Afastamento.user_id == current_user.id,
-        Afastamento.data_inicio <= hoje,
-        Afastamento.data_fim >= hoje
-    ).first()
+        # Verifica se há um afastamento ativo hoje
+        afastamento_hoje = Afastamento.query.filter(
+            Afastamento.user_id == current_user.id,
+            Afastamento.data_inicio <= hoje,
+            Afastamento.data_fim >= hoje
+        ).first()
 
-    # Verifica se há uma atividade registrada hoje
-    atividade_hoje = Atividade.query.filter(
-        Atividade.user_id == current_user.id,
-        Atividade.data == hoje
-    ).first()
+        # Verifica se há uma atividade registrada hoje
+        atividade_hoje = Atividade.query.filter(
+            Atividade.user_id == current_user.id,
+            Atividade.data == hoje
+        ).first()
 
-    return render_template('main/dashboard.html',
-                           title='Dashboard',
-                           pontos_hoje=pontos_hoje,
-                           horas_trabalhadas_hoje=horas_trabalhadas_hoje,
-                           saldo_mes_atual=saldo_mes_atual,
-                           proximo_tipo=proximo_tipo,
-                           afastamento_hoje=afastamento_hoje,
-                           atividade_hoje=atividade_hoje)
+        return render_template('main/dashboard.html',
+                               title='Dashboard',
+                               pontos_hoje=pontos_hoje,
+                               horas_trabalhadas_hoje=horas_trabalhadas_hoje,
+                               saldo_mes_atual=saldo_mes_atual,
+                               proximo_tipo=proximo_tipo,
+                               afastamento_hoje=afastamento_hoje,
+                               atividade_hoje=atividade_hoje,
+                               formatar_timedelta=formatar_timedelta) # Passa a função para o template
+    except Exception as e:
+        logger.error(f"Erro ao carregar dashboard para usuário {current_user.id}: {e}", exc_info=True)
+        flash("Ocorreu um erro ao carregar o dashboard. Tente novamente mais tarde.", "danger")
+        # Redireciona para uma página de erro ou login, dependendo da situação
+        return redirect(url_for('auth.login')) # Ou uma página de erro genérica
+
 
 @main.route('/registrar_ponto', methods=['GET', 'POST'])
 @login_required
@@ -123,67 +135,79 @@ def registrar_ponto():
         form.tipo.data = tipo_sugerido
 
     if form.validate_on_submit():
-        data_registro = form.data.data
-        hora_registro = form.hora.data
-        tipo = form.tipo.data
-        observacao = form.observacao.data
+        try: # Adiciona try/except para a lógica de banco de dados
+            data_registro = form.data.data
+            hora_registro = form.hora.data
+            tipo = form.tipo.data
+            observacao = form.observacao.data
+            # Campo 'atividades' adicionado ao form (Ponto 6), mas não ao modelo Ponto ainda.
+            # Se quiser salvar, precisaria adicionar ao modelo Ponto ou concatenar na observacao.
+            # atividades_texto = form.atividades.data # Exemplo de como pegar o dado
 
-        # Combina data e hora para criar o timestamp
-        if data_registro and hora_registro:
-            timestamp_registro = datetime.combine(data_registro, hora_registro)
-        else:
-            # Se hora não for fornecida, usa a hora atual
-            agora = datetime.now()
-            timestamp_registro = datetime.combine(data_registro or hoje, agora.time())
-            hora_registro = timestamp_registro.time() # Atualiza a hora para salvar
+            # Combina data e hora para criar o timestamp
+            if data_registro and hora_registro:
+                timestamp_registro = datetime.combine(data_registro, hora_registro)
+            else:
+                # Se hora não for fornecida, usa a hora atual
+                agora = datetime.now()
+                timestamp_registro = datetime.combine(data_registro or hoje, agora.time())
+                hora_registro = timestamp_registro.time() # Atualiza a hora para salvar
 
-        # Verifica se já existe um registro muito próximo (evitar duplicidade acidental)
-        limite_inferior = timestamp_registro - timedelta(minutes=1)
-        limite_superior = timestamp_registro + timedelta(minutes=1)
-        ponto_existente = Ponto.query.filter(
-            Ponto.user_id == current_user.id,
-            Ponto.timestamp >= limite_inferior,
-            Ponto.timestamp <= limite_superior,
-            Ponto.tipo == tipo
-        ).first()
+            # Verifica se já existe um registro muito próximo (evitar duplicidade acidental)
+            limite_inferior = timestamp_registro - timedelta(minutes=1)
+            limite_superior = timestamp_registro + timedelta(minutes=1)
+            ponto_existente = Ponto.query.filter(
+                Ponto.user_id == current_user.id,
+                Ponto.timestamp >= limite_inferior,
+                Ponto.timestamp <= limite_superior,
+                Ponto.tipo == tipo
+            ).first()
 
-        if ponto_existente:
-            flash(f'Já existe um registro de {tipo.lower()} próximo a este horário.', 'warning')
-            return redirect(url_for('main.registrar_ponto'))
+            if ponto_existente:
+                flash(f'Já existe um registro de {tipo.lower()} próximo a este horário.', 'warning')
+                return redirect(url_for('main.registrar_ponto'))
 
-        # Verifica se há um afastamento ativo na data do registro
-        afastamento_ativo = Afastamento.query.filter(
-            Afastamento.user_id == current_user.id,
-            Afastamento.data_inicio <= data_registro,
-            Afastamento.data_fim >= data_registro
-        ).first()
+            # Verifica se há um afastamento ativo na data do registro
+            afastamento_ativo = Afastamento.query.filter(
+                Afastamento.user_id == current_user.id,
+                Afastamento.data_inicio <= data_registro,
+                Afastamento.data_fim >= data_registro
+            ).first()
 
-        if afastamento_ativo:
-            flash(f'Não é possível registrar ponto em {data_registro.strftime("%d/%m/%Y")}, pois há um afastamento registrado ({afastamento_ativo.motivo}).', 'warning')
-            return redirect(url_for('main.registrar_ponto'))
+            if afastamento_ativo:
+                flash(f'Não é possível registrar ponto em {data_registro.strftime("%d/%m/%Y")}, pois há um afastamento registrado ({afastamento_ativo.motivo}).', 'warning')
+                return redirect(url_for('main.registrar_ponto'))
 
-        # Verifica se há uma atividade registrada na data do registro
-        atividade_registrada = Atividade.query.filter(
-            Atividade.user_id == current_user.id,
-            Atividade.data == data_registro
-        ).first()
+            # Verifica se há uma atividade registrada na data do registro
+            atividade_registrada = Atividade.query.filter(
+                Atividade.user_id == current_user.id,
+                Atividade.data == data_registro
+            ).first()
 
-        if atividade_registrada:
-            flash(f'Não é possível registrar ponto em {data_registro.strftime("%d/%m/%Y")}, pois há uma atividade externa/home office registrada ({atividade_registrada.descricao}).', 'warning')
-            return redirect(url_for('main.registrar_ponto'))
+            if atividade_registrada:
+                flash(f'Não é possível registrar ponto em {data_registro.strftime("%d/%m/%Y")}, pois há uma atividade externa/home office registrada ({atividade_registrada.descricao}).', 'warning')
+                return redirect(url_for('main.registrar_ponto'))
 
-        novo_ponto = Ponto(
-            user_id=current_user.id,
-            timestamp=timestamp_registro,
-            data=data_registro,
-            hora=hora_registro,
-            tipo=tipo,
-            observacao=observacao
-        )
-        db.session.add(novo_ponto)
-        db.session.commit()
-        flash(f'Ponto de {tipo.lower()} registrado com sucesso!', 'success')
-        return redirect(url_for('main.dashboard'))
+            novo_ponto = Ponto(
+                user_id=current_user.id,
+                timestamp=timestamp_registro,
+                data=data_registro,
+                hora=hora_registro,
+                tipo=tipo,
+                observacao=observacao # Concatenar 'atividades_texto' aqui se desejar
+            )
+            db.session.add(novo_ponto)
+            db.session.commit()
+            flash(f'Ponto de {tipo.lower()} registrado com sucesso!', 'success')
+            return redirect(url_for('main.dashboard'))
+
+        except Exception as e:
+             db.session.rollback()
+             logger.error(f"Erro ao registrar ponto para usuário {current_user.id}: {e}", exc_info=True)
+             flash("Ocorreu um erro ao tentar registrar o ponto.", "danger")
+             # Redireciona de volta para o formulário em caso de erro
+             return redirect(url_for('main.registrar_ponto'))
+
     elif request.method == 'POST':
         # Se a validação falhar, exibe mensagens de erro
         for field, errors in form.errors.items():
@@ -215,12 +239,10 @@ def visualizar_ponto():
     data_query = request.args.get('data')
     if request.method == 'GET' and data_query:
         try:
-            # CORREÇÃO: Bloco try/except movido para linhas separadas e indentado corretamente
             form.data.data = date.fromisoformat(data_query)
         except ValueError:
             flash('Data URL inválida.', 'warning')
-            # Mantém a data de hoje se a URL for inválida
-            form.data.data = date.today()
+            form.data.data = date.today() # Mantém a data de hoje se a URL for inválida
         data_selecionada = form.data.data # Atualiza data_selecionada com a data da URL (ou hoje)
 
     if form.validate_on_submit():
@@ -230,36 +252,48 @@ def visualizar_ponto():
         form.data.data = data_selecionada
 
     if data_selecionada:
-        # Verifica se há afastamento ou atividade para o dia selecionado
-        afastamento_dia = Afastamento.query.filter(
-            Afastamento.user_id == current_user.id,
-            Afastamento.data_inicio <= data_selecionada,
-            Afastamento.data_fim >= data_selecionada
-        ).first()
+        try: # Adiciona try/except para buscas no banco
+            # Verifica se há afastamento ou atividade para o dia selecionado
+            afastamento_dia = Afastamento.query.filter(
+                Afastamento.user_id == current_user.id,
+                Afastamento.data_inicio <= data_selecionada,
+                Afastamento.data_fim >= data_selecionada
+            ).first()
 
-        atividade_dia = Atividade.query.filter(
-            Atividade.user_id == current_user.id,
-            Atividade.data == data_selecionada
-        ).first()
+            atividade_dia = Atividade.query.filter(
+                Atividade.user_id == current_user.id,
+                Atividade.data == data_selecionada
+            ).first()
 
-        # Se não houver afastamento ou atividade, busca os pontos
-        if not afastamento_dia and not atividade_dia:
-            pontos = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).order_by(Ponto.hora).all()
-            horas_trabalhadas, _ = calcular_horas_trabalhadas_dia(pontos)
-            # Verifica se é feriado
-            feriado = Feriado.query.filter_by(data=data_selecionada).first()
-            # Verifica se é fim de semana
-            dia_semana = data_selecionada.weekday() # Segunda é 0, Domingo é 6
+            # Se não houver afastamento ou atividade, busca os pontos
+            if not afastamento_dia and not atividade_dia:
+                pontos = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).order_by(Ponto.hora).all()
+                horas_trabalhadas, _ = calcular_horas_trabalhadas_dia(pontos)
+                # Verifica se é feriado
+                feriado = Feriado.query.filter_by(data=data_selecionada).first()
+                # Verifica se é fim de semana
+                dia_semana = data_selecionada.weekday() # Segunda é 0, Domingo é 6
 
-            if feriado or dia_semana >= 5: # 5 é Sábado, 6 é Domingo
-                # Em feriados e fins de semana, a jornada esperada é 0, saldo é o total trabalhado
-                saldo_dia = horas_trabalhadas
+                if feriado or dia_semana >= 5: # 5 é Sábado, 6 é Domingo
+                    # Em feriados e fins de semana, a jornada esperada é 0, saldo é o total trabalhado
+                    saldo_dia = horas_trabalhadas
+                else:
+                    saldo_dia = horas_trabalhadas - jornada_esperada
             else:
-                saldo_dia = horas_trabalhadas - jornada_esperada
-        else:
-            # Se houver afastamento ou atividade, não há pontos ou saldo a calcular (ou lógica específica pode ser adicionada)
+                # Se houver afastamento ou atividade, não há pontos ou saldo a calcular (ou lógica específica pode ser adicionada)
+                horas_trabalhadas = timedelta(0)
+                saldo_dia = timedelta(0) # Ou pode ser definido como "N/A" ou similar no template
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados para visualizar ponto ({data_selecionada}) para usuário {current_user.id}: {e}", exc_info=True)
+            flash("Erro ao carregar os dados do dia selecionado.", "danger")
+            # Reseta os dados para evitar mostrar informações inconsistentes
+            pontos = []
             horas_trabalhadas = timedelta(0)
-            saldo_dia = timedelta(0) # Ou pode ser definido como "N/A" ou similar no template
+            saldo_dia = timedelta(0)
+            afastamento_dia = None
+            atividade_dia = None
+
 
     return render_template('main/visualizar_ponto.html',
                            title='Visualizar Ponto',
@@ -269,8 +303,11 @@ def visualizar_ponto():
                            horas_trabalhadas=horas_trabalhadas,
                            saldo_dia=saldo_dia,
                            afastamento_dia=afastamento_dia,
-                           atividade_dia=atividade_dia)
+                           atividade_dia=atividade_dia,
+                           formatar_timedelta=formatar_timedelta) # Passa a função helper
 
+
+# CORREÇÃO Ponto 1: Adicionar <int:ponto_id> à rota
 @main.route('/editar_ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
@@ -281,46 +318,54 @@ def editar_ponto(ponto_id):
     # Garante que o usuário só possa editar seus próprios pontos
     if ponto.user_id != current_user.id:
         flash('Você não tem permissão para editar este registro.', 'danger')
+        # Redireciona para a visualização do dia original do ponto
         return redirect(url_for('main.visualizar_ponto', data=ponto.data.isoformat()))
 
     form = EditarPontoForm(obj=ponto)
-    # Preenche os campos de data e hora separadamente
+    # Preenche os campos de data e hora separadamente no GET
     if request.method == 'GET':
         form.data.data = ponto.data
         form.hora.data = ponto.hora
+        # Preenche o campo atividades se ele existir no form e no modelo (ou observacao)
+        # form.atividades.data = ponto.atividades # Se o campo existir no modelo
+        form.observacao.data = ponto.observacao # Preenche observacao
 
     if form.validate_on_submit():
-        # Verifica se há afastamento ou atividade na nova data
-        nova_data = form.data.data
-        afastamento_ativo = Afastamento.query.filter(
-            Afastamento.user_id == current_user.id,
-            Afastamento.data_inicio <= nova_data,
-            Afastamento.data_fim >= nova_data
-        ).first()
-        atividade_registrada = Atividade.query.filter(
-            Atividade.user_id == current_user.id,
-            Atividade.data == nova_data
-        ).first()
+        redirect_url = url_for('main.visualizar_ponto', data=form.data.data.isoformat()) # URL para redirecionar
+        try:
+            # Verifica se há afastamento ou atividade na nova data
+            nova_data = form.data.data
+            afastamento_ativo = Afastamento.query.filter(
+                Afastamento.user_id == current_user.id,
+                Afastamento.data_inicio <= nova_data,
+                Afastamento.data_fim >= nova_data
+            ).first()
+            atividade_registrada = Atividade.query.filter(
+                Atividade.user_id == current_user.id,
+                Atividade.data == nova_data
+            ).first()
 
-        if afastamento_ativo and afastamento_ativo.id != getattr(ponto, 'afastamento_id', None): # Permite editar se for ponto de afastamento? (a definir)
-             flash(f'Não é possível mover o ponto para {nova_data.strftime("%d/%m/%Y")}, pois há um afastamento registrado ({afastamento_ativo.motivo}).', 'warning')
-        elif atividade_registrada and atividade_registrada.id != getattr(ponto, 'atividade_id', None): # Permite editar se for ponto de atividade? (a definir)
-            flash(f'Não é possível mover o ponto para {nova_data.strftime("%d/%m/%Y")}, pois há uma atividade externa/home office registrada ({atividade_registrada.descricao}).', 'warning')
-        else:
-            try:
+            if afastamento_ativo:
+                 flash(f'Não é possível mover o ponto para {nova_data.strftime("%d/%m/%Y")}, pois há um afastamento registrado ({afastamento_ativo.motivo}).', 'warning')
+            elif atividade_registrada:
+                flash(f'Não é possível mover o ponto para {nova_data.strftime("%d/%m/%Y")}, pois há uma atividade externa/home office registrada ({atividade_registrada.descricao}).', 'warning')
+            else:
                 # Atualiza os dados do ponto
                 ponto.data = form.data.data
                 ponto.hora = form.hora.data
                 ponto.timestamp = datetime.combine(ponto.data, ponto.hora)
                 ponto.tipo = form.tipo.data
                 ponto.observacao = form.observacao.data
+                # ponto.atividades = form.atividades.data # Se existir no modelo
                 db.session.commit()
                 flash('Registro de ponto atualizado com sucesso!', 'success')
-                return redirect(url_for('main.visualizar_ponto', data=ponto.data.isoformat()))
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f"Erro ao editar ponto {ponto_id}: {e}")
-                flash('Erro ao atualizar o registro de ponto.', 'danger')
+                return redirect(redirect_url) # Redireciona para o dia atualizado
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro ao editar ponto {ponto_id}: {e}", exc_info=True)
+            flash('Erro ao atualizar o registro de ponto.', 'danger')
+            # Mantém na página de edição em caso de erro
 
     elif request.method == 'POST':
         # Se a validação falhar, exibe mensagens de erro
@@ -328,9 +373,12 @@ def editar_ponto(ponto_id):
             for error in errors:
                 flash(f"Erro no campo '{getattr(form, field).label.text}': {error}", 'danger')
 
-    return render_template('main/editar_ponto.html', title='Editar Ponto', form=form, ponto=ponto)
+    # Passa a data original para o botão cancelar
+    data_original_iso = ponto.data.isoformat()
+    return render_template('main/editar_ponto.html', title='Editar Ponto', form=form, ponto=ponto, data_original_iso=data_original_iso)
 
 
+# CORREÇÃO Ponto 1: Adicionar <int:ponto_id> à rota
 @main.route('/excluir_ponto/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id):
@@ -338,12 +386,13 @@ def excluir_ponto(ponto_id):
     Rota para excluir um registro de ponto.
     """
     ponto = Ponto.query.get_or_404(ponto_id)
+    data_ponto_iso = ponto.data.isoformat() # Guarda a data para redirecionar
+    redirect_url = url_for('main.visualizar_ponto', data=data_ponto_iso) # Define URL de redirecionamento
+
     # Garante que o usuário só possa excluir seus próprios pontos
     if ponto.user_id != current_user.id:
         flash('Você não tem permissão para excluir este registro.', 'danger')
-        return redirect(url_for('main.visualizar_ponto')) # Redireciona para a visualização geral
-
-    data_ponto = ponto.data.isoformat() # Guarda a data para redirecionar
+        return redirect(redirect_url) # Redireciona para a visualização do dia
 
     try:
         db.session.delete(ponto)
@@ -351,11 +400,11 @@ def excluir_ponto(ponto_id):
         flash('Registro de ponto excluído com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Erro ao excluir ponto {ponto_id}: {e}")
+        logger.error(f"Erro ao excluir ponto {ponto_id}: {e}", exc_info=True)
         flash('Erro ao excluir o registro de ponto.', 'danger')
 
-    # Redireciona para a visualização do dia do ponto excluído
-    return redirect(url_for('main.visualizar_ponto', data=data_ponto))
+    # CORREÇÃO Ponto 8: Redireciona fora do try/except
+    return redirect(redirect_url)
 
 
 @main.route('/registrar_multiplo_ponto', methods=['GET', 'POST'])
@@ -366,11 +415,23 @@ def registrar_multiplo_ponto():
     Útil para corrigir ou adicionar registros de um dia inteiro.
     """
     form = MultiRegistroPontoForm()
-    data_selecionada = date.today()
+    data_selecionada = date.today() # Padrão
 
+    # Pega data da query string se houver (link do relatório mensal)
+    data_query = request.args.get('data')
+    if request.method == 'GET' and data_query:
+        try:
+            data_selecionada = date.fromisoformat(data_query)
+            form.data.data = data_selecionada # Preenche o form com a data da query
+        except ValueError:
+            flash('Data inválida na URL.', 'warning')
+            form.data.data = date.today() # Usa hoje se inválida
+            data_selecionada = date.today()
+    elif request.method == 'GET':
+         form.data.data = data_selecionada # Preenche com hoje se não houver query
+
+    # Carrega pontos existentes para o dia, se houver, para edição (APÓS definir data_selecionada)
     if request.method == 'GET':
-        form.data.data = data_selecionada
-        # Carrega pontos existentes para o dia, se houver, para edição
         pontos_existentes = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).order_by(Ponto.hora).all()
         # Limpa entradas existentes no formulário antes de popular
         while len(form.pontos) > 0:
@@ -385,6 +446,7 @@ def registrar_multiplo_ponto():
 
     if form.validate_on_submit():
         data_registro = form.data.data
+        redirect_url = url_for('main.visualizar_ponto', data=data_registro.isoformat())
 
         # Verifica afastamento ou atividade na data
         afastamento_ativo = Afastamento.query.filter(
@@ -399,10 +461,10 @@ def registrar_multiplo_ponto():
 
         if afastamento_ativo:
             flash(f'Não é possível registrar pontos em {data_registro.strftime("%d/%m/%Y")}, pois há um afastamento registrado ({afastamento_ativo.motivo}).', 'warning')
-            return redirect(url_for('main.registrar_multiplo_ponto'))
+            return redirect(url_for('main.registrar_multiplo_ponto', data=data_registro.isoformat())) # Volta para a mesma data
         if atividade_registrada:
              flash(f'Não é possível registrar pontos em {data_registro.strftime("%d/%m/%Y")}, pois há uma atividade externa/home office registrada ({atividade_registrada.descricao}).', 'warning')
-             return redirect(url_for('main.registrar_multiplo_ponto'))
+             return redirect(url_for('main.registrar_multiplo_ponto', data=data_registro.isoformat()))
 
         try:
             # 1. Exclui todos os pontos existentes para este dia e usuário
@@ -435,12 +497,14 @@ def registrar_multiplo_ponto():
             db.session.add_all(novos_pontos)
             db.session.commit()
             flash(f'Registros de ponto para {data_registro.strftime("%d/%m/%Y")} atualizados com sucesso!', 'success')
-            return redirect(url_for('main.visualizar_ponto', data=data_registro.isoformat()))
+            return redirect(redirect_url) # Redireciona para visualizar o dia modificado
 
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Erro ao registrar múltiplos pontos para {data_registro}: {e}")
+            logger.error(f"Erro ao registrar múltiplos pontos para {data_registro}: {e}", exc_info=True)
             flash('Erro ao salvar os registros de ponto.', 'danger')
+            # Volta para o formulário da mesma data em caso de erro
+            return redirect(url_for('main.registrar_multiplo_ponto', data=data_registro.isoformat()))
 
     elif request.method == 'POST':
         # Se a validação falhar, exibe mensagens de erro
@@ -484,7 +548,7 @@ def relatorio_mensal():
         if not (1 <= mes <= 12):
             flash('Mês inválido.', 'warning')
             mes = mes_atual
-        if ano < 2000 or ano > ano_atual + 1: # Define um range razoável para o ano
+        if ano < 2000 or ano > ano_atual + 5: # Define um range razoável para o ano
              flash('Ano inválido.', 'warning')
              ano = ano_atual
 
@@ -525,6 +589,7 @@ def relatorio_mensal():
             # Verifica feriado, afastamento e atividade
             e_feriado = data_dia in feriados_mes
             afastamento_dia = next((a for a in afastamentos_mes if a.data_inicio <= data_dia <= a.data_fim), None)
+            # Busca atividade pelo dia exato
             atividade_dia = next((at for at in atividades_mes if at.data == data_dia), None)
             e_fim_semana = dia_semana >= 5 # Sábado ou Domingo
 
@@ -538,7 +603,7 @@ def relatorio_mensal():
                 horas_trabalhadas = jornada_diaria # Considera como jornada cumprida para fins de relatório
             elif atividade_dia:
                  saldo_dia = timedelta(0) # Abona o dia
-                 status_dia = f"Atividade Externa/Home Office ({atividade_dia.descricao})"
+                 status_dia = f"Atividade Ext./HO ({atividade_dia.descricao})" # Ajuste na descrição
                  horas_trabalhadas = jornada_diaria # Considera como jornada cumprida
             elif e_feriado:
                 saldo_dia = horas_trabalhadas # Saldo é o que foi trabalhado
@@ -549,9 +614,10 @@ def relatorio_mensal():
             else: # Dia útil normal
                 jornada_esperada_dia = jornada_diaria
                 saldo_dia = horas_trabalhadas - jornada_esperada_dia
+                # Apenas marca falta se não houver ponto E for dia útil sem outras ocorrências
                 if not pontos_dia:
-                    status_dia = "Falta" # Marca como falta se não houver pontos e for dia útil sem afastamento/atividade
-                    saldo_dia = -jornada_esperada_dia # Saldo negativo da jornada
+                    status_dia = "Falta"
+                    saldo_dia = -jornada_esperada_dia
 
             saldo_acumulado += saldo_dia
 
@@ -575,9 +641,9 @@ def relatorio_mensal():
         saldo_banco_horas_total = calcular_saldo_banco_horas(current_user.id)
 
         # Gera lista de anos e meses para o seletor
-        anos_disponiveis = sorted(list(set(p.data.year for p in Ponto.query.with_entities(Ponto.data).distinct())), reverse=True)
-        if not anos_disponiveis or ano_atual not in anos_disponiveis:
-            anos_disponiveis.insert(0, ano_atual) # Garante que o ano atual esteja na lista
+        anos_disponiveis_query = db.session.query(extract('year', Ponto.data)).distinct().all()
+        anos_registrados = {a[0] for a in anos_disponiveis_query if a[0]} # Anos com pontos registrados
+        anos_disponiveis = sorted(list(anos_registrados | {ano_atual, ano_atual-1, ano_atual+1}), reverse=True) # Inclui atual, anterior e próximo
 
         meses_disponiveis = [
             (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
@@ -594,7 +660,9 @@ def relatorio_mensal():
                                meses_disponiveis=meses_disponiveis,
                                saldo_banco_horas_total=saldo_banco_horas_total,
                                saldo_mes=saldo_acumulado, # Saldo acumulado no final do mês
-                               nome_mes=calendar.month_name[mes].capitalize())
+                               nome_mes=calendar.month_name[mes].capitalize(),
+                               formatar_timedelta=formatar_timedelta, # Passa a função helper
+                               timedelta=timedelta) # Passa timedelta para comparações no template
     except ValueError:
         flash('Data inválida fornecida.', 'danger')
         return redirect(url_for('main.relatorio_mensal'))
@@ -660,7 +728,7 @@ def exportar_relatorio():
                 horas_trabalhadas = jornada_diaria
             elif atividade_dia:
                  saldo_dia = timedelta(0)
-                 status_dia = f"Atividade Externa/Home Office ({atividade_dia.descricao})"
+                 status_dia = f"Atividade Ext./HO ({atividade_dia.descricao})"
                  horas_trabalhadas = jornada_diaria
             elif e_feriado:
                 saldo_dia = horas_trabalhadas
@@ -786,7 +854,7 @@ def calendario():
         # Busca dados relevantes para o mês/ano
         feriados_mes = get_feriados_no_mes(ano, mes)
         afastamentos_mes = get_afastamentos_no_mes(current_user.id, ano, mes)
-        atividades_mes = get_atividades_no_mes(current_user.id, ano, mes)
+        atividades_mes = get_atividades_no_mes(current_user.id, ano, mes) # Busca atividades do mês
 
         # Busca dias com ponto registrado no mês
         inicio_mes = date(ano, mes, 1)
@@ -818,7 +886,7 @@ def calendario():
                                dias_do_mes=dias_do_mes,
                                feriados=feriados_mes,
                                afastamentos=afastamentos_mes,
-                               atividades=atividades_mes,
+                               atividades=atividades_mes, # Passa atividades para o template
                                dias_com_ponto=dias_com_ponto_set,
                                mes_anterior=mes_anterior,
                                mes_proximo=mes_proximo)
@@ -838,15 +906,18 @@ def registrar_afastamento():
     Rota para registrar um período de afastamento (férias, licença, etc.).
     """
     form = AfastamentoForm()
+    redirect_url = url_for('main.registrar_afastamento') # URL padrão de retorno
+
     if form.validate_on_submit():
         data_inicio = form.data_inicio.data
         data_fim = form.data_fim.data
         motivo = form.motivo.data
+        redirect_url = url_for('main.calendario', ano=data_inicio.year, mes=data_inicio.month) # Redireciona para o calendário do mês
 
-        # Validação adicional: data fim não pode ser anterior à data início
-        if data_fim < data_inicio:
-            flash('A data final não pode ser anterior à data inicial.', 'danger')
-            return render_template('main/registrar_afastamento.html', title='Registrar Afastamento', form=form)
+        # Validação adicional: data fim não pode ser anterior à data início (já no form)
+        # if data_fim < data_inicio:
+        #     flash('A data final não pode ser anterior à data inicial.', 'danger')
+        #     return render_template('main/registrar_afastamento.html', title='Registrar Afastamento', form=form)
 
         # Validação: Verificar conflito com pontos existentes no período
         pontos_conflitantes = Ponto.query.filter(
@@ -895,12 +966,12 @@ def registrar_afastamento():
             db.session.add(novo_afastamento)
             db.session.commit()
             flash('Afastamento registrado com sucesso!', 'success')
-            # Redireciona para o calendário do mês de início do afastamento
-            return redirect(url_for('main.calendario', ano=data_inicio.year, mes=data_inicio.month))
+            return redirect(redirect_url)
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erro ao registrar afastamento para usuário {current_user.id}: {e}", exc_info=True)
             flash('Erro ao registrar o afastamento.', 'danger')
+            # Mantém na página do formulário em caso de erro
 
     elif request.method == 'POST':
          # Se a validação falhar, exibe mensagens de erro
@@ -908,8 +979,14 @@ def registrar_afastamento():
             for error in errors:
                 flash(f"Erro no campo '{getattr(form, field).label.text}': {error}", 'danger')
 
-    # Busca afastamentos existentes para exibir na página
-    afastamentos_usuario = Afastamento.query.filter_by(user_id=current_user.id).order_by(Afastamento.data_inicio.desc()).all()
+    # Busca afastamentos existentes para exibir na página (fora do POST/validate)
+    try:
+        afastamentos_usuario = Afastamento.query.filter_by(user_id=current_user.id).order_by(Afastamento.data_inicio.desc()).all()
+    except Exception as e:
+        logger.error(f"Erro ao buscar afastamentos existentes para usuário {current_user.id}: {e}", exc_info=True)
+        flash("Erro ao carregar lista de afastamentos.", "danger")
+        afastamentos_usuario = []
+
 
     return render_template('main/registrar_afastamento.html',
                            title='Registrar Afastamento',
@@ -917,6 +994,7 @@ def registrar_afastamento():
                            afastamentos=afastamentos_usuario)
 
 
+# CORREÇÃO Ponto 1: Adicionar <int:afastamento_id> à rota
 @main.route('/excluir_afastamento/<int:afastamento_id>', methods=['POST'])
 @login_required
 def excluir_afastamento(afastamento_id):
@@ -924,10 +1002,12 @@ def excluir_afastamento(afastamento_id):
     Rota para excluir um registro de afastamento.
     """
     afastamento = Afastamento.query.get_or_404(afastamento_id)
+    redirect_url = url_for('main.registrar_afastamento') # Redireciona de volta para a lista
+
     # Garante que o usuário só possa excluir seus próprios afastamentos
     if afastamento.user_id != current_user.id:
         flash('Você não tem permissão para excluir este registro.', 'danger')
-        return redirect(url_for('main.registrar_afastamento'))
+        return redirect(redirect_url)
 
     try:
         db.session.delete(afastamento)
@@ -938,7 +1018,8 @@ def excluir_afastamento(afastamento_id):
         logger.error(f"Erro ao excluir afastamento {afastamento_id}: {e}", exc_info=True)
         flash('Erro ao excluir o registro de afastamento.', 'danger')
 
-    return redirect(url_for('main.registrar_afastamento'))
+    # CORREÇÃO Ponto 8: Redireciona fora do try/except
+    return redirect(redirect_url)
 
 
 @main.route('/registrar_atividade', methods=['GET', 'POST'])
@@ -947,10 +1028,14 @@ def registrar_atividade():
     """
     Rota para registrar uma atividade externa ou home office em um dia específico.
     """
+    # Ponto 5: Esta rota NÃO recebe ponto_id. Associa atividade ao DIA.
     form = AtividadeForm()
+    redirect_url = url_for('main.registrar_atividade') # URL padrão de retorno
+
     if form.validate_on_submit():
         data_atividade = form.data.data
         descricao = form.descricao.data
+        redirect_url = url_for('main.calendario', ano=data_atividade.year, mes=data_atividade.month) # Redireciona para o calendário
 
         # Validação: Verificar conflito com pontos existentes no dia
         pontos_conflitantes = Ponto.query.filter_by(user_id=current_user.id, data=data_atividade).all()
@@ -983,12 +1068,12 @@ def registrar_atividade():
             db.session.add(nova_atividade)
             db.session.commit()
             flash('Atividade externa/home office registrada com sucesso!', 'success')
-            # Redireciona para o calendário do mês da atividade
-            return redirect(url_for('main.calendario', ano=data_atividade.year, mes=data_atividade.month))
+            return redirect(redirect_url)
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erro ao registrar atividade para usuário {current_user.id}: {e}", exc_info=True)
             flash('Erro ao registrar a atividade.', 'danger')
+            # Mantém na página do formulário
 
     elif request.method == 'POST':
         # Se a validação falhar, exibe mensagens de erro
@@ -996,8 +1081,13 @@ def registrar_atividade():
             for error in errors:
                 flash(f"Erro no campo '{getattr(form, field).label.text}': {error}", 'danger')
 
-    # Busca atividades existentes para exibir na página
-    atividades_usuario = Atividade.query.filter_by(user_id=current_user.id).order_by(Atividade.data.desc()).all()
+    # Busca atividades existentes para exibir na página (fora do POST/validate)
+    try:
+        atividades_usuario = Atividade.query.filter_by(user_id=current_user.id).order_by(Atividade.data.desc()).all()
+    except Exception as e:
+        logger.error(f"Erro ao buscar atividades existentes para usuário {current_user.id}: {e}", exc_info=True)
+        flash("Erro ao carregar lista de atividades.", "danger")
+        atividades_usuario = []
 
     return render_template('main/registrar_atividade.html',
                            title='Registrar Atividade Externa/Home Office',
@@ -1005,6 +1095,7 @@ def registrar_atividade():
                            atividades=atividades_usuario)
 
 
+# CORREÇÃO Ponto 1: Adicionar <int:atividade_id> à rota
 @main.route('/excluir_atividade/<int:atividade_id>', methods=['POST'])
 @login_required
 def excluir_atividade(atividade_id):
@@ -1012,10 +1103,12 @@ def excluir_atividade(atividade_id):
     Rota para excluir um registro de atividade externa/home office.
     """
     atividade = Atividade.query.get_or_404(atividade_id)
+    redirect_url = url_for('main.registrar_atividade') # Redireciona de volta para a lista
+
     # Garante que o usuário só possa excluir suas próprias atividades
     if atividade.user_id != current_user.id:
         flash('Você não tem permissão para excluir este registro.', 'danger')
-        return redirect(url_for('main.registrar_atividade'))
+        return redirect(redirect_url)
 
     try:
         db.session.delete(atividade)
@@ -1026,4 +1119,6 @@ def excluir_atividade(atividade_id):
         logger.error(f"Erro ao excluir atividade {atividade_id}: {e}", exc_info=True)
         flash('Erro ao excluir o registro de atividade.', 'danger')
 
-    return redirect(url_for('main.registrar_atividade'))
+    # CORREÇÃO Ponto 8: Redireciona fora do try/except
+    return redirect(redirect_url)
+

@@ -63,90 +63,115 @@
         <table class="table table-striped table-bordered table-hover">
             <thead class="table-dark">
                 <tr>
-                    <th scope="col" class="text-center">Data</th>
-                    <th scope="col" class="text-center">Dia</th>
-                    <th scope="col" class="text-center">Entrada 1</th>
-                    <th scope="col" class="text-center">Saída Almoço</th> {# Coluna 4 #}
-                    <th scope="col" class="text-center">Retorno Almoço</th> {# Coluna 5 #}
-                    <th scope="col" class="text-center">Saída Final</th> {# Coluna 6 #}
-                    <th scope="col" class="text-center">Horas Trab.</th> {# Coluna 7 #}
-                    <th scope="col" class="text-center">Saldo Dia</th> {# Coluna 8 #}
-                    <th scope="col" class="text-center">Status / Obs.</th> {# Coluna 9 #}
-                    <th scope="col" class="text-center">Ações</th> {# Coluna 10 #}
+                    {# 10 Colunas no total #}
+                    <th scope="col" class="text-center">Data</th>      {# 1 #}
+                    <th scope="col" class="text-center">Dia</th>       {# 2 #}
+                    <th scope="col" class="text-center">Entrada 1</th> {# 3 #}
+                    <th scope="col" class="text-center">Saída Alm.</th>{# 4 #}
+                    <th scope="col" class="text-center">Ret. Alm.</th> {# 5 #}
+                    <th scope="col" class="text-center">Saída Fim</th> {# 6 #}
+                    <th scope="col" class="text-center">Hrs Trab.</th> {# 7 #}
+                    <th scope="col" class="text-center">Saldo Dia</th> {# 8 #}
+                    <th scope="col" class="text-center">Status / Obs.</th> {# 9 #}
+                    <th scope="col" class="text-center">Ações</th>     {# 10 #}
                 </tr>
             </thead>
             <tbody>
                 {% for dia in relatorio_dias %}
-                <tr class="{{ 'table-secondary' if dia.e_fim_semana else 'table-info' if dia.e_feriado else 'table-warning' if dia.afastamento else 'table-light' if dia.atividade else '' }}">
-                    <td class="text-center align-middle">{{ dia.data.strftime('%d/%m') }}</td>
-                    <td class="text-center align-middle">{{ dia.dia_semana }}</td>
+                {# Define uma classe para a linha inteira baseada no status principal #}
+                {% set row_class = 'table-secondary' if dia.e_fim_semana else 'table-info' if dia.e_feriado else 'table-warning' if dia.afastamento else 'table-light' if dia.atividade else '' %}
+                <tr class="{{ row_class }}">
+                    <td class="text-center align-middle">{{ dia.data.strftime('%d/%m') }}</td> {# 1 #}
+                    <td class="text-center align-middle">{{ dia.dia_semana }}</td> {# 2 #}
 
                     {# Lógica para exibir os pontos - assume no máximo 4 pontos por dia #}
                     {% set entrada1 = dia.pontos[0].hora.strftime('%H:%M') if dia.pontos and dia.pontos[0] else '-' %}
                     {% set saida_almoco = dia.pontos[1].hora.strftime('%H:%M') if dia.pontos|length > 1 and dia.pontos[1] else None %}
                     {% set retorno_almoco = dia.pontos[2].hora.strftime('%H:%M') if dia.pontos|length > 2 and dia.pontos[2] else None %}
-                    {% set saida_final = dia.pontos[3].hora.strftime('%H:%M') if dia.pontos|length > 3 and dia.pontos[3] else (dia.pontos[1].hora.strftime('%H:%M') if dia.pontos|length == 2 else '-') %} {# Se só 2 pontos, o segundo é a saída final #}
-
-                    <td class="text-center align-middle">{{ entrada1 }}</td>
-
-                    {# CORREÇÃO Item 1: Colspan para almoço ausente #}
-                    {% if not saida_almoco and not retorno_almoco and dia.pontos|length <= 2 %}
-                        <td colspan="2" class="text-center text-muted fst-italic align-middle small">Sem registro de almoço</td>
-                    {% else %}
-                        <td class="text-center align-middle">{{ saida_almoco or '-' }}</td>
-                        <td class="text-center align-middle">{{ retorno_almoco or '-' }}</td>
+                    {# Ajuste: Saída final é o último ponto registrado no dia #}
+                    {% set saida_final = dia.pontos[-1].hora.strftime('%H:%M') if dia.pontos and dia.pontos|length > 1 and dia.pontos[-1].tipo == 'Saída' else ('-' if entrada1 == '-' else '?') %}
+                    {# Se só tem entrada, saída final é '?' #}
+                    {% if dia.pontos|length == 1 and dia.pontos[0].tipo == 'Entrada' %}
+                        {% set saida_final = '?' %}
                     {% endif %}
 
-                    <td class="text-center align-middle">{{ saida_final }}</td>
 
-                    {# Horas Trabalhadas e Saldo do Dia #}
-                    <td class="text-center align-middle">
-                        {% if dia.horas_trabalhadas != timedelta(0) or (not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade) %}
-                            {{ format_timedelta(dia.horas_trabalhadas) }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td class="text-center align-middle {% if dia.saldo_dia < timedelta(0) %}text-danger{% elif dia.saldo_dia > timedelta(0) %}text-success{% endif %}">
-                         {% if not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade %}
-                            {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
-                         {% elif dia.horas_trabalhadas > timedelta(0) %} {# Mostra horas extras em dias não úteis #}
-                             {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
-                         {% else %}
-                            -
-                         {% endif %}
-                    </td>
-
-                     {# Status / Observações #}
-                    <td class="align-middle small">
-                        {% if dia.status %}
-                            <span class="badge bg-{{ 'secondary' if dia.e_fim_semana else 'info' if dia.e_feriado else 'warning' if dia.afastamento else 'primary' if dia.atividade else 'danger' if dia.status == 'Falta' else 'light text-dark' }}">{{ dia.status }}</span>
-                        {% endif %}
-                        {# Exibe comentários/observações dos pontos, se houver #}
-                        {% set obs_list = [] %}
-                        {% for p in dia.pontos if p.observacao %}
-                             {% set _ = obs_list.append(p.observacao) %}
-                        {% endfor %}
-                        {% if obs_list %}
-                             <br><i class="bi bi-chat-left-text"></i> {{ obs_list | join('; ') }}
-                        {% endif %}
-                         {% if dia.comentarios %} {# Comentários como Entrada/Saída sem par #}
-                             <br><span class="text-danger fst-italic">{{ dia.comentarios | join('; ') }}</span>
-                        {% endif %}
-                    </td>
-
-                    {# CORREÇÃO Item 2: Botões na última célula e alinhados à direita #}
-                    <td class="text-center align-middle text-nowrap"> {# text-nowrap para evitar quebra de linha dos botões #}
-                        {% if not dia.afastamento and not dia.atividade %} {# Não permite editar/excluir dias com afastamento/atividade #}
-                            <a href="{{ url_for('main.registrar_multiplo_ponto', data=dia.data.isoformat()) }}" class="btn btn-sm btn-outline-primary me-1" title="Editar/Ver Dia">
-                                <i class="bi bi-pencil-square"></i>
+                    {# Se não houver pontos registrados (ex: Falta) #}
+                    {% if not dia.pontos and not dia.afastamento and not dia.atividade and not dia.e_feriado and not dia.e_fim_semana %}
+                        <td class="text-center align-middle">-</td> {# Entrada 1 #}
+                        {# CORREÇÃO Ponto 3: Colspan para dia sem registro #}
+                        {# Abrange Saída Alm, Ret Alm, Saída Fim, Hrs Trab, Saldo Dia (5 colunas) #}
+                        <td colspan="5" class="text-center text-muted fst-italic align-middle small">Dia útil sem registro</td>
+                        <td class="text-center align-middle">-</td> {# Saldo Dia #}
+                        <td class="align-middle small"><span class="badge bg-danger">Falta</span></td> {# Status #}
+                        <td class="text-center align-middle text-nowrap"> {# Ações #}
+                             <a href="{{ url_for('main.registrar_multiplo_ponto', data=dia.data.isoformat()) }}" class="btn btn-sm btn-outline-secondary me-1" title="Registrar Dia">
+                                <i class="bi bi-plus-circle"></i>
                             </a>
-                            {# Botão de exclusão pode ser perigoso aqui, talvez remover? Ou excluir todos os pontos do dia? #}
-                            {# Exemplo de botão de exclusão (requer rota e confirmação) #}
-                            {% else %}
-                            <span class="text-muted small">N/A</span> {# Sem ações para dias com afastamento/atividade #}
+                        </td>
+
+                    {# Se houver pontos, afastamento ou atividade #}
+                    {% else %}
+                        <td class="text-center align-middle">{{ entrada1 }}</td> {# 3 #}
+
+                        {# Correção Almoço (Ponto 1) #}
+                        {% if not saida_almoco and not retorno_almoco and dia.pontos|length <= 2 and entrada1 != '-' %} {# Só mostra se teve entrada #}
+                            <td colspan="2" class="text-center text-muted fst-italic align-middle small">Sem registro de almoço</td> {# 4 & 5 #}
+                        {% else %}
+                            <td class="text-center align-middle">{{ saida_almoco or '-' }}</td> {# 4 #}
+                            <td class="text-center align-middle">{{ retorno_almoco or '-' }}</td> {# 5 #}
                         {% endif %}
-                    </td>
+
+                        <td class="text-center align-middle">{{ saida_final }}</td> {# 6 #}
+
+                        {# Horas Trabalhadas e Saldo do Dia #}
+                        <td class="text-center align-middle"> {# 7 #}
+                            {% if dia.horas_trabalhadas != timedelta(0) or (not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade) %}
+                                {{ format_timedelta(dia.horas_trabalhadas) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-center align-middle {% if dia.saldo_dia < timedelta(0) %}text-danger{% elif dia.saldo_dia > timedelta(0) %}text-success{% endif %}"> {# 8 #}
+                             {% if not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade %}
+                                {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
+                             {% elif dia.horas_trabalhadas > timedelta(0) %} {# Mostra horas extras em dias não úteis #}
+                                 {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
+                             {% else %}
+                                -
+                             {% endif %}
+                        </td>
+
+                         {# Status / Observações #}
+                        <td class="align-middle small"> {# 9 #}
+                            {% if dia.status %}
+                                <span class="badge bg-{{ 'secondary' if dia.e_fim_semana else 'info' if dia.e_feriado else 'warning' if dia.afastamento else 'primary' if dia.atividade else 'danger' if dia.status == 'Falta' else 'light text-dark' }}">{{ dia.status }}</span>
+                            {% endif %}
+                            {# Exibe comentários/observações dos pontos, se houver #}
+                            {% set obs_list = [] %}
+                            {% for p in dia.pontos if p.observacao %}
+                                 {% set _ = obs_list.append(p.observacao) %}
+                            {% endfor %}
+                            {% if obs_list %}
+                                 <br><i class="bi bi-chat-left-text"></i> {{ obs_list | join('; ') }}
+                            {% endif %}
+                             {% if dia.comentarios %} {# Comentários como Entrada/Saída sem par #}
+                                 <br><span class="text-danger fst-italic">{{ dia.comentarios | join('; ') }}</span>
+                            {% endif %}
+                        </td>
+
+                        {# Ações (Ponto 2 - Alinhamento) #}
+                        <td class="text-center align-middle text-nowrap"> {# 10 #}
+                            {% if not dia.afastamento and not dia.atividade %} {# Não permite editar/excluir dias com afastamento/atividade #}
+                                <a href="{{ url_for('main.registrar_multiplo_ponto', data=dia.data.isoformat()) }}" class="btn btn-sm btn-outline-primary me-1" title="Editar/Ver Dia">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                {# Botão de exclusão (requer rota e confirmação) - Mantido comentado #}
+                                {% else %}
+                                <span class="text-muted small">N/A</span> {# Sem ações para dias com afastamento/atividade #}
+                            {% endif %}
+                        </td>
+                    {% endif %} {# Fim do if not dia.pontos #}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -154,3 +179,4 @@
     </div>
 </div>
 {% endblock %}
+

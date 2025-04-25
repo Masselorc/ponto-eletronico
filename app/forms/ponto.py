@@ -18,10 +18,11 @@ Classes:
 
 from datetime import date, time, datetime
 from flask_wtf import FlaskForm
-# CORREÇÃO: Adicionado 'validators' à importação do WTForms
+# Adicionado 'validators' à importação do WTForms
 from wtforms import (StringField, SubmitField, SelectField, TimeField, DateField,
                      TextAreaField, FieldList, FormField, validators)
-from wtforms.validators import DataRequired, Optional, ValidationError
+# Importar validadores específicos necessários
+from wtforms.validators import DataRequired, Optional, ValidationError, Length
 
 # Validador customizado para garantir que a hora esteja no formato correto
 def time_check(form, field):
@@ -29,13 +30,10 @@ def time_check(form, field):
     if field.data:
         try:
             # Tenta converter para objeto time para validação implícita do formato
-            # Não precisamos mais do strftime aqui se o campo for TimeField
             if isinstance(field.data, time):
-                 # Já é um objeto time, formato provavelmente correto
-                 pass
+                 pass # Já é um objeto time
             else:
-                 # Tenta converter de string, se falhar, levanta erro
-                 time.fromisoformat(str(field.data)) # Converte para string por segurança
+                 time.fromisoformat(str(field.data)) # Tenta converter de string
         except (ValueError, TypeError):
             raise ValidationError('Formato de hora inválido. Use HH:MM.')
 
@@ -45,7 +43,9 @@ class RegistroPontoForm(FlaskForm):
     # Hora opcional, se não preenchida, usa a hora atual no backend
     hora = TimeField('Hora (HH:MM)', validators=[Optional(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[DataRequired()])
-    observacao = TextAreaField('Observação', validators=[Optional()])
+    observacao = TextAreaField('Observação', validators=[Optional(), Length(max=500)]) # Adicionado limite
+    # CORREÇÃO Ponto 6: Adicionar campo atividades (se desejado)
+    # atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=500)])
     submit = SubmitField('Registrar Ponto')
 
 class DateForm(FlaskForm):
@@ -58,7 +58,9 @@ class EditarPontoForm(FlaskForm):
     data = DateField('Data', validators=[DataRequired()])
     hora = TimeField('Hora (HH:MM)', validators=[DataRequired(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[DataRequired()])
-    observacao = TextAreaField('Observação', validators=[Optional()])
+    observacao = TextAreaField('Observação', validators=[Optional(), Length(max=500)])
+    # CORREÇÃO Ponto 6: Adicionar campo atividades (se desejado)
+    # atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=500)])
     submit = SubmitField('Salvar Alterações')
 
 class PontoEntryForm(FlaskForm):
@@ -69,7 +71,7 @@ class PontoEntryForm(FlaskForm):
     """
     hora = TimeField('Hora', validators=[Optional(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[Optional()])
-    observacao = StringField('Observação', validators=[Optional()])
+    observacao = StringField('Observação', validators=[Optional(), Length(max=200)]) # Limite menor para subform
 
 class MultiRegistroPontoForm(FlaskForm):
     """Formulário para registrar múltiplos pontos em um dia."""
@@ -84,8 +86,8 @@ class AfastamentoForm(FlaskForm):
     """Formulário para registrar um período de afastamento."""
     data_inicio = DateField('Data de Início', validators=[DataRequired()], default=date.today)
     data_fim = DateField('Data Final', validators=[DataRequired()], default=date.today)
-    # CORREÇÃO: Usando validators.Length importado corretamente
-    motivo = StringField('Motivo', validators=[DataRequired(), validators.Length(min=3, max=100)])
+    # Usando validators.Length importado corretamente
+    motivo = StringField('Motivo', validators=[DataRequired(), Length(min=3, max=100)])
     submit = SubmitField('Registrar Afastamento')
 
     def validate_data_fim(self, field):
@@ -97,6 +99,7 @@ class AfastamentoForm(FlaskForm):
 class AtividadeForm(FlaskForm):
     """Formulário para registrar uma atividade externa ou home office."""
     data = DateField('Data', validators=[DataRequired()], default=date.today)
-    # CORREÇÃO: Usando validators.Length importado corretamente
-    descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), validators.Length(min=5, max=200)])
+    # Usando validators.Length importado corretamente
+    descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), Length(min=5, max=200)])
     submit = SubmitField('Registrar Atividade')
+
