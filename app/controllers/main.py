@@ -3,8 +3,8 @@ from flask_login import login_required, current_user
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade # Importar Atividade
 from app.models.feriado import Feriado
-# CORREÇÃO: Importar EditarPontoForm corretamente
-from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm
+# CORREÇÃO: Importar EditarPontoForm, AtividadeForm corretamente
+from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm, AtividadeForm # Adicionado AtividadeForm
 from app import db # Importar db
 from datetime import datetime, date, timedelta, time # Importar time
 from calendar import monthrange
@@ -13,11 +13,6 @@ import os
 import tempfile
 import pandas as pd
 # Removidas importações de reportlab não usadas diretamente aqui (estão em utils.export)
-# from reportlab.lib.pagesizes import letter
-# from reportlab.pdfgen import canvas
-# from reportlab.lib import colors
-# from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-# from reportlab.lib.styles import getSampleStyleSheet
 # Importar funções de exportação se forem usadas aqui (parece que são chamadas de admin.py)
 # from app.utils.export import generate_pdf, generate_excel
 
@@ -25,8 +20,7 @@ main = Blueprint('main', __name__)
 
 logger = logging.getLogger(__name__)
 
-# --- Funções Auxiliares ---
-
+# --- Funções Auxiliares --- (Mantidas como na versão anterior)
 def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
     """Calcula as horas trabalhadas, lidando com horários opcionais."""
     if not entrada or not saida:
@@ -78,19 +72,17 @@ def get_usuario_contexto():
 
     return usuario_selecionado, usuarios_para_admin
 
-
-# --- Rotas Principais ---
+# --- Rotas Principais --- (Mantidas como na versão anterior, exceto registrar_atividade)
 
 @main.route('/')
 @login_required
 def index():
-    """Rota para a página inicial."""
     return redirect(url_for('main.dashboard'))
 
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    """Rota para o dashboard do usuário."""
+    # ... (código mantido como na versão anterior) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto()
 
     hoje = date.today()
@@ -195,7 +187,7 @@ def dashboard():
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
 def registrar_ponto():
-    """Rota para registrar ponto para um dia específico."""
+    # ... (código mantido como na versão anterior) ...
     form = RegistroPontoForm()
 
     # Pré-popula a data se vier da query string (ex: link do calendário)
@@ -276,8 +268,8 @@ def registrar_ponto():
 
 @main.route('/editar-ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
-def editar_ponto(ponto_id):
-    """Rota para editar um registro de ponto existente."""
+def editar_ponto():
+    # ... (código mantido como na versão anterior) ...
     registro = Ponto.query.get_or_404(ponto_id)
 
     # Verifica permissão: usuário só pode editar seus próprios pontos (ou admin)
@@ -289,12 +281,9 @@ def editar_ponto(ponto_id):
     form = EditarPontoForm(obj=registro)
 
     # Carrega atividades existentes para exibição no formulário (se houver)
-    # Assume que pode haver múltiplas atividades, pega a primeira ou junta todas.
-    # Melhoria: Suportar edição de múltiplas atividades ou focar na principal.
     atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
     if request.method == 'GET' and atividade_existente:
-         # Preenche o campo atividades do formulário se for GET e existir atividade
-         if not form.atividades.data: # Evita sobrescrever se já houver dados (ex: após erro de validação)
+         if not form.atividades.data:
               form.atividades.data = atividade_existente.descricao
 
     if form.validate_on_submit():
@@ -306,7 +295,6 @@ def editar_ponto(ponto_id):
             # Validação extra: tipo_afastamento é obrigatório se is_afastamento for True
             if is_afastamento and not tipo_afastamento:
                  flash('Selecione o Tipo de Afastamento quando marcar como afastamento.', 'danger')
-                 # Retorna o template com os dados preenchidos e a mensagem de erro
                  return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
 
@@ -345,21 +333,17 @@ def editar_ponto(ponto_id):
 
             if descricao_atividade:
                 if atividade_existente:
-                    # Atualiza atividade existente
                     atividade_existente.descricao = descricao_atividade
                 else:
-                    # Cria nova atividade
                     nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao_atividade)
                     db.session.add(nova_atividade)
             elif atividade_existente:
-                 # Remove atividade se o campo foi limpo
                  db.session.delete(atividade_existente)
 
 
             db.session.commit() # Salva registro e atividade (se houver)
 
             flash('Registro de ponto atualizado com sucesso!', 'success')
-            # Redireciona para o dashboard do mês/ano do registro editado
             return redirect(url_for('main.dashboard', mes=registro.data.month, ano=registro.data.year))
 
         except Exception as e:
@@ -370,11 +354,10 @@ def editar_ponto(ponto_id):
     # Se GET ou validação falhar, renderiza o template
     return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
-
 @main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
 def registrar_afastamento():
-    """Rota para registrar um dia inteiro como afastamento."""
+    # ... (código mantido como na versão anterior) ...
     form = RegistroAfastamentoForm()
 
     # Pré-popula a data se vier da query string
@@ -428,11 +411,11 @@ def registrar_afastamento():
 
     return render_template('main/registrar_afastamento.html', form=form, title="Registrar Afastamento")
 
-# Rota antiga de férias, redireciona para a nova rota de afastamento
+
 @main.route('/registrar-ferias', methods=['GET', 'POST'])
 @login_required
 def registrar_ferias():
-    """Rota obsoleta para registrar férias (redireciona para afastamento)."""
+    # ... (código mantido como na versão anterior) ...
     flash('Use a opção "Registrar Afastamento" para registrar férias.', 'info')
     return redirect(url_for('main.registrar_afastamento', **request.args))
 
@@ -440,7 +423,7 @@ def registrar_ferias():
 @main.route('/calendario')
 @login_required
 def calendario():
-    """Rota para o calendário do usuário."""
+    # ... (código mantido como na versão anterior) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto()
 
     hoje = date.today()
@@ -508,8 +491,6 @@ def calendario():
         proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
 
         # Lógica para gerar a matriz do calendário (simplificada)
-        # A lógica completa para preencher dias do mês anterior/seguinte pode ser complexa
-        # Vamos focar em passar os dados necessários para o template lidar com isso
         dia_semana_primeiro = primeiro_dia.weekday() # 0 = Seg, 6 = Dom
 
         return render_template('main/calendario.html',
@@ -553,7 +534,7 @@ def calendario():
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
-    """Rota para o relatório mensal detalhado do usuário."""
+    # ... (código mantido como na versão anterior - ordenação ASC) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto()
 
     hoje = date.today()
@@ -668,13 +649,11 @@ def relatorio_mensal():
         return redirect(url_for('main.dashboard'))
 
 
-# --- Rotas de Exportação ---
-
 @main.route('/relatorio-mensal/pdf')
 @login_required
 def relatorio_mensal_pdf():
-    """Rota para gerar o relatório mensal em PDF."""
-    # Obter usuário (atual ou selecionado pelo admin)
+    # ... (código mantido como na versão anterior) ...
+     # Obter usuário (atual ou selecionado pelo admin)
     user_id_req = request.args.get('user_id', type=int)
     usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
@@ -720,7 +699,7 @@ def relatorio_mensal_pdf():
 @main.route('/relatorio-mensal/excel')
 @login_required
 def relatorio_mensal_excel():
-    """Rota para gerar o relatório mensal em Excel."""
+    # ... (código mantido como na versão anterior) ...
     # Obter usuário (atual ou selecionado pelo admin)
     user_id_req = request.args.get('user_id', type=int)
     usuario_alvo = current_user
@@ -761,12 +740,10 @@ def relatorio_mensal_excel():
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
 
-# --- Rotas de Visualização e Exclusão de Ponto ---
-
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
-def visualizar_ponto(ponto_id):
-    """Rota para visualizar detalhes de um registro de ponto."""
+def visualizar_ponto():
+    # ... (código mantido como na versão anterior) ...
     registro = Ponto.query.get_or_404(ponto_id)
 
     # Verifica permissão
@@ -792,10 +769,11 @@ def visualizar_ponto(ponto_id):
                            usuario=usuario_dono, # Passa o dono do registro
                            title="Visualizar Registro") # Adiciona title
 
-@main.route('/excluir-ponto/<int:ponto_id>', methods=['POST']) # Apenas POST
+
+@main.route('/excluir-ponto/<int:ponto_id>', methods=['POST'])
 @login_required
-def excluir_ponto(ponto_id):
-    """Rota para excluir um registro de ponto."""
+def excluir_ponto():
+    # ... (código mantido como na versão anterior) ...
     registro = Ponto.query.get_or_404(ponto_id)
     data_registro = registro.data # Guarda data para redirecionamento
 
@@ -818,14 +796,10 @@ def excluir_ponto(ponto_id):
     return redirect(url_for('main.dashboard', mes=data_registro.month, ano=data_registro.year))
 
 
-# --- Rota de Perfil ---
-
 @main.route('/perfil')
 @login_required
 def perfil():
-    """Rota para o perfil do usuário logado."""
-    # Busca o usuário atual do banco para garantir dados atualizados
-    # current_user é um proxy, buscar do DB é mais seguro para dados completos
+    # ... (código mantido como na versão anterior) ...
     usuario_atualizado = User.query.get(current_user.id)
     if not usuario_atualizado:
          # Se o usuário não for encontrado no DB (improvável, mas possível)
@@ -834,8 +808,6 @@ def perfil():
 
     return render_template('main/perfil.html', usuario=usuario_atualizado, title="Meu Perfil")
 
-
-# --- Rota de Registro Múltiplo ---
 
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
@@ -849,9 +821,9 @@ def registrar_multiplo_ponto():
             saidas_almoco_str = request.form.getlist('saidas_almoco[]')
             retornos_almoco_str = request.form.getlist('retornos_almoco[]')
             saidas_str = request.form.getlist('saidas[]')
-            # --- CORREÇÃO: Ler 'atividades[]' em vez de 'observacoes[]' ---
+            # --- CORREÇÃO: Ler 'atividades[]' ---
             atividades_desc = request.form.getlist('atividades[]')
-            # -----------------------------------------------------------
+            # ------------------------------------
 
             registros_criados = 0
             registros_ignorados = 0
@@ -887,7 +859,9 @@ def registrar_multiplo_ponto():
                 saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None
                 retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None
                 saida_str_i = saidas_str[i] if i < len(saidas_str) else None
+                # --- CORREÇÃO: Usar a variável correta ---
                 atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None
+                # -----------------------------------------
 
                 # Converte horários (com tratamento de erro)
                 try:
@@ -913,12 +887,12 @@ def registrar_multiplo_ponto():
                     horas_trabalhadas=horas_calculadas,
                     afastamento=False,
                     tipo_afastamento=None
-                    # Observacoes não está no form de múltiplos pontos, mas poderia ser adicionado
                 )
                 db.session.add(novo_registro)
-                # Commit aqui para obter o ID e associar atividade
+
+                # --- CORREÇÃO: Salvar atividade associada ---
                 try:
-                    db.session.flush() # Garante que o ID esteja disponível antes do commit completo
+                    db.session.flush() # Garante que o ID esteja disponível
                     if atividade_desc_i:
                          atividade = Atividade(ponto_id=novo_registro.id, descricao=atividade_desc_i)
                          db.session.add(atividade)
@@ -928,15 +902,19 @@ def registrar_multiplo_ponto():
                      db.session.rollback() # Desfaz o flush e add se o commit falhar
                      logger.error(f"Erro ao salvar registro/atividade para data {data}: {commit_err}", exc_info=True)
                      flash(f'Erro ao salvar registro para {data.strftime("%d/%m/%Y")}.', 'danger')
+                # ---------------------------------------------
 
-
-            # Mensagens de feedback
-            if registros_criados > 0:
+            # Mensagens de feedback (ajustadas)
+            if registros_criados > 0 and registros_ignorados == 0:
                 flash(f'{registros_criados} registro(s) de ponto criado(s) com sucesso!', 'success')
-            if registros_ignorados == 0 and registros_criados == 0 and len(datas_processadas) > 0:
-                 flash('Nenhum registro novo foi criado (verifique datas ou erros).', 'warning')
+            elif registros_criados > 0 and registros_ignorados > 0:
+                flash(f'{registros_criados} registro(s) criado(s). {registros_ignorados} dia(s) ignorado(s) pois já possuíam registro.', 'warning')
             elif registros_ignorados > 0 and registros_criados == 0:
                  flash('Nenhum registro novo foi criado. Registros para as datas informadas já existiam.', 'info')
+            elif len(datas_processadas) == 0:
+                 flash('Nenhuma data válida foi informada para registro.', 'warning')
+            else: # Caso de erro ao salvar todos
+                 flash('Nenhum registro foi criado devido a erros.', 'danger')
 
 
             return redirect(url_for('main.dashboard'))
@@ -952,7 +930,7 @@ def registrar_multiplo_ponto():
     return render_template('main/registrar_multiplo_ponto.html', title="Registrar Múltiplos Pontos")
 
 
-# Rota para adicionar/editar atividades (exemplo, não presente nos arquivos originais)
+# --- CORREÇÃO: Rota registrar_atividade modificada para usar WTForms ---
 @main.route('/ponto/<int:ponto_id>/atividade', methods=['GET', 'POST'])
 @login_required
 def registrar_atividade(ponto_id):
@@ -964,21 +942,25 @@ def registrar_atividade(ponto_id):
          flash('Você não tem permissão para editar atividades deste registro.', 'danger')
          return redirect(url_for('main.dashboard'))
 
-     # Simplificado: Assume um campo de texto simples para a atividade principal
-     # Poderia usar um formulário WTForms aqui para validação
-     if request.method == 'POST':
-         descricao = request.form.get('descricao', '').strip()
-         atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+     # Instancia o formulário
+     form = AtividadeForm()
+     atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
 
+     if form.validate_on_submit():
+         # Processa o POST request
          try:
-             if descricao: # Se o usuário digitou algo
-                 if atividade_existente:
-                     atividade_existente.descricao = descricao
-                 else:
-                     nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao)
-                     db.session.add(nova_atividade)
-             elif atividade_existente: # Se o campo foi limpo e existia atividade
-                 db.session.delete(atividade_existente)
+             descricao = form.descricao.data.strip() # Pega do formulário
+
+             if atividade_existente:
+                 # Atualiza atividade existente
+                 atividade_existente.descricao = descricao
+             else:
+                 # Cria nova atividade se não existir
+                 nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao)
+                 db.session.add(nova_atividade)
+             # Nota: Não estamos tratando o caso de limpar a descrição aqui.
+             # Se o campo for obrigatório no form, ele nunca virá vazio.
+             # Se fosse opcional, poderíamos adicionar: elif atividade_existente: db.session.delete(atividade_existente)
 
              db.session.commit()
              flash('Atividade salva com sucesso!', 'success')
@@ -989,8 +971,15 @@ def registrar_atividade(ponto_id):
              logger.error(f"Erro ao salvar atividade para ponto {ponto_id}: {e}", exc_info=True)
              flash('Erro ao salvar atividade.', 'danger')
 
-     # Se GET, busca atividade existente para preencher o campo
-     descricao_atual = atividade_existente.descricao if atividade_existente else ""
-     # Passa o objeto ponto completo para o template ter o contexto da data
-     return render_template('main/registrar_atividade.html', ponto=ponto, descricao_atual=descricao_atual, title="Registrar Atividade")
+     elif request.method == 'GET':
+         # Preenche o formulário com dados existentes no GET request
+         if atividade_existente:
+             form.descricao.data = atividade_existente.descricao
+
+     # Renderiza o template passando o form
+     return render_template('main/registrar_atividade.html',
+                            ponto=ponto,
+                            form=form, # Passa o objeto form
+                            title="Registrar/Editar Atividade")
+# --------------------------------------------------------------------
 

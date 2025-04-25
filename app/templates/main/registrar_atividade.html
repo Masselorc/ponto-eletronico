@@ -1,36 +1,56 @@
 {% extends 'base.html' %}
 
-{% block title %}Registrar Atividade{% endblock %}
+{# CORREÇÃO: Usando title passado pelo controller #}
+{% block title %}{{ title or 'Registrar Atividade' }}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h2>Registrar Atividade</h2>
-        <p class="text-muted">Data: {{ ponto.data.strftime('%d/%m/%Y') }}</p>
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Registrar/Editar Atividade</h2>
+            {# Exibe a data do ponto ao qual a atividade se refere #}
+            <p class="lead">Para o registro de: {{ ponto.data.strftime('%d/%m/%Y') if ponto and ponto.data else 'Data Inválida' }}</p>
+        </div>
+         <div class="col-md-4 text-end">
+             {# Link para voltar à visualização do ponto específico #}
+            <a href="{{ url_for('main.visualizar_ponto', ponto_id=ponto.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Visualizar Ponto
+            </a>
+        </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Atividades do Dia</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}">
-                    {{ form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ form.descricao.label(class="form-label") }}
-                        {{ form.descricao(class="form-control", rows=5) }}
-                        {% for error in form.descricao.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                        <div class="form-text">Descreva as atividades realizadas neste dia de trabalho.</div>
-                    </div>
-                    <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
+    <div class="row">
+        <div class="col-md-8 mx-auto"> {# Centraliza o card #}
+            <div class="card shadow-sm"> {# Adiciona sombra leve #}
+                <div class="card-header bg-success text-white"> {# Muda cor do header #}
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Atividades do Dia</h5>
+                </div>
+                <div class="card-body">
+                     {# --- CORREÇÃO: Usando o objeto form --- #}
+                    <form method="POST" action="{{ url_for('main.registrar_atividade', ponto_id=ponto.id) }}">
+                        {{ form.hidden_tag() }} {# CSRF Token #}
+                        <div class="mb-3">
+                            {{ form.descricao.label(class="form-label") }}
+                            {# Renderiza o campo descricao do formulário #}
+                            {{ form.descricao(class="form-control" + (" is-invalid" if form.descricao.errors else "")) }}
+                            {# Exibe erros de validação para o campo descricao #}
+                            {% if form.descricao.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.descricao.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="form-text">Descreva as atividades realizadas neste dia de trabalho.</div>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid"> {# Botão ocupa largura total #}
+                            {# Renderiza o botão submit do formulário #}
+                            {{ form.submit(class="btn btn-success") }} {# Usa btn-success #}
+                        </div>
+                    </form>
+                     {# ------------------------------------ #}
+                </div>
             </div>
         </div>
     </div>
