@@ -22,13 +22,15 @@ from app import db
 from app.models.user import User
 from app.models.ponto import Ponto, Afastamento, Atividade
 from app.models.feriado import Feriado
+# Importar os formulários de admin
 from app.forms.admin import (AdminUserForm, FeriadoForm, RelatorioUsuarioForm,
-                             EditarUsuarioForm, EditarFeriadoForm) # Importar novos forms
+                             EditarUsuarioForm, EditarFeriadoForm)
 from app.utils.helpers import (calcular_saldo_banco_horas, get_feriados_no_mes,
                                get_afastamentos_no_mes, get_atividades_no_mes,
                                calcular_horas_trabalhadas_dia, formatar_timedelta)
 from app.utils.export import gerar_relatorio_excel_bytes, gerar_relatorio_pdf_bytes
-from app.auth.decorators import admin_required # Importar decorator admin_required
+# CORREÇÃO: Importar admin_required diretamente de app (__init__.py)
+from app import admin_required
 
 # Configuração do Blueprint
 admin = Blueprint('admin', __name__)
@@ -37,7 +39,6 @@ logger = logging.getLogger(__name__)
 
 # --- Rota Principal do Admin (Dashboard) ---
 
-# CORREÇÃO: Renomear função para 'index' e simplificar rota
 @admin.route('/')
 @admin_required
 def index():
@@ -93,14 +94,7 @@ def novo_usuario():
     form = AdminUserForm()
     if form.validate_on_submit():
         try:
-            # Verifica se username ou email já existem
-            existing_user = User.query.filter(
-                (User.username == form.username.data) | (User.email == form.email.data)
-            ).first()
-            if existing_user:
-                flash('Nome de usuário ou e-mail já cadastrado.', 'warning')
-                return render_template('admin/novo_usuario.html', title="Novo Usuário", form=form)
-
+            # Validação de duplicidade já está no form (validate_username, validate_email)
             novo_user = User(
                 username=form.username.data,
                 email=form.email.data,
@@ -133,7 +127,8 @@ def novo_usuario():
 def editar_usuario(user_id):
     """Formulário para editar um usuário existente."""
     usuario = User.query.get_or_404(user_id)
-    form = EditarUsuarioForm(obj=usuario) # Usa o form de edição
+    # Passa os dados originais para o formulário para validação de duplicidade
+    form = EditarUsuarioForm(original_username=usuario.username, original_email=usuario.email, obj=usuario)
 
     # Não preenche a senha no GET por segurança
     if request.method == 'GET':
@@ -142,17 +137,7 @@ def editar_usuario(user_id):
 
     if form.validate_on_submit():
         try:
-            # Verifica se o novo username ou email já existem em OUTRO usuário
-            username_conflito = User.query.filter(User.username == form.username.data, User.id != user_id).first()
-            email_conflito = User.query.filter(User.email == form.email.data, User.id != user_id).first()
-
-            if username_conflito:
-                flash('Este nome de usuário já está em uso por outro usuário.', 'warning')
-                return render_template('admin/editar_usuario.html', title="Editar Usuário", form=form, usuario=usuario)
-            if email_conflito:
-                 flash('Este e-mail já está em uso por outro usuário.', 'warning')
-                 return render_template('admin/editar_usuario.html', title="Editar Usuário", form=form, usuario=usuario)
-
+            # Validação de duplicidade já está no form (validate_username, validate_email)
             # Atualiza os dados do usuário
             usuario.username = form.username.data
             usuario.email = form.email.data
@@ -251,22 +236,18 @@ def listar_feriados():
 @admin_required
 def novo_feriado():
     """Formulário para adicionar um novo feriado."""
-    form = FeriadoForm()
+    form = FeriadoForm() # Usa o FeriadoForm base
     if form.validate_on_submit():
         try:
-            # Verifica se já existe feriado na data
-            feriado_existente = Feriado.query.filter_by(data=form.data.data).first()
-            if feriado_existente:
-                flash(f'Já existe um feriado cadastrado para {form.data.data.strftime("%d/%m/%Y")}: {feriado_existente.descricao}.', 'warning')
-            else:
-                novo_feriado = Feriado(
-                    data=form.data.data,
-                    descricao=form.descricao.data
-                )
-                db.session.add(novo_feriado)
-                db.session.commit()
-                flash(f'Feriado "{novo_feriado.descricao}" em {novo_feriado.data.strftime("%d/%m/%Y")} adicionado com sucesso!', 'success')
-                return redirect(url_for('admin.listar_feriados'))
+            # Validação de duplicidade já está no form
+            novo_feriado = Feriado(
+                data=form.data.data,
+                descricao=form.descricao.data
+            )
+            db.session.add(novo_feriado)
+            db.session.commit()
+            flash(f'Feriado "{novo_feriado.descricao}" em {novo_feriado.data.strftime("%d/%m/%Y")} adicionado com sucesso!', 'success')
+            return redirect(url_for('admin.listar_feriados'))
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erro ao criar novo feriado: {e}", exc_info=True)
@@ -285,20 +266,17 @@ def novo_feriado():
 def editar_feriado(feriado_id):
     """Formulário para editar um feriado existente."""
     feriado = Feriado.query.get_or_404(feriado_id)
-    form = EditarFeriadoForm(obj=feriado) # Usa form de edição
+    # Passa a data original para o formulário para validação
+    form = EditarFeriadoForm(original_data=feriado.data, obj=feriado)
 
     if form.validate_on_submit():
         try:
-            # Verifica se a nova data já tem outro feriado (exceto ele mesmo)
-            feriado_conflito = Feriado.query.filter(Feriado.data == form.data.data, Feriado.id != feriado_id).first()
-            if feriado_conflito:
-                 flash(f'Já existe outro feriado cadastrado para {form.data.data.strftime("%d/%m/%Y")}: {feriado_conflito.descricao}.', 'warning')
-            else:
-                feriado.data = form.data.data
-                feriado.descricao = form.descricao.data
-                db.session.commit()
-                flash(f'Feriado "{feriado.descricao}" atualizado com sucesso!', 'success')
-                return redirect(url_for('admin.listar_feriados'))
+            # Validação de duplicidade já está no form
+            feriado.data = form.data.data
+            feriado.descricao = form.descricao.data
+            db.session.commit()
+            flash(f'Feriado "{feriado.descricao}" atualizado com sucesso!', 'success')
+            return redirect(url_for('admin.listar_feriados'))
         except Exception as e:
             db.session.rollback()
             logger.error(f"Erro ao editar feriado {feriado_id}: {e}", exc_info=True)
@@ -335,7 +313,8 @@ def excluir_feriado(feriado_id):
 def relatorios_admin():
     """Página para seleção de relatórios administrativos."""
     form = RelatorioUsuarioForm()
-    form.usuario.choices = [(u.id, u.nome_completo) for u in User.query.order_by(User.nome_completo).all()]
+    # Preenche choices dinamicamente
+    form.usuario.choices = [(0, 'Selecione um usuário...')] + [(u.id, u.nome_completo) for u in User.query.filter_by(ativo=True).order_by(User.nome_completo).all()]
 
     if form.validate_on_submit():
         user_id = form.usuario.data
@@ -343,9 +322,12 @@ def relatorios_admin():
         ano = form.ano.data
         formato = form.formato.data
 
-        # Redireciona para a rota que gera o relatório específico
-        return redirect(url_for('admin.gerar_relatorio_usuario',
-                                user_id=user_id, mes=mes, ano=ano, formato=formato))
+        if user_id == 0: # Verifica se um usuário válido foi selecionado
+            flash("Por favor, selecione um usuário.", "warning")
+        else:
+            # Redireciona para a rota que gera o relatório específico
+            return redirect(url_for('admin.gerar_relatorio_usuario',
+                                    user_id=user_id, mes=mes, ano=ano, formato=formato))
 
     # Gera lista de anos para o formulário
     ano_atual = datetime.now().year
@@ -409,21 +391,21 @@ def gerar_relatorio_usuario(user_id):
             if afastamento_dia:
                 saldo_dia = timedelta(0)
                 status_dia = f"Afastamento ({afastamento_dia.motivo})"
-                horas_trabalhadas = jornada_diaria
+                horas_trabalhadas = jornada_diaria # Considera como jornada cumprida para fins de relatório
             elif atividade_dia:
                  saldo_dia = timedelta(0)
-                 status_dia = f"Atividade Ext./HO ({atividade_dia.descricao})"
-                 horas_trabalhadas = jornada_diaria
+                 status_dia = f"Atividade Ext./HO ({atividade_dia.descricao})" # Ajuste na descrição
+                 horas_trabalhadas = jornada_diaria # Considera como jornada cumprida
             elif e_feriado:
-                saldo_dia = horas_trabalhadas
+                saldo_dia = horas_trabalhadas # Saldo é o que foi trabalhado
                 status_dia = f"Feriado ({feriados_mes[data_dia]})"
             elif e_fim_semana:
-                saldo_dia = horas_trabalhadas
+                saldo_dia = horas_trabalhadas # Saldo é o que foi trabalhado
                 status_dia = "Fim de Semana"
-            else:
+            else: # Dia útil normal
                 jornada_esperada_dia = jornada_diaria
                 saldo_dia = horas_trabalhadas - jornada_esperada_dia
-                if not pontos_dia:
+                if not pontos_dia: # Apenas marca falta se não houver ponto E for dia útil sem outras ocorrências
                     status_dia = "Falta"
                     saldo_dia = -jornada_esperada_dia
 
@@ -510,3 +492,4 @@ def visualizar_usuario(user_id):
         logger.error(f"Erro ao visualizar usuário {user_id}: {e}", exc_info=True)
         flash("Erro ao carregar detalhes do usuário.", "danger")
         return redirect(url_for('admin.listar_usuarios'))
+
