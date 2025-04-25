@@ -9,20 +9,28 @@
             <h1>Gerenciamento de Feriados</h1>
             <p class="lead text-muted">Cadastre e gerencie os feriados do calendário</p>
         </div>
+
         <div class="col-md-6 text-md-end">
-             {# Formulário para seleção do ano #}
-            <form method="GET" action="{{ url_for('admin.listar_feriados') }}" class="d-inline-block me-2 mb-2 mb-md-0">
+            <!-- Seleção de ano -->
+            <form method="GET" action="{{ url_for('admin.listar_feriados') }}"
+                  class="d-inline-block me-2 mb-2 mb-md-0">
                 <div class="input-group input-group-sm">
                     <label class="input-group-text" for="anoSelect">Ano:</label>
-                    <select name="ano" id="anoSelect" class="form-select" onchange="this.form.submit()">
-                        {# Garante que anos_disponiveis existe antes de iterar #}
-                        {% for ano_opt in anos_disponiveis or range(ano_selecionado-5, ano_selecionado+6) %}
-                            <option value="{{ ano_opt }}" {% if ano_opt == ano_selecionado %}selected{% endif %}>{{ ano_opt }}</option>
+                    <select name="ano" id="anoSelect" class="form-select"
+                            onchange="this.form.submit()">
+                        {% for ano_opt in anos_disponiveis or
+                                       range(ano_selecionado-5, ano_selecionado+6) %}
+                            <option value="{{ ano_opt }}"
+                                    {% if ano_opt == ano_selecionado %}selected{% endif %}>
+                                {{ ano_opt }}
+                            </option>
                         {% endfor %}
                     </select>
                 </div>
             </form>
-            <a href="{{ url_for('admin.novo_feriado') }}" class="btn btn-primary btn-sm">
+
+            <a href="{{ url_for('admin.novo_feriado') }}"
+               class="btn btn-primary btn-sm">
                 <i class="fas fa-calendar-plus me-1"></i>Novo Feriado
             </a>
         </div>
@@ -30,8 +38,12 @@
 
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Lista de Feriados de {{ ano_selecionado }}</h5>
+            <h5 class="mb-0">
+                <i class="fas fa-calendar-day me-2"></i>
+                Lista de Feriados de {{ ano_selecionado }}
+            </h5>
         </div>
+
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover table-striped mb-0">
@@ -42,34 +54,61 @@
                             <th style="width: 15%;" class="text-end">Ações</th>
                         </tr>
                     </thead>
+
                     <tbody>
-                        {% for feriado in feriados %}
+                    {% for feriado in feriados %}
                         <tr>
-                            <td>{{ feriado.data.strftime('%d/%m/%Y') }} ({{ feriado.data.strftime('%A') | replace('Monday', 'Segunda') | replace('Tuesday', 'Terça') | replace('Wednesday', 'Quarta') | replace('Thursday', 'Quinta') | replace('Friday', 'Sexta') | replace('Saturday', 'Sábado') | replace('Sunday', 'Domingo') }})</td>
+                            {# Data + dia da semana (PT-BR) #}
+                            <td>
+                                {{ feriado.data.strftime('%d/%m/%Y') }}
+                                ({{ feriado.data.strftime('%A')
+                                         .replace('Monday', 'Segunda')
+                                         .replace('Tuesday', 'Terça')
+                                         .replace('Wednesday', 'Quarta')
+                                         .replace('Thursday', 'Quinta')
+                                         .replace('Friday', 'Sexta')
+                                         .replace('Saturday', 'Sábado')
+                                         .replace('Sunday', 'Domingo')
+                                }})
+                            </td>
+
                             <td>{{ feriado.descricao }}</td>
+
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('admin.editar_feriado', feriado_id=feriado.id) }}" class="btn btn-outline-primary" title="Editar Feriado">
+                                    <!-- editar -->
+                                    <a href="{{ url_for('admin.editar_feriado',
+                                                        feriado_id=feriado.id) }}"
+                                       class="btn btn-outline-primary"
+                                       title="Editar Feriado">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    {# ===>>> Formulário de Exclusão <<<=== #}
-                                    <form method="POST" action="{{ url_for('admin.excluir_feriado', feriado_id=feriado.id) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o feriado \'{{ feriado.descricao|escape }}\' de {{ feriado.data.strftime('%d/%m/%Y') }}?');">
-                                        {# ===>>> TOKEN CSRF AQUI DENTRO <<<=== #}
-                                        {{ csrf_token() }}
-                                        {# =================================== #}
-                                        <button type="submit" class="btn btn-outline-danger" title="Excluir Feriado">
+
+                                    <!-- excluir -->
+                                    <form method="POST"
+                                          action="{{ url_for('admin.excluir_feriado',
+                                                             feriado_id=feriado.id) }}"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Excluir \"{{ feriado.descricao|escape }}\" de {{ feriado.data.strftime('%d/%m/%Y') }}?');">
+                                        <!-- CSRF agora escondido -->
+                                        <input type="hidden" name="csrf_token"
+                                               value="{{ csrf_token() }}">
+                                        <button type="submit"
+                                                class="btn btn-outline-danger"
+                                                title="Excluir Feriado">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
-                                     {# ===>>> Fim do Formulário <<<=== #}
                                 </div>
                             </td>
                         </tr>
-                        {% else %}
+                    {% else %}
                         <tr>
-                            <td colspan="3" class="text-center text-muted p-4">Nenhum feriado cadastrado para {{ ano_selecionado }}.</td>
+                            <td colspan="3" class="text-center py-4">
+                                Nenhum feriado cadastrado para {{ ano_selecionado }}.
+                            </td>
                         </tr>
-                        {% endfor %}
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
