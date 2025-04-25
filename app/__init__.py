@@ -13,6 +13,8 @@ Este módulo configura e inicializa a aplicação Flask, incluindo:
 import logging
 import os
 import sys
+# CORREÇÃO: Importar datetime aqui para usar no context processor
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 from flask import Flask, flash, redirect, url_for
@@ -53,26 +55,28 @@ def create_app(config_class=None):
 
     # --- Configuração ---
     # Define a chave secreta
+    # Use uma variável de ambiente em produção! Ex: os.environ.get('SECRET_KEY')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uma-chave-secreta-muito-segura-padrao')
 
     # Configuração do Banco de Dados (SQLite por padrão, detecta Render)
     is_render_env = 'RENDER' in os.environ
     db_name = 'ponto_eletronico.db'
-    instance_path = os.path.join(app.root_path, 'instance') # Caminho padrão da pasta instance
+    # Ajusta o caminho base para a raiz do projeto, não dentro de 'app'
+    project_root_dir = os.path.dirname(os.path.dirname(app.root_path)) # Vai um nível acima de 'app'
+    instance_path_default = os.path.join(project_root_dir, 'instance') # Pasta instance na raiz
 
     if is_render_env:
         logger.info("Ambiente Render detectado.")
-        # Em Render, usa o disco persistente montado em /data ou o diretório do projeto
-        # Verifica se um disco persistente está configurado e montado em /data
+        # Em Render, usa o disco persistente montado em /data
         render_disk_path = '/data' # Caminho padrão do disco persistente no Render
-        if os.path.exists(render_disk_path) and os.access(render_disk_path, os.W_OK):
-             instance_path = render_disk_path
-             logger.info(f"Usando disco persistente em: {instance_path}")
-        else:
-            # Se não houver disco persistente ou não for gravável, usa o diretório do projeto
-            # ATENÇÃO: Dados serão perdidos entre deploys sem disco persistente!
-            instance_path = os.path.join(app.root_path, 'instance')
-            logger.warning(f"Disco persistente não encontrado ou não gravável em {render_disk_path}. Usando diretório local: {instance_path}. Dados podem ser perdidos.")
+        instance_path = render_disk_path
+        logger.info(f"Usando disco persistente em: {instance_path}")
+        # Aviso se o disco não existir (pode indicar problema de configuração no Render)
+        if not os.path.exists(render_disk_path):
+             logger.warning(f"Disco persistente não encontrado em {render_disk_path}. Verifique a configuração do serviço no Render.")
+             # Fallback para diretório local (DADOS SERÃO PERDIDOS)
+             instance_path = instance_path_default
+             logger.warning(f"Usando diretório local para instance: {instance_path}. Dados serão perdidos entre deploys.")
 
         db_path = os.path.join(instance_path, db_name)
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
@@ -80,9 +84,16 @@ def create_app(config_class=None):
     else:
         # Ambiente local
         logger.info("Ambiente local detectado.")
+        instance_path = instance_path_default
         db_path = os.path.join(instance_path, db_name)
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
         logger.info(f"Usando banco de dados em: {app.config['SQLALCHEMY_DATABASE_URI']}")
+
+    # Define explicitamente a pasta 'instance' para o Flask
+    # Isso é importante para o Flask encontrar o DB no lugar certo
+    app.instance_path = instance_path
+    logger.info(f"Flask instance_path definido como: {app.instance_path}")
+
 
     # Garante que a pasta 'instance' exista
     try:
@@ -91,10 +102,15 @@ def create_app(config_class=None):
         # Tenta ajustar permissões (pode falhar dependendo do ambiente)
         if sys.platform != 'win32': # chmod não existe no Windows
             try:
-                os.chmod(instance_path, 0o777) # Permissão ampla para garantir escrita
-                logger.info(f"Permissões do diretório instance ajustadas para 777")
-            except OSError as e:
-                 logger.warning(f"Não foi possível ajustar permissões para {instance_path}: {e}")
+                # Tenta permissão mais restrita primeiro, se falhar, tenta mais ampla
+                os.chmod(instance_path, 0o755)
+                logger.info(f"Permissões do diretório instance ajustadas para 755")
+            except OSError:
+                try:
+                    os.chmod(instance_path, 0o777)
+                    logger.warning(f"Permissões do diretório instance ajustadas para 777 (modo amplo).")
+                except OSError as e:
+                    logger.warning(f"Não foi possível ajustar permissões para {instance_path}: {e}")
         else:
              logger.info("Ajuste de permissões não aplicável no Windows.")
 
@@ -112,8 +128,7 @@ def create_app(config_class=None):
 
     # --- Contexto da Aplicação ---
     with app.app_context():
-        # CORREÇÃO: Importar todos os modelos ANTES de create_all()
-        # Isso garante que SQLAlchemy conheça todas as tabelas e suas relações.
+        # Importar todos os modelos ANTES de create_all()
         logger.info("Importando modelos...")
         try:
             from app.models.user import User
@@ -122,20 +137,16 @@ def create_app(config_class=None):
             logger.info("Modelos importados com sucesso.")
         except ImportError as e:
             logger.error(f"Erro ao importar modelos: {e}", exc_info=True)
-            # Considerar levantar o erro ou retornar None para indicar falha na criação
-            raise # Re-levanta o erro para parar a inicialização se modelos não puderem ser importados
+            raise
 
         # Cria as tabelas do banco de dados, se não existirem
-        # É seguro chamar create_all mesmo que as tabelas já existam
         logger.info("Executando db.create_all()...")
         try:
             db.create_all()
             logger.info("db.create_all() executado (tabelas criadas se não existiam).")
         except Exception as e:
-            # Log detalhado do erro de banco de dados
             logger.error(f"Erro durante a inicialização do banco de dados (create_all): {e}", exc_info=True)
-            # Você pode querer levantar o erro aqui para impedir que a app inicie sem DB
-            # raise e # Descomente para parar a aplicação em caso de erro no DB
+            raise e
 
         # --- Registro dos Blueprints ---
         logger.info("Registrando blueprints...")
@@ -151,21 +162,38 @@ def create_app(config_class=None):
             logger.info("Blueprints registrados com sucesso.")
         except Exception as e:
              logger.error(f"Erro ao registrar blueprints: {e}", exc_info=True)
-             raise # Parar a inicialização se blueprints não puderem ser registrados
+             raise
+
+        # --- Context Processors ---
+        # CORREÇÃO: Disponibiliza 'datetime' para todos os templates
+        @app.context_processor
+        def inject_datetime():
+            return {'datetime': datetime}
 
         # --- Configuração de Logging Adicional (Opcional) ---
         if not app.debug and not app.testing:
-            # Log para arquivo em produção
-            if not os.path.exists('logs'):
-                os.mkdir('logs')
-            file_handler = RotatingFileHandler('logs/ponto_eletronico.log', maxBytes=10240, backupCount=10)
-            file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-            file_handler.setLevel(logging.INFO)
-            app.logger.addHandler(file_handler)
+            log_dir = os.path.join(app.instance_path, 'logs') # Salva logs na pasta instance
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True) # Cria pasta de logs se não existir
 
-            app.logger.setLevel(logging.INFO)
-            app.logger.info('Aplicação Ponto Eletrônico iniciada')
+            log_file = os.path.join(log_dir, 'ponto_eletronico.log')
+            try:
+                file_handler = RotatingFileHandler(log_file, maxBytes=10240, backupCount=10)
+                file_handler.setFormatter(logging.Formatter(
+                    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+                file_handler.setLevel(logging.INFO)
+                # Remove handlers padrão se existirem para evitar duplicação
+                for handler in app.logger.handlers[:]:
+                    app.logger.removeHandler(handler)
+                app.logger.addHandler(file_handler)
+                app.logger.setLevel(logging.INFO)
+                app.logger.info('Aplicação Ponto Eletrônico iniciada (Logging para arquivo configurado)')
+            except Exception as e:
+                 app.logger.error(f"Falha ao configurar logging para arquivo em {log_file}: {e}")
+
+        else:
+             app.logger.info('Aplicação Ponto Eletrônico iniciada (Modo Debug/Testing)')
+
 
         logger.info("Criação da aplicação Flask concluída.")
         return app
@@ -198,3 +226,4 @@ def admin_required(f):
             return redirect(url_for('main.dashboard'))
         return f(*args, **kwargs)
     return decorated_function
+
