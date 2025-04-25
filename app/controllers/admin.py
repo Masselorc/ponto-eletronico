@@ -4,9 +4,8 @@ from functools import wraps
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
 from app.models.feriado import Feriado
-# --- CORREÇÃO: Importar DeleteForm ---
+# Importar DeleteForm
 from app.forms.admin import NovoFeriadoForm, EditarFeriadoForm, NovoUsuarioForm, EditarUsuarioForm, DeleteForm
-# -----------------------------------
 from app import db
 from datetime import datetime, date, timedelta
 from calendar import monthrange
@@ -40,9 +39,8 @@ def index():
 def listar_feriados():
     """Rota para listar os feriados."""
     ano = request.args.get('ano', default=date.today().year, type=int)
-    # --- CORREÇÃO: Instanciar DeleteForm ---
+    # Instanciar DeleteForm
     delete_form = DeleteForm()
-    # ------------------------------------
     try:
         primeiro_dia_ano = date(ano, 1, 1)
         ultimo_dia_ano = date(ano, 12, 31)
@@ -64,13 +62,12 @@ def listar_feriados():
 
     anos_disponiveis = range(date.today().year - 5, date.today().year + 6)
 
-    # --- CORREÇÃO: Passar delete_form para o template ---
+    # Passar delete_form para o template
     return render_template('admin/feriados.html',
                            feriados=feriados,
                            ano_selecionado=ano,
                            anos_disponiveis=anos_disponiveis,
                            delete_form=delete_form) # Passa o formulário
-    # ----------------------------------------------------
 
 @admin.route('/admin/feriados/novo', methods=['GET', 'POST'])
 @login_required
@@ -131,7 +128,7 @@ def editar_feriado(feriado_id):
 @admin_required
 def excluir_feriado(feriado_id):
     """Rota para excluir um feriado."""
-    # --- CORREÇÃO: Validar CSRF usando o DeleteForm ---
+    # Validar CSRF usando o DeleteForm
     delete_form = DeleteForm()
     if delete_form.validate_on_submit(): # Valida o token CSRF enviado pelo form no template
         feriado = Feriado.query.get_or_404(feriado_id)
@@ -146,28 +143,30 @@ def excluir_feriado(feriado_id):
             flash('Erro ao excluir feriado. Tente novamente.', 'danger')
         return redirect(url_for('admin.listar_feriados', ano=ano_feriado))
     else:
-        # Se a validação CSRF falhar (improvável se o token estiver correto no template)
         flash('Falha na validação CSRF. Tente novamente.', 'danger')
-        # Redireciona de volta para a lista, pegando o ano do request se possível
-        ano_redirect = request.form.get('ano', date.today().year) # Tenta pegar o ano do form ou usa o atual
+        ano_redirect = request.args.get('ano', date.today().year) # Pega ano do GET se possível
         return redirect(url_for('admin.listar_feriados', ano=ano_redirect))
-    # -------------------------------------------------
 
-# --- Rotas de Usuários --- (Mantidas como antes)
+# --- Rotas de Usuários ---
 @admin.route('/admin/usuarios')
 @login_required
 @admin_required
 def listar_usuarios():
-    # ... (código mantido) ...
+    """Rota para listar os usuários."""
+    # --- CORREÇÃO: Instanciar DeleteForm para exclusão na lista ---
+    delete_form = DeleteForm()
+    # -----------------------------------------------------------
     try: usuarios = User.query.order_by(User.name).all()
     except Exception as e: logger.error(f"Erro buscar usuários: {e}", exc_info=True); flash('Erro ao carregar usuários.', 'danger'); usuarios = []
-    return render_template('admin/usuarios.html', usuarios=usuarios)
+    # --- CORREÇÃO: Passar delete_form para o template ---
+    return render_template('admin/usuarios.html', usuarios=usuarios, delete_form=delete_form)
+    # ----------------------------------------------------
 
 @admin.route('/admin/usuarios/novo', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def novo_usuario():
-    # ... (código mantido) ...
+    """Rota para criar um novo usuário."""
     form = NovoUsuarioForm()
     if form.validate_on_submit():
         try:
@@ -181,7 +180,7 @@ def novo_usuario():
 @login_required
 @admin_required
 def editar_usuario(usuario_id):
-    # ... (código mantido) ...
+    """Rota para editar um usuário."""
     usuario = User.query.get_or_404(usuario_id); form = EditarUsuarioForm(obj=usuario); form.user_id.data = usuario_id # Passa ID para validação
     if form.validate_on_submit():
         try:
@@ -195,17 +194,23 @@ def editar_usuario(usuario_id):
 @login_required
 @admin_required
 def visualizar_usuario(usuario_id):
-    # ... (código mantido) ...
+    """Rota para visualizar um usuário."""
+    # --- CORREÇÃO: Instanciar DeleteForm para modal de exclusão ---
+    delete_form = DeleteForm()
+    # -----------------------------------------------------------
     usuario = User.query.get_or_404(usuario_id)
     try: registros = Ponto.query.filter_by(user_id=usuario.id).order_by(Ponto.data.desc()).limit(10).all()
     except Exception as e: logger.error(f"Erro buscar registros {usuario_id}: {e}", exc_info=True); flash('Erro ao carregar registros.', 'danger'); registros = []
-    return render_template('admin/visualizar_usuario.html', usuario=usuario, registros=registros)
+    # --- CORREÇÃO: Passar delete_form para o template ---
+    return render_template('admin/visualizar_usuario.html', usuario=usuario, registros=registros, delete_form=delete_form)
+    # ----------------------------------------------------
 
 @admin.route('/admin/usuarios/excluir/<int:usuario_id>', methods=['POST'])
 @login_required
 @admin_required
 def excluir_usuario(usuario_id):
-    # --- CORREÇÃO: Usar DeleteForm para validar CSRF ---
+    """Rota para excluir um usuário."""
+    # Usar DeleteForm para validar CSRF
     delete_form = DeleteForm()
     if delete_form.validate_on_submit():
         if usuario_id == current_user.id:
@@ -221,14 +226,13 @@ def excluir_usuario(usuario_id):
     else:
         flash('Falha na validação CSRF. Tente novamente.', 'danger')
     return redirect(url_for('admin.listar_usuarios'))
-    # -------------------------------------------------
 
-# --- Rotas de Relatórios --- (Mantidas)
+# --- Rotas de Relatórios ---
 @admin.route('/admin/relatorios')
 @login_required
 @admin_required
 def relatorios():
-    # ... (código mantido) ...
+    """Rota para a página de seleção de relatórios."""
     try: usuarios = User.query.filter_by(is_active_db=True).order_by(User.name).all()
     except Exception as e: logger.error(f"Erro buscar usuários relatórios: {e}", exc_info=True); flash('Erro carregar usuários.', 'danger'); usuarios = []
     return render_template('admin/relatorios.html', usuarios=usuarios)
@@ -237,9 +241,13 @@ def relatorios():
 @login_required
 @admin_required
 def relatorio_usuario(usuario_id):
-    # ... (código mantido) ...
+    """Rota para o relatório mensal detalhado de um usuário (Admin)."""
+    # --- CORREÇÃO: Instanciar DeleteForm para modal de exclusão no relatório ---
+    delete_form = DeleteForm()
+    # -----------------------------------------------------------------------
     usuario = User.query.get_or_404(usuario_id); hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
     try:
+        # ... (lógica de busca e cálculo mantida) ...
         if not (1 <= mes <= 12): mes = hoje.month; flash('Mês inválido.', 'warning')
         primeiro_dia = date(ano, mes, 1); ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
         registros = Ponto.query.filter(Ponto.user_id == usuario.id, Ponto.data >= primeiro_dia, Ponto.data <= ultimo_dia).order_by(Ponto.data).all()
@@ -260,7 +268,10 @@ def relatorio_usuario(usuario_id):
         carga_horaria_devida = dias_uteis * 8.0; saldo_horas = horas_trabalhadas - carga_horaria_devida; media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
         nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']; nome_mes = nomes_meses[mes]
         mes_anterior, ano_anterior = (12, ano - 1) if mes == 1 else (mes - 1, ano); proximo_mes, proximo_ano = (1, ano + 1) if mes == 12 else (mes + 1, ano)
-        return render_template('admin/relatorio_usuario.html', usuario=usuario, registros=registros, registros_por_data=registros_por_data, mes_atual=mes, ano_atual=ano, nome_mes=nome_mes, dias_uteis=dias_uteis, dias_trabalhados=dias_trabalhados, dias_afastamento=dias_afastamento, horas_trabalhadas=horas_trabalhadas, carga_horaria_devida=carga_horaria_devida, saldo_horas=saldo_horas, media_diaria=media_diaria, feriados_dict=feriados_dict, feriados_datas=feriados_datas, atividades_por_ponto=atividades_por_ponto, ultimo_dia=ultimo_dia, mes_anterior=mes_anterior, ano_anterior=ano_anterior, proximo_mes=proximo_mes, proximo_ano=proximo_ano, date=date)
+
+        # --- CORREÇÃO: Passar delete_form para o template ---
+        return render_template('admin/relatorio_usuario.html', usuario=usuario, registros=registros, registros_por_data=registros_por_data, mes_atual=mes, ano_atual=ano, nome_mes=nome_mes, dias_uteis=dias_uteis, dias_trabalhados=dias_trabalhados, dias_afastamento=dias_afastamento, horas_trabalhadas=horas_trabalhadas, carga_horaria_devida=carga_horaria_devida, saldo_horas=saldo_horas, media_diaria=media_diaria, feriados_dict=feriados_dict, feriados_datas=feriados_datas, atividades_por_ponto=atividades_por_ponto, ultimo_dia=ultimo_dia, mes_anterior=mes_anterior, ano_anterior=ano_anterior, proximo_mes=proximo_mes, proximo_ano=proximo_ano, date=date, delete_form=delete_form)
+        # ----------------------------------------------------
     except ValueError: flash('Data inválida.', 'danger'); return redirect(url_for('admin.relatorios'))
     except Exception as e: logger.error(f"Erro relatório usuário {usuario_id} ({mes}/{ano}): {e}", exc_info=True); flash('Erro ao gerar relatório.', 'danger'); return redirect(url_for('admin.relatorios'))
 
@@ -272,4 +283,3 @@ def admin_registrar_ponto(user_id):
     usuario_alvo = User.query.get_or_404(user_id)
     flash(f'Funcionalidade não implementada: registrar ponto para {usuario_alvo.name}.', 'info')
     return redirect(url_for('admin.visualizar_usuario', usuario_id=user_id))
-

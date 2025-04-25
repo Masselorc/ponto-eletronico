@@ -55,9 +55,9 @@ class EditarFeriadoForm(FlaskForm):
     descricao = StringField('Descrição', validators=[DataRequired("A descrição é obrigatória."), Length(max=100)])
     submit = SubmitField('Salvar Alterações')
 
-# --- CORREÇÃO: Formulário minimalista para CSRF em exclusões ---
+# Formulário minimalista para CSRF em exclusões
 class DeleteForm(FlaskForm):
     """Formulário vazio usado apenas para gerar o token CSRF
        em botões/links de exclusão."""
     pass
-# -------------------------------------------------------------
+
