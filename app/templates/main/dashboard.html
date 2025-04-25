@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'macros/calendar_helpers.html' import format_timedelta %}
+{% from 'macros/calendar_helpers.html' import format_timedelta %} {# Importa a macro #}
 
 {% block content %}
 <div class="container mt-4">
@@ -17,12 +17,15 @@
         {# Saldo do Mês #}
         <div class="col">
             <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-calendar-month me-2"></i>Saldo do Mês Atual</h5>
-                    <p class="card-text display-6 fw-bold {{ 'text-success' if saldo_mes_atual >= timedelta(0) else 'text-danger' }}">
-                        {{ formatar_timedelta(saldo_mes_atual, mostrar_sinal=True) }}
-                    </p>
-                    <a href="{{ url_for('main.relatorio_mensal') }}" class="btn btn-outline-primary btn-sm">Ver Relatório Mensal</a>
+                <div class="card-body d-flex flex-column justify-content-between"> {# Ajuste para alinhamento #}
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-calendar-month me-2"></i>Saldo do Mês Atual</h5>
+                        <p class="card-text display-6 fw-bold {{ 'text-success' if saldo_mes_atual >= timedelta(0) else 'text-danger' }}">
+                            {# Usa a macro importada ou a função passada pelo contexto #}
+                            {{ formatar_timedelta(saldo_mes_atual, mostrar_sinal=True) }}
+                        </p>
+                    </div>
+                    <a href="{{ url_for('main.relatorio_mensal') }}" class="btn btn-outline-primary btn-sm mt-3">Ver Relatório Mensal</a>
                 </div>
             </div>
         </div>
@@ -30,12 +33,14 @@
         {# Horas Trabalhadas Hoje #}
         <div class="col">
             <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-stopwatch me-2"></i>Horas Trabalhadas Hoje</h5>
-                    <p class="card-text display-6 fw-bold {{ 'text-muted' if horas_trabalhadas_hoje == timedelta(0) else '' }}">
-                        {{ formatar_timedelta(horas_trabalhadas_hoje) if horas_trabalhadas_hoje else '--:--' }}
-                    </p>
-                     <a href="{{ url_for('main.visualizar_ponto', data=datetime.utcnow().strftime('%Y-%m-%d')) }}" class="btn btn-outline-secondary btn-sm">Ver Pontos de Hoje</a>
+                 <div class="card-body d-flex flex-column justify-content-between">
+                     <div>
+                        <h5 class="card-title"><i class="bi bi-stopwatch me-2"></i>Horas Trabalhadas Hoje</h5>
+                        <p class="card-text display-6 fw-bold {{ 'text-muted' if horas_trabalhadas_hoje == timedelta(0) else '' }}">
+                            {{ formatar_timedelta(horas_trabalhadas_hoje) if horas_trabalhadas_hoje else '--:--' }}
+                        </p>
+                    </div>
+                     <a href="{{ url_for('main.visualizar_ponto', data=datetime.utcnow().strftime('%Y-%m-%d')) }}" class="btn btn-outline-secondary btn-sm mt-3">Ver Pontos de Hoje</a>
                 </div>
             </div>
         </div>
@@ -43,12 +48,14 @@
         {# Próximo Registro Sugerido #}
          <div class="col">
             <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-box-arrow-in-right me-2"></i>Próximo Registro</h5>
-                    <p class="card-text display-6 fw-bold text-info">
-                        {{ proximo_tipo }}
-                    </p>
-                    <a href="{{ url_for('main.registrar_ponto') }}" class="btn btn-success"><i class="bi bi-plus-circle-fill me-1"></i> Registrar Agora</a>
+                 <div class="card-body d-flex flex-column justify-content-between">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-box-arrow-in-right me-2"></i>Próximo Registro</h5>
+                        <p class="card-text display-6 fw-bold text-info">
+                            {{ proximo_tipo }}
+                        </p>
+                    </div>
+                    <a href="{{ url_for('main.registrar_ponto') }}" class="btn btn-success mt-3"><i class="bi bi-plus-circle-fill me-1"></i> Registrar Agora</a>
                 </div>
             </div>
         </div>
@@ -105,7 +112,8 @@
                                     <i class="bi bi-pencil-fill"></i>
                                 </a>
                                 <form action="{{ url_for('main.excluir_ponto', ponto_id=ponto.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir este ponto?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> {# CSRF Token #}
+                                    {# Assume que csrf_token() está disponível globalmente via CSRFProtect #}
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
                                         <i class="bi bi-trash-fill"></i>
                                     </button>
@@ -117,7 +125,9 @@
                 </table>
             </div>
             {% else %}
-                <p class="text-muted">Nenhum ponto registrado hoje.</p>
+                 {% if not afastamento_hoje and not atividade_hoje %} {# Só mostra se não for dia de afastamento/atividade #}
+                    <p class="text-muted">Nenhum ponto registrado hoje.</p>
+                 {% endif %}
             {% endif %}
         </div>
          <div class="card-footer text-muted">
@@ -127,3 +137,4 @@
 
 </div>
 {% endblock %}
+

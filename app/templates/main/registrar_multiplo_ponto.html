@@ -1,28 +1,24 @@
 {% extends 'base.html' %}
-{% from "_formhelpers.html" import render_field %} {# Importa macro de renderização de campo, se existir #}
+{# CORREÇÃO: Remover importação de macro inexistente #}
+{# {% from "_formhelpers.html" import render_field %} #}
 
 {% block content %}
 <div class="container mt-4">
     <h1>Registrar/Editar Pontos do Dia</h1>
     <p>Use este formulário para adicionar ou corrigir todos os registros de ponto para um dia específico.</p>
 
-    <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}">
-        {# CORREÇÃO Item 8: Usar form.hidden_tag() para incluir CSRF e outros campos ocultos #}
-        {{ form.hidden_tag() }}
+    <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto', data=request.args.get('data') or form.data.data.isoformat()) }}"> {# Passa data na action para manter contexto #}
+        {{ form.hidden_tag() }} {# Inclui CSRF e outros campos ocultos #}
 
         <div class="row mb-3">
             <div class="col-md-4">
-                {# Renderiza o campo de data usando macro ou diretamente #}
-                {% if render_field %}
-                    {{ render_field(form.data, class="form-control") }}
-                {% else %}
-                    <label for="{{ form.data.id }}" class="form-label">{{ form.data.label }}</label>
-                    {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else "")) }}
-                    {% if form.data.errors %}
-                        <div class="invalid-feedback">
-                            {{ form.data.errors[0] }}
-                        </div>
-                    {% endif %}
+                {# Renderização direta do campo de data #}
+                <label for="{{ form.data.id }}" class="form-label">{{ form.data.label }}</label>
+                {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else "")) }}
+                {% if form.data.errors %}
+                    <div class="invalid-feedback">
+                        {{ form.data.errors[0] }}
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -35,42 +31,33 @@
                  {# Campo oculto para ID do subform, se necessário #}
                  {{ entry_form.hidden_tag() }}
                  <div class="col-md-3">
-                     {% if render_field %}
-                         {{ render_field(entry_form.hora, class="form-control", placeholder="HH:MM") }}
-                     {% else %}
-                         <label for="{{ entry_form.hora.id }}" class="form-label visually-hidden">{{ entry_form.hora.label }}</label>
-                         {{ entry_form.hora(class="form-control time-input" + (" is-invalid" if entry_form.hora.errors else ""), placeholder="HH:MM") }}
-                         {% if entry_form.hora.errors %}
-                             <div class="invalid-feedback d-block">
-                                 {{ entry_form.hora.errors[0] }}
-                             </div>
-                         {% endif %}
+                     {# Renderização direta do campo hora #}
+                     <label for="{{ entry_form.hora.id }}" class="form-label visually-hidden">{{ entry_form.hora.label }}</label>
+                     {{ entry_form.hora(class="form-control time-input" + (" is-invalid" if entry_form.hora.errors else ""), placeholder="HH:MM") }}
+                     {% if entry_form.hora.errors %}
+                         <div class="invalid-feedback d-block">
+                             {{ entry_form.hora.errors[0] }}
+                         </div>
                      {% endif %}
                  </div>
                  <div class="col-md-3">
-                      {% if render_field %}
-                         {{ render_field(entry_form.tipo, class="form-select") }}
-                     {% else %}
-                         <label for="{{ entry_form.tipo.id }}" class="form-label visually-hidden">{{ entry_form.tipo.label }}</label>
-                         {{ entry_form.tipo(class="form-select" + (" is-invalid" if entry_form.tipo.errors else "")) }}
-                          {% if entry_form.tipo.errors %}
-                             <div class="invalid-feedback d-block">
-                                 {{ entry_form.tipo.errors[0] }}
-                             </div>
-                         {% endif %}
+                      {# Renderização direta do campo tipo #}
+                     <label for="{{ entry_form.tipo.id }}" class="form-label visually-hidden">{{ entry_form.tipo.label }}</label>
+                     {{ entry_form.tipo(class="form-select" + (" is-invalid" if entry_form.tipo.errors else "")) }}
+                      {% if entry_form.tipo.errors %}
+                         <div class="invalid-feedback d-block">
+                             {{ entry_form.tipo.errors[0] }}
+                         </div>
                      {% endif %}
                  </div>
                  <div class="col-md-5">
-                     {% if render_field %}
-                         {{ render_field(entry_form.observacao, class="form-control", placeholder="Observação (opcional)") }}
-                     {% else %}
-                          <label for="{{ entry_form.observacao.id }}" class="form-label visually-hidden">{{ entry_form.observacao.label }}</label>
-                         {{ entry_form.observacao(class="form-control" + (" is-invalid" if entry_form.observacao.errors else ""), placeholder="Observação (opcional)") }}
-                          {% if entry_form.observacao.errors %}
-                             <div class="invalid-feedback d-block">
-                                 {{ entry_form.observacao.errors[0] }}
-                             </div>
-                         {% endif %}
+                     {# Renderização direta do campo observacao #}
+                      <label for="{{ entry_form.observacao.id }}" class="form-label visually-hidden">{{ entry_form.observacao.label }}</label>
+                     {{ entry_form.observacao(class="form-control" + (" is-invalid" if entry_form.observacao.errors else ""), placeholder="Observação (opcional)") }}
+                      {% if entry_form.observacao.errors %}
+                         <div class="invalid-feedback d-block">
+                             {{ entry_form.observacao.errors[0] }}
+                         </div>
                      {% endif %}
                  </div>
                  <div class="col-md-1">
@@ -89,13 +76,15 @@
 
         <div class="mt-4">
             {{ form.submit(class="btn btn-primary") }}
-            <a href="{{ url_for('main.visualizar_ponto', data=form.data.data.isoformat() if form.data.data else '') }}" class="btn btn-secondary">Cancelar</a>
+            {# Usa request.args.get('data') se veio da URL, senão usa a data do form #}
+            <a href="{{ url_for('main.visualizar_ponto', data=request.args.get('data') or form.data.data.isoformat()) }}" class="btn btn-secondary">Cancelar</a>
         </div>
     </form>
 </div>
 {% endblock %}
 
 {% block scripts %}
+{# Mantém o script JS para adicionar/remover linhas como estava antes #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const entriesContainer = document.getElementById('ponto-entries');
@@ -150,7 +139,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // Adiciona nova entrada
     addEntryButton.addEventListener('click', function() {
         const lastEntry = entriesContainer.querySelector('.ponto-entry:last-of-type');
-        if (!lastEntry) return; // Não faz nada se não houver entradas
+        if (!lastEntry) { // Se não houver nenhuma entrada, cria a primeira baseada em um template (simplificado)
+             const template = `
+                <div class="row g-3 mb-3 align-items-center ponto-entry">
+                     <input id="pontos-0-csrf_token" name="pontos-0-csrf_token" type="hidden" value="..."> {# O CSRF do subform é gerenciado pelo WTForms #}
+                     <div class="col-md-3">
+                         <label for="pontos-0-hora" class="form-label visually-hidden">Hora</label>
+                         <input class="form-control time-input" id="pontos-0-hora" name="pontos-0-hora" placeholder="HH:MM" type="time">
+                     </div>
+                     <div class="col-md-3">
+                         <label for="pontos-0-tipo" class="form-label visually-hidden">Tipo</label>
+                         <select class="form-select" id="pontos-0-tipo" name="pontos-0-tipo"><option value="Entrada">Entrada</option><option value="Saída">Saída</option></select>
+                     </div>
+                     <div class="col-md-5">
+                          <label for="pontos-0-observacao" class="form-label visually-hidden">Observação</label>
+                         <input class="form-control" id="pontos-0-observacao" name="pontos-0-observacao" placeholder="Observação (opcional)" type="text" value="">
+                     </div>
+                     <div class="col-md-1">
+                         <button type="button" class="btn btn-sm btn-outline-danger remove-entry-btn" title="Remover Registro">
+                             <i class="bi bi-x-lg"></i>
+                         </button>
+                     </div>
+                </div>`;
+             entriesContainer.insertAdjacentHTML('beforeend', template);
+             const newButton = entriesContainer.querySelector('.ponto-entry:last-of-type .remove-entry-btn');
+             if (newButton) addRemoveListener(newButton);
+             return;
+        }
+
 
         const newEntry = lastEntry.cloneNode(true);
         const currentIndex = entriesContainer.querySelectorAll('.ponto-entry').length;
@@ -168,9 +184,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Limpa estado de erro visual
                 input.classList.remove('is-invalid');
             }
-             // Limpa mensagens de erro associadas
+             // Limpa mensagens de erro associadas (se houver)
              const errorDiv = newEntry.querySelector(`div.invalid-feedback[for="${id}"]`) || input.closest('.col-md-3, .col-md-5')?.querySelector('.invalid-feedback');
-             if (errorDiv) errorDiv.textContent = '';
+             if (errorDiv) errorDiv.remove(); // Remove a div de erro
 
         });
          // Ajusta 'for' dos labels
@@ -192,3 +208,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+

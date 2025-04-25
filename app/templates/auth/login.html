@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{% from "_formhelpers.html" import render_field %} {# Importa macro de renderização de campo, se existir #}
+{# CORREÇÃO: Remover importação de macro inexistente #}
+{# {% from "_formhelpers.html" import render_field %} #}
 
 {% block content %}
 <div class="container mt-5">
@@ -12,30 +13,24 @@
                         {{ form.hidden_tag() }} {# Inclui CSRF token e outros campos ocultos #}
 
                         <div class="mb-3">
-                             {% if render_field %}
-                                {{ render_field(form.username, class="form-control form-control-lg", placeholder="Nome de Usuário") }}
-                            {% else %}
-                                {{ form.username.label(class="form-label") }}
-                                {{ form.username(class="form-control form-control-lg" + (" is-invalid" if form.username.errors else ""), placeholder="Nome de Usuário") }}
-                                {% if form.username.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.username.errors[0] }}
-                                    </div>
-                                {% endif %}
+                            {# Renderização direta do campo, sem macro #}
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control form-control-lg" + (" is-invalid" if form.username.errors else ""), placeholder="Nome de Usuário") }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.username.errors[0] }}
+                                </div>
                             {% endif %}
                         </div>
 
                         <div class="mb-3">
-                           {% if render_field %}
-                                {{ render_field(form.password, class="form-control form-control-lg", placeholder="Senha") }}
-                            {% else %}
-                                {{ form.password.label(class="form-label") }}
-                                {{ form.password(class="form-control form-control-lg" + (" is-invalid" if form.password.errors else ""), placeholder="Senha") }}
-                                {% if form.password.errors %}
-                                    <div class="invalid-feedback">
-                                        {{ form.password.errors[0] }}
-                                    </div>
-                                {% endif %}
+                           {# Renderização direta do campo, sem macro #}
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control form-control-lg" + (" is-invalid" if form.password.errors else ""), placeholder="Senha") }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.password.errors[0] }}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -49,7 +44,7 @@
                         </div>
 
                         {# Link para recuperação de senha (se implementado) #}
-                        {# CORREÇÃO: Link de registro comentado/removido #}
+                        {# Link de registro comentado/removido #}
                         </form>
                 </div>
             </div>
