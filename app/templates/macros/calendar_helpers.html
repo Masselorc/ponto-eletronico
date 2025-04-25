@@ -1,0 +1,92 @@
+{# Macro para renderizar uma célula do dia no calendário #}
+{% macro render_day_cell(dia_info) %}
+    {% set td_classes = ['calendario-dia', 'p-1', 'position-relative'] %} {# Adicionado position-relative #}
+    {% set dia_num_classes = ['numero-dia', 'd-block', 'text-end', 'mb-1'] %} {# Ajustado estilo do número #}
+
+    {% if not dia_info.is_mes_atual %}
+        {% set _ = td_classes.append('dia-outro-mes') %}
+        {% set _ = dia_num_classes.append('text-muted') %}
+    {% elif dia_info.is_hoje %}
+        {% set _ = td_classes.append('dia-hoje') %}
+    {% elif dia_info.is_fim_semana %}
+        {% set _ = td_classes.append('fim-de-semana') %}
+    {% elif dia_info.feriado %}
+        {% set _ = td_classes.append('feriado') %}
+    {% elif dia_info.registro and dia_info.registro.afastamento %}
+        {% set _ = td_classes.append('afastamento') %}
+    {% elif dia_info.registro and dia_info.registro.horas_trabalhadas is not none and dia_info.registro.horas_trabalhadas >= 8 %}
+        {% set _ = td_classes.append('horas-completas') %}
+    {% elif dia_info.registro and dia_info.registro.horas_trabalhadas is not none %}
+        {% set _ = td_classes.append('horas-parciais') %}
+    {% elif dia_info.is_mes_atual %} {# Dia útil do mês atual sem registro #}
+         {% set _ = td_classes.append('sem-registro') %}
+    {% endif %}
+
+    <td class="{{ td_classes|join(' ') }}">
+        {# Número do dia #}
+        <span class="{{ dia_num_classes|join(' ') }}">{{ dia_info.dia if dia_info.dia != 0 else '' }}</span>
+
+        {# Conteúdo do dia (apenas para dias do mês atual) #}
+        {% if dia_info.is_mes_atual %}
+            <div class="dia-conteudo small">
+                {% if dia_info.feriado %}
+                    <span class="badge bg-warning-subtle text-dark text-wrap d-block mb-1"> {# text-wrap para quebrar texto #}
+                       <i class="fas fa-star me-1"></i> {{ dia_info.feriado }}
+                    </span>
+                {% elif dia_info.registro %}
+                    {% if dia_info.registro.afastamento %}
+                        {# Badge de Afastamento #}
+                        {% set tipo_afast = dia_info.registro.tipo_afastamento|default('Afastamento', true)|capitalize %}
+                        <span class="badge bg-info text-dark text-wrap d-block mb-1">
+                            <i class="fas fa-user-clock me-1"></i> {{ tipo_afast }}
+                        </span>
+                    {% else %}
+                        {# Horários e Horas Trabalhadas #}
+                        <div class="horarios mb-1">
+                            <span class="entrada">
+                                <i class="fas fa-sign-in-alt"></i> {{ dia_info.registro.entrada.strftime('%H:%M') if dia_info.registro.entrada else '--:--' }}
+                            </span>
+                            <span class="saida">
+                                <i class="fas fa-sign-out-alt"></i> {{ dia_info.registro.saida.strftime('%H:%M') if dia_info.registro.saida else '--:--' }}
+                            </span>
+                        </div>
+                        {% if dia_info.registro.horas_trabalhadas is not none %}
+                        <span class="badge {{ 'bg-success' if dia_info.registro.horas_trabalhadas >= 8 else ('bg-warning text-dark' if dia_info.registro.horas_trabalhadas >= 0 else 'bg-secondary') }} d-block">
+                            {{ "%.2f"|format(dia_info.registro.horas_trabalhadas) }}h
+                        </span>
+                        {% else %}
+                         <span class="badge bg-secondary d-block">Pendente</span>
+                        {% endif %}
+                    {% endif %}
+                     {# Observações se existirem #}
+                     {% if dia_info.registro.observacoes %}
+                         <i class="fas fa-comment-dots text-muted mt-1" title="{{ dia_info.registro.observacoes }}"></i>
+                     {% endif %}
+
+                {% elif not dia_info.is_fim_semana %} {# Dia útil sem registro e sem feriado #}
+                    <span class="sem-registro-badge">Sem Registro</span>
+                {% endif %}
+            </div>
+
+             {# Botões de Ação (no canto inferior direito) #}
+             <div class="acoes-dia position-absolute bottom-0 end-0 p-1">
+                 {% if dia_info.is_mes_atual %}
+                     {% if dia_info.registro %}
+                          <a href="{{ url_for('main.visualizar_ponto', ponto_id=dia_info.registro.id) }}" class="btn btn-xs btn-outline-primary" title="Visualizar/Editar Registro">
+                              <i class="fas fa-eye"></i>
+                          </a>
+                     {% elif not dia_info.feriado and not dia_info.is_fim_semana %}
+                          <a href="{{ url_for('main.registrar_ponto', data=dia_info.data.isoformat()) }}" class="btn btn-xs btn-outline-success" title="Registrar Ponto">
+                              <i class="fas fa-plus"></i>
+                          </a>
+                          <a href="{{ url_for('main.registrar_afastamento', data=dia_info.data.isoformat()) }}" class="btn btn-xs btn-outline-info" title="Registrar Afastamento">
+                              <i class="fas fa-user-clock"></i>
+                          </a>
+                     {% endif %}
+                 {% endif %}
+             </div>
+
+        {% endif %} {# Fim do if dia_info.is_mes_atual #}
+    </td>
+{% endmacro %}
+

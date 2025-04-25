@@ -2,228 +2,190 @@
 
 {% block title %}Calendário{% endblock %}
 
+{# Importa macros para reutilizar lógica de exibição de dia #}
+{% import 'macros/calendar_helpers.html' as calendar_helpers %}
+
+{% block extra_css %}
+    {# Inclui CSS específico do calendário se existir #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/calendario.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <h1>Calendário - {{ nome_mes }} de {{ ano_atual }}</h1>
-            
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <a href="{{ url_for('main.calendario', mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary">
-                        <i class="fas fa-chevron-left"></i> Mês Anterior
-                    </a>
-                    <a href="{{ url_for('main.calendario', mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary">
-                        Próximo Mês <i class="fas fa-chevron-right"></i>
-                    </a>
+    {# Cabeçalho e Navegação #}
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap"> {# Adicionado flex-wrap #}
+        <h1 class="h3 mb-2 mb-md-0">Calendário - {{ nome_mes }} de {{ ano_atual }}</h1> {# Ajustado tamanho do título #}
+        <div class="btn-group" role="group" aria-label="Navegação de meses">
+            <a href="{{ url_for('main.calendario', user_id=request.args.get('user_id'), mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary">
+                <i class="fas fa-chevron-left"></i> Mês Anterior
+            </a>
+            <a href="{{ url_for('main.calendario', user_id=request.args.get('user_id')) }}" class="btn btn-outline-secondary">Mês Atual</a> {# Botão para voltar ao mês atual #}
+            <a href="{{ url_for('main.calendario', user_id=request.args.get('user_id'), mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary">
+                Próximo Mês <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    {# Seletor de Usuário para Admin #}
+    {% if current_user.is_admin and usuarios %}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('main.calendario') }}" class="row g-2 align-items-center">
+                <input type="hidden" name="mes" value="{{ mes_atual }}">
+                <input type="hidden" name="ano" value="{{ ano_atual }}">
+                <div class="col-auto">
+                    <label for="user_id_select" class="col-form-label">Visualizar Calendário de:</label>
                 </div>
-            </div>
-            
-            {% if current_user.is_admin and usuarios %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Selecionar Usuário</h5>
+                <div class="col-auto flex-grow-1">
+                    <select name="user_id" id="user_id_select" class="form-select form-select-sm">
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if u.id == usuario.id %}selected{% endif %}>{{ u.name }} ({{ u.matricula }})</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="card-body">
-                    <form method="GET" action="{{ url_for('main.calendario') }}">
-                        <input type="hidden" name="mes" value="{{ mes_atual }}">
-                        <input type="hidden" name="ano" value="{{ ano_atual }}">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <select name="user_id" class="form-select">
-                                    {% for user in usuarios %}
-                                    <option value="{{ user.id }}" {% if user.id == usuario.id %}selected{% endif %}>{{ user.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary">Visualizar</button>
-                            </div>
-                        </div>
-                    </form>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm">Visualizar</button>
                 </div>
-            </div>
-            {% endif %}
-            
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Resumo do Mês</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_uteis }}</h5>
-                                    <p class="card-text">Dias Úteis</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_trabalhados }}</h5>
-                                    <p class="card-text">Dias Trabalhados</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_afastamento }}</h5>
-                                    <p class="card-text">Dias de Afastamento</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(horas_trabalhadas) }}h</h5>
-                                    <p class="card-text">Horas Trabalhadas</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(carga_horaria_devida) }}h</h5>
-                                    <p class="card-text">Carga Horária Devida</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body {% if saldo_horas < 0 %}bg-danger text-white{% elif saldo_horas > 0 %}bg-success text-white{% endif %}">
-                                    <h5 class="card-title">{{ "%.2f"|format(saldo_horas) }}h</h5>
-                                    <p class="card-text">Saldo de Horas</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="card text-center">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(media_diaria) }}h</h5>
-                                    <p class="card-text">Média Diária de Horas Trabalhadas</p>
-                                </div>
-                            </div>
-                        </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Resumo do Mês #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Resumo do Mês</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center gy-3"> {# gy-3 adiciona espaçamento vertical em mobile #}
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="stat-box border rounded p-2 h-100">
+                        <div class="fs-4 fw-bold">{{ dias_uteis }}</div>
+                        <div class="text-muted small">Dias Úteis</div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">Calendário</h5>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="stat-box border rounded p-2 h-100">
+                        <div class="fs-4 fw-bold">{{ dias_trabalhados }}</div>
+                        <div class="text-muted small">Dias Trabalhados</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th class="text-center">Domingo</th>
-                                    <th class="text-center">Segunda</th>
-                                    <th class="text-center">Terça</th>
-                                    <th class="text-center">Quarta</th>
-                                    <th class="text-center">Quinta</th>
-                                    <th class="text-center">Sexta</th>
-                                    <th class="text-center">Sábado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for semana in calendario %}
-                                <tr style="height: 120px;">
-                                    {% for dia in semana %}
-                                    <td class="{% if dia.mes != 'atual' %}text-muted{% endif %} {% if dia.data in feriados_datas %}bg-warning{% elif dia.data.weekday() >= 5 %}bg-light{% elif dia.registro and dia.registro.afastamento %}bg-info{% elif dia.registro and dia.registro.horas_trabalhadas and dia.registro.horas_trabalhadas >= 8 %}bg-success{% elif dia.registro and dia.registro.horas_trabalhadas %}bg-warning{% elif dia.data.weekday() < 5 and dia.mes == 'atual' %}bg-danger{% endif %}" style="width: 14.28%; vertical-align: top;">
-                                        <div class="d-flex justify-content-between">
-                                            <span>{{ dia.dia }}</span>
-                                            {% if dia.mes == 'atual' and dia.registro %}
-                                            <a href="{{ url_for('main.visualizar_ponto', ponto_id=dia.registro.id) }}" class="btn btn-sm btn-info">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            {% endif %}
-                                        </div>
-                                        
-                                        {% if dia.feriado %}
-                                        <small class="d-block text-truncate">Feriado: {{ dia.feriado }}</small>
-                                        {% elif dia.registro %}
-                                            {% if dia.registro.afastamento %}
-                                            <small class="d-block text-truncate">{{ dia.registro.tipo_afastamento or 'Afastamento' }}</small>
-                                            {% else %}
-                                            <small class="d-block">Entrada: {{ dia.registro.entrada.strftime('%H:%M') if dia.registro.entrada else '-' }}</small>
-                                            <small class="d-block">Saída: {{ dia.registro.saida.strftime('%H:%M') if dia.registro.saida else '-' }}</small>
-                                            <small class="d-block">Horas: {{ "%.2f"|format(dia.registro.horas_trabalhadas) if dia.registro.horas_trabalhadas else '-' }}</small>
-                                            {% endif %}
-                                        {% elif dia.mes == 'atual' and dia.data.weekday() < 5 %}
-                                        <a href="{{ url_for('main.registrar_ponto') }}?data={{ dia.data.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-success mt-2">
-                                            <i class="fas fa-plus"></i> Registrar
-                                        </a>
-                                        {% endif %}
-                                    </td>
-                                    {% endfor %}
-                                </tr>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="stat-box border rounded p-2 h-100">
+                        <div class="fs-4 fw-bold">{{ dias_afastamento }}</div>
+                        <div class="text-muted small">Dias Afastamento</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="stat-box border rounded p-2 h-100">
+                        <div class="fs-4 fw-bold">{{ "%.2f"|format(horas_trabalhadas) }}h</div>
+                        <div class="text-muted small">Horas Trabalhadas</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                     <div class="stat-box border rounded p-2 h-100">
+                        <div class="fs-4 fw-bold">{{ "%.2f"|format(carga_horaria_devida) }}h</div>
+                        <div class="text-muted small">Carga Horária Devida</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="stat-box border rounded p-2 h-100 {% if saldo_horas < 0 %}bg-danger-subtle{% elif saldo_horas > 0 %}bg-success-subtle{% endif %}"> {# Usando cores sutis #}
+                        <div class="fs-4 fw-bold">{{ "%.2f"|format(saldo_horas) }}h</div>
+                        <div class="text-muted small">Saldo de Horas</div>
+                    </div>
+                </div>
+                 {# Média diária opcional
+                 <div class="col-12 mt-2">
+                     <small class="text-muted">Média Diária: {{ "%.2f"|format(media_diaria) }}h</small>
+                 </div>
+                 #}
+            </div>
+        </div>
+    </div>
+
+    {# Tabela do Calendário #}
+    <div class="card shadow-sm">
+         <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Calendário Detalhado</h5>
+        </div>
+        <div class="card-body p-0"> {# Removido padding para a tabela ocupar todo o espaço #}
+            <div class="table-responsive">
+                <table class="table table-bordered calendario-table mb-0"> {# Adicionada classe e removida margem inferior #}
+                    <thead>
+                        <tr class="text-center table-light"> {# Adicionado table-light #}
+                            <th>Dom</th>
+                            <th>Seg</th>
+                            <th>Ter</th>
+                            <th>Qua</th>
+                            <th>Qui</th>
+                            <th>Sex</th>
+                            <th>Sáb</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {# --- CORREÇÃO: Loop usando a nova estrutura calendario_data --- #}
+                        {% if calendario_data %}
+                            {% for semana in calendario_data %}
+                            <tr>
+                                {% for dia_info in semana %}
+                                    {# Chama a macro para renderizar a célula do dia #}
+                                    {{ calendar_helpers.render_day_cell(dia_info) }}
                                 {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted p-5">
+                                    Não foi possível gerar os dados do calendário para este mês.
+                                </td>
+                            </tr>
+                        {% endif %}
+                         {# ----------------------------------------------------------- #}
+                    </tbody>
+                </table>
             </div>
-            
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h5 class="card-title">Legenda</h5>
+        </div>
+    </div>
+
+    {# Legenda #}
+    <div class="card mt-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-tags me-2"></i>Legenda</h5>
+        </div>
+        <div class="card-body">
+            <div class="row gy-2">
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-success me-2"></span> Dia completo (>= 8h)
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-success" style="width: 20px; height: 20px; margin-right: 10px;"></div>
-                                <span>Dia completo (8h ou mais)</span>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-warning" style="width: 20px; height: 20px; margin-right: 10px;"></div>
-                                <span>Dia parcial (menos de 8h)</span>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-danger" style="width: 20px; height: 20px; margin-right: 10px;"></div>
-                                <span>Sem registro</span>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-info" style="width: 20px; height: 20px; margin-right: 10px;"></div>
-                                <span>Afastamento</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-warning" style="width: 20px; height: 20px; margin-right: 10px;"></div>
-                                <span>Feriado</span>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="bg-light" style="width: 20px; height: 20px; margin-right: 10px; border: 1px solid #dee2e6;"></div>
-                                <span>Fim de semana</span>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <div class="text-muted" style="width: 20px; height: 20px; margin-right: 10px; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center;">1</div>
-                                <span>Outro mês</span>
-                            </div>
-                        </div>
-                    </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-warning me-2"></span> Dia parcial (< 8h)
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-danger me-2"></span> Sem registro (dia útil)
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-info me-2"></span> Afastamento
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-warning-subtle me-2"></span> Feriado {# Cor mais sutil para feriado #}
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor bg-light me-2"></span> Fim de semana
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor dia-hoje me-2"></span> Dia Atual
+                </div>
+                 <div class="col-md-4 col-lg-3 d-flex align-items-center">
+                    <span class="legenda-cor dia-outro-mes me-2"></span> Outro Mês
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Adicionar JS específico do calendário se necessário (ex: tooltips, modais)
+</script>
 {% endblock %}

@@ -1,28 +1,29 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
+# --- CORREÇÃO CALENDÁRIO: Importar calendar ---
+import calendar
+# -------------------------------------------
 from app.models.user import User
-from app.models.ponto import Ponto, Atividade # Importar Atividade
+from app.models.ponto import Ponto, Atividade
 from app.models.feriado import Feriado
-# CORREÇÃO: Importar EditarPontoForm, AtividadeForm corretamente
-from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm, AtividadeForm # Adicionado AtividadeForm
-from app import db # Importar db
-from datetime import datetime, date, timedelta, time # Importar time
-from calendar import monthrange
+from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm, AtividadeForm
+from app import db
+from datetime import datetime, date, timedelta, time
+# Removido monthrange pois calendar.monthcalendar substitui sua necessidade aqui
 import logging
 import os
 import tempfile
 import pandas as pd
-# Removidas importações de reportlab não usadas diretamente aqui (estão em utils.export)
-# Importar funções de exportação se forem usadas aqui (parece que são chamadas de admin.py)
+# Importar funções de exportação se forem usadas aqui
 # from app.utils.export import generate_pdf, generate_excel
 
 main = Blueprint('main', __name__)
 
 logger = logging.getLogger(__name__)
 
-# --- Funções Auxiliares --- (Mantidas como na versão anterior)
+# --- Funções Auxiliares --- (Mantidas)
 def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
-    """Calcula as horas trabalhadas, lidando com horários opcionais."""
+    # ... (código mantido) ...
     if not entrada or not saida:
         return None # Não pode calcular sem entrada e saída
 
@@ -56,7 +57,7 @@ def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=N
         return None
 
 def get_usuario_contexto():
-    """Obtém o usuário a ser exibido (atual ou outro, se admin)."""
+    # ... (código mantido) ...
     user_id_req = request.args.get('user_id', type=int)
     usuario_selecionado = current_user # Default para o usuário logado
 
@@ -72,11 +73,12 @@ def get_usuario_contexto():
 
     return usuario_selecionado, usuarios_para_admin
 
-# --- Rotas Principais --- (Mantidas como na versão anterior, exceto registrar_atividade)
+# --- Rotas Principais ---
 
 @main.route('/')
 @login_required
 def index():
+    # ... (código mantido) ...
     return redirect(url_for('main.dashboard'))
 
 @main.route('/dashboard')
@@ -97,7 +99,10 @@ def dashboard():
         # Adicionar validação de ano se necessário
 
         primeiro_dia = date(ano_req, mes_req, 1)
-        ultimo_dia = date(ano_req, mes_req, monthrange(ano_req, mes_req)[1])
+        # CORREÇÃO: Usar calendar.monthrange para obter o último dia
+        num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]
+        ultimo_dia = date(ano_req, mes_req, num_dias_mes)
+
 
         # Obtém os registros de ponto do mês para o usuário do contexto
         registros = Ponto.query.filter(
@@ -126,6 +131,7 @@ def dashboard():
             # Verifica se é dia útil (segunda a sexta e não é feriado)
             if data_atual.weekday() < 5 and data_atual not in feriados_datas:
                  # Verifica se houve afastamento neste dia útil
+                 # Otimização: Buscar no dicionário se já tivermos os registros
                  registro_dia = next((r for r in registros if r.data == data_atual), None)
                  if registro_dia and registro_dia.afastamento:
                      dias_afastamento += 1
@@ -354,6 +360,7 @@ def editar_ponto():
     # Se GET ou validação falhar, renderiza o template
     return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
+
 @main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
 def registrar_afastamento():
@@ -420,10 +427,11 @@ def registrar_ferias():
     return redirect(url_for('main.registrar_afastamento', **request.args))
 
 
+# --- CORREÇÃO CALENDÁRIO: Função reescrita ---
 @main.route('/calendario')
 @login_required
 def calendario():
-    # ... (código mantido como na versão anterior) ...
+    """Rota para o calendário do usuário."""
     usuario_ctx, usuarios_admin = get_usuario_contexto()
 
     hoje = date.today()
@@ -435,9 +443,12 @@ def calendario():
         if not (1 <= mes_req <= 12):
             mes_req = hoje.month
             flash('Mês inválido. Exibindo mês atual.', 'warning')
+        # Adicionar validação de ano se necessário
 
         primeiro_dia = date(ano_req, mes_req, 1)
-        ultimo_dia = date(ano_req, mes_req, monthrange(ano_req, mes_req)[1])
+        num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]
+        ultimo_dia = date(ano_req, mes_req, num_dias_mes)
+
 
         # Obtém os registros de ponto do mês para o usuário do contexto
         registros = Ponto.query.filter(
@@ -490,17 +501,42 @@ def calendario():
         mes_anterior, ano_anterior = (12, ano_req - 1) if mes_req == 1 else (mes_req - 1, ano_req)
         proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
 
-        # Lógica para gerar a matriz do calendário (simplificada)
-        dia_semana_primeiro = primeiro_dia.weekday() # 0 = Seg, 6 = Dom
+        # --- Geração da Estrutura do Calendário usando calendar.monthcalendar ---
+        cal = calendar.Calendar(firstweekday=6) # Começa a semana no Domingo (6)
+        semanas_mes = cal.monthdayscalendar(ano_req, mes_req)
+        calendario_data = []
+
+        for semana in semanas_mes:
+            semana_data = []
+            for dia in semana:
+                dia_info = {
+                    'dia': dia,
+                    'data': None,
+                    'is_mes_atual': False,
+                    'registro': None,
+                    'feriado': None,
+                    'is_hoje': False,
+                    'is_fim_semana': False
+                }
+                if dia != 0: # Dia pertence ao mês atual
+                    data_atual = date(ano_req, mes_req, dia)
+                    dia_info['data'] = data_atual
+                    dia_info['is_mes_atual'] = True
+                    dia_info['registro'] = registros_dict.get(data_atual)
+                    dia_info['feriado'] = feriados_dict.get(data_atual)
+                    dia_info['is_hoje'] = (data_atual == hoje)
+                    dia_info['is_fim_semana'] = (data_atual.weekday() >= 5) # Sábado (5) ou Domingo (6)
+                # Se dia == 0, significa que é do mês anterior/seguinte,
+                # o template pode lidar com isso ou podemos preencher aqui se necessário.
+                # Por simplicidade, o template tratará dias 0 como células vazias ou de outro mês.
+                semana_data.append(dia_info)
+            calendario_data.append(semana_data)
+        # ---------------------------------------------------------------------
 
         return render_template('main/calendario.html',
-                              # Passando dados para o template construir o calendário
-                              primeiro_dia_mes=primeiro_dia,
-                              ultimo_dia_mes=ultimo_dia,
-                              dia_semana_primeiro=dia_semana_primeiro,
-                              registros_dict=registros_dict,
-                              feriados_dict=feriados_dict,
-                              # Dados do resumo e navegação
+                              # Passando a nova estrutura de dados
+                              calendario_data=calendario_data,
+                              # Dados do resumo e navegação (mantidos)
                               mes_atual=mes_req,
                               ano_atual=ano_req,
                               nome_mes=nome_mes,
@@ -516,10 +552,7 @@ def calendario():
                               mes_anterior=mes_anterior,
                               ano_anterior=ano_anterior,
                               proximo_mes=proximo_mes,
-                              proximo_ano=proximo_ano,
-                              # Passando classes úteis
-                              date=date,
-                              timedelta=timedelta
+                              proximo_ano=proximo_ano
                               )
 
     except ValueError:
@@ -529,12 +562,12 @@ def calendario():
         logger.error(f"Erro ao carregar calendário: {e}", exc_info=True)
         flash('Erro ao carregar o calendário. Tente novamente.', 'danger')
         return redirect(url_for('main.dashboard'))
-
+# -------------------------------------------------
 
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
-    # ... (código mantido como na versão anterior - ordenação ASC) ...
+    # ... (código mantido como na versão anterior) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto()
 
     hoje = date.today()
@@ -548,7 +581,9 @@ def relatorio_mensal():
             flash('Mês inválido. Exibindo mês atual.', 'warning')
 
         primeiro_dia = date(ano_req, mes_req, 1)
-        ultimo_dia = date(ano_req, mes_req, monthrange(ano_req, mes_req)[1])
+        num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]
+        ultimo_dia = date(ano_req, mes_req, num_dias_mes)
+
 
         # Obtém os registros de ponto do mês para o usuário do contexto
         registros = Ponto.query.filter(
@@ -653,7 +688,6 @@ def relatorio_mensal():
 @login_required
 def relatorio_mensal_pdf():
     # ... (código mantido como na versão anterior) ...
-     # Obter usuário (atual ou selecionado pelo admin)
     user_id_req = request.args.get('user_id', type=int)
     usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
@@ -700,7 +734,6 @@ def relatorio_mensal_pdf():
 @login_required
 def relatorio_mensal_excel():
     # ... (código mantido como na versão anterior) ...
-    # Obter usuário (atual ou selecionado pelo admin)
     user_id_req = request.args.get('user_id', type=int)
     usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
@@ -762,7 +795,7 @@ def visualizar_ponto():
          return redirect(url_for('main.dashboard'))
 
 
-    # CORREÇÃO: Passa a variável como 'registro' para o template
+    # Passa a variável como 'registro' para o template
     return render_template('main/visualizar_ponto.html',
                            registro=registro,
                            atividades=atividades,
@@ -812,7 +845,7 @@ def perfil():
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
 def registrar_multiplo_ponto():
-    """Rota para registrar múltiplos pontos de uma vez."""
+    # ... (código mantido como na versão anterior) ...
     if request.method == 'POST':
         try:
             # Obtém os dados do formulário como listas
@@ -821,9 +854,7 @@ def registrar_multiplo_ponto():
             saidas_almoco_str = request.form.getlist('saidas_almoco[]')
             retornos_almoco_str = request.form.getlist('retornos_almoco[]')
             saidas_str = request.form.getlist('saidas[]')
-            # --- CORREÇÃO: Ler 'atividades[]' ---
             atividades_desc = request.form.getlist('atividades[]')
-            # ------------------------------------
 
             registros_criados = 0
             registros_ignorados = 0
@@ -859,9 +890,7 @@ def registrar_multiplo_ponto():
                 saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None
                 retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None
                 saida_str_i = saidas_str[i] if i < len(saidas_str) else None
-                # --- CORREÇÃO: Usar a variável correta ---
                 atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None
-                # -----------------------------------------
 
                 # Converte horários (com tratamento de erro)
                 try:
@@ -890,7 +919,7 @@ def registrar_multiplo_ponto():
                 )
                 db.session.add(novo_registro)
 
-                # --- CORREÇÃO: Salvar atividade associada ---
+                # Salvar atividade associada
                 try:
                     db.session.flush() # Garante que o ID esteja disponível
                     if atividade_desc_i:
@@ -902,7 +931,6 @@ def registrar_multiplo_ponto():
                      db.session.rollback() # Desfaz o flush e add se o commit falhar
                      logger.error(f"Erro ao salvar registro/atividade para data {data}: {commit_err}", exc_info=True)
                      flash(f'Erro ao salvar registro para {data.strftime("%d/%m/%Y")}.', 'danger')
-                # ---------------------------------------------
 
             # Mensagens de feedback (ajustadas)
             if registros_criados > 0 and registros_ignorados == 0:
@@ -930,56 +958,51 @@ def registrar_multiplo_ponto():
     return render_template('main/registrar_multiplo_ponto.html', title="Registrar Múltiplos Pontos")
 
 
-# --- CORREÇÃO: Rota registrar_atividade modificada para usar WTForms ---
 @main.route('/ponto/<int:ponto_id>/atividade', methods=['GET', 'POST'])
 @login_required
-def registrar_atividade(ponto_id):
-     """Rota para adicionar ou editar a atividade de um ponto específico."""
-     ponto = Ponto.query.get_or_404(ponto_id)
+def registrar_atividade():
+    # ... (código mantido como na versão anterior) ...
+    ponto = Ponto.query.get_or_404(ponto_id)
 
-     # Verifica permissão
-     if ponto.user_id != current_user.id and not current_user.is_admin:
-         flash('Você não tem permissão para editar atividades deste registro.', 'danger')
-         return redirect(url_for('main.dashboard'))
+    # Verifica permissão
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para editar atividades deste registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
 
-     # Instancia o formulário
-     form = AtividadeForm()
-     atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+    # Instancia o formulário
+    form = AtividadeForm()
+    atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
 
-     if form.validate_on_submit():
-         # Processa o POST request
-         try:
-             descricao = form.descricao.data.strip() # Pega do formulário
+    if form.validate_on_submit():
+        # Processa o POST request
+        try:
+            descricao = form.descricao.data.strip() # Pega do formulário
 
-             if atividade_existente:
-                 # Atualiza atividade existente
-                 atividade_existente.descricao = descricao
-             else:
-                 # Cria nova atividade se não existir
-                 nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao)
-                 db.session.add(nova_atividade)
-             # Nota: Não estamos tratando o caso de limpar a descrição aqui.
-             # Se o campo for obrigatório no form, ele nunca virá vazio.
-             # Se fosse opcional, poderíamos adicionar: elif atividade_existente: db.session.delete(atividade_existente)
+            if atividade_existente:
+                # Atualiza atividade existente
+                atividade_existente.descricao = descricao
+            else:
+                # Cria nova atividade se não existir
+                nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao)
+                db.session.add(nova_atividade)
 
-             db.session.commit()
-             flash('Atividade salva com sucesso!', 'success')
-             return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
+            db.session.commit()
+            flash('Atividade salva com sucesso!', 'success')
+            return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
 
-         except Exception as e:
-             db.session.rollback()
-             logger.error(f"Erro ao salvar atividade para ponto {ponto_id}: {e}", exc_info=True)
-             flash('Erro ao salvar atividade.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro ao salvar atividade para ponto {ponto_id}: {e}", exc_info=True)
+            flash('Erro ao salvar atividade.', 'danger')
 
-     elif request.method == 'GET':
-         # Preenche o formulário com dados existentes no GET request
-         if atividade_existente:
-             form.descricao.data = atividade_existente.descricao
+    elif request.method == 'GET':
+        # Preenche o formulário com dados existentes no GET request
+        if atividade_existente:
+            form.descricao.data = atividade_existente.descricao
 
-     # Renderiza o template passando o form
-     return render_template('main/registrar_atividade.html',
-                            ponto=ponto,
-                            form=form, # Passa o objeto form
-                            title="Registrar/Editar Atividade")
-# --------------------------------------------------------------------
+    # Renderiza o template passando o form
+    return render_template('main/registrar_atividade.html',
+                           ponto=ponto,
+                           form=form, # Passa o objeto form
+                           title="Registrar/Editar Atividade")
 
