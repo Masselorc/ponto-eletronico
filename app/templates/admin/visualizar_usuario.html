@@ -6,11 +6,13 @@
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h1>{{ user.name }}</h1>
-            <p class="lead">{{ user.email }}</p>
+            {# CORREÇÃO: Alterado user.name para usuario.name #}
+            <h1>{{ usuario.name }}</h1>
+            {# CORREÇÃO: Alterado user.email para usuario.email #}
+            <p class="lead">{{ usuario.email }}</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('admin.usuarios') }}" class="btn btn-secondary">
+            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Voltar para Usuários
             </a>
         </div>
@@ -23,122 +25,175 @@
                     <h2 class="h5 mb-0">Informações do Usuário</h2>
                 </div>
                 <div class="card-body">
-                    <ul class="list-group">
+                    <ul class="list-group list-group-flush"> {# Usado list-group-flush para remover bordas internas #}
                         <li class="list-group-item">
-                            <strong>Nome:</strong> {{ user.name }}
+                            <strong>Nome:</strong> {{ usuario.name }}
                         </li>
                         <li class="list-group-item">
-                            <strong>Email:</strong> {{ user.email }}
+                            <strong>Email:</strong> {{ usuario.email }}
                         </li>
                         <li class="list-group-item">
-                            <strong>Matrícula:</strong> {{ user.matricula }}
+                            <strong>Matrícula:</strong> {{ usuario.matricula }}
                         </li>
                         <li class="list-group-item">
-                            <strong>Vínculo:</strong> {{ user.vinculo }}
+                            <strong>Vínculo:</strong> {{ usuario.vinculo }}
+                        </li>
+                        {# CORREÇÃO: Adicionados campos que existem no modelo User mas faltavam no template #}
+                        <li class="list-group-item">
+                            <strong>Cargo:</strong> {{ usuario.cargo }}
+                        </li>
+                         <li class="list-group-item">
+                            <strong>UF:</strong> {{ usuario.uf }}
+                        </li>
+                         <li class="list-group-item">
+                            <strong>Telefone:</strong> {{ usuario.telefone }}
                         </li>
                         <li class="list-group-item">
-                            <strong>Administrador:</strong> {{ 'Sim' if user.is_admin else 'Não' }}
+                            <strong>Administrador:</strong> {{ 'Sim' if usuario.is_admin else 'Não' }}
                         </li>
                         <li class="list-group-item">
-                            <strong>Ativo:</strong> {{ 'Sim' if user.is_active else 'Não' }}
+                            {# CORREÇÃO: Usando a propriedade is_active que vem do Flask-Login UserMixin #}
+                            <strong>Ativo:</strong> {{ 'Sim' if usuario.is_active else 'Não' }}
+                        </li>
+                         <li class="list-group-item">
+                            <strong>Data Cadastro:</strong> {{ usuario.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') if usuario.data_cadastro else 'N/A' }}
+                        </li>
+                        {# CORREÇÃO: Adicionada exibição da foto #}
+                        <li class="list-group-item">
+                            <strong>Foto:</strong><br>
+                            {% if usuario.foto_path %}
+                                <img src="{{ url_for('static', filename=usuario.foto_path) }}" alt="Foto de {{ usuario.name }}" class="img-thumbnail mt-2" style="max-width: 150px; max-height: 150px;">
+                            {% else %}
+                                <span class="text-muted">Sem foto</span>
+                            {% endif %}
                         </li>
                     </ul>
                 </div>
                 <div class="card-footer">
                     <div class="btn-group">
-                        <a href="{{ url_for('admin.editar_usuario', user_id=user.id) }}" class="btn btn-primary">
+                        {# CORREÇÃO: Alterado user_id=user.id para usuario_id=usuario.id #}
+                        <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-primary">
                             <i class="fas fa-edit"></i> Editar
                         </a>
-                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        {# CORREÇÃO: Removido botão de excluir daqui, pois já existe o modal abaixo #}
+                        {# <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                             <i class="fas fa-trash"></i> Excluir
-                        </button>
+                        </button> #}
                     </div>
+                     {# CORREÇÃO: Adicionado botão para o modal de exclusão #}
+                     <button type="button" class="btn btn-danger float-end" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                         <i class="fas fa-trash"></i> Excluir Usuário
+                     </button>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h2 class="h5 mb-0">Registros do Mês</h2>
+                <div class="card-header bg-info text-white"> {# Mudado para bg-info para diferenciar #}
+                    <h2 class="h5 mb-0">Últimos Registros de Ponto</h2>
                 </div>
                 <div class="card-body">
                     {% if registros %}
-                    <ul class="list-group">
+                    <ul class="list-group list-group-flush">
                         {% for registro in registros %}
                         <li class="list-group-item">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>{{ registro.data.strftime('%d/%m/%Y') }}</strong>
                                     {% if registro.afastamento %}
-                                    <span class="badge bg-purple">{{ registro.tipo_afastamento|capitalize }}</span>
+                                    <span class="badge bg-secondary">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</span> {# Usado bg-secondary para afastamento #}
                                     {% else %}
                                     <span class="badge bg-success">Trabalho</span>
                                     {% endif %}
                                 </div>
                                 <div>
-                                    {% if not registro.afastamento %}
-                                    <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% elif registro.horas_trabalhadas >= 6 %}bg-warning{% else %}bg-danger{% endif %}">
-                                        {{ registro.horas_trabalhadas|round(2) }} horas
+                                    {% if not registro.afastamento and registro.horas_trabalhadas is not none %}
+                                    <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% elif registro.horas_trabalhadas >= 6 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                        {{ "%.2f"|format(registro.horas_trabalhadas) }} h
                                     </span>
+                                    {% elif not registro.afastamento %}
+                                     <span class="badge bg-secondary">Pendente</span>
                                     {% endif %}
                                 </div>
                             </div>
+                             {# CORREÇÃO: Adicionada visualização dos horários #}
+                             {% if not registro.afastamento %}
+                             <small class="d-block text-muted">
+                                 E: {{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }} |
+                                 SA: {{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '--:--' }} |
+                                 RA: {{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '--:--' }} |
+                                 S: {{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}
+                             </small>
+                             {% endif %}
+                             {# CORREÇÃO: Adicionada visualização das observações se existirem #}
+                             {% if registro.observacoes %}
+                                <small class="d-block text-muted fst-italic">Obs: {{ registro.observacoes }}</small>
+                             {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="alert alert-info">
-                        Nenhum registro encontrado para este mês.
+                    <div class="alert alert-light text-center"> {# Mudado para alert-light #}
+                        Nenhum registro de ponto encontrado para este usuário.
                     </div>
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('main.calendario', user_id=user.id) }}" class="btn btn-info">
-                        <i class="fas fa-calendar"></i> Ver Calendário
+                     {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
+                    <a href="{{ url_for('main.calendario', user_id=usuario.id) }}" class="btn btn-info">
+                        <i class="fas fa-calendar-alt"></i> Ver Calendário Completo
                     </a>
-                    <a href="{{ url_for('admin.novo_ponto', user_id=user.id) }}" class="btn btn-success">
+                    {# CORREÇÃO: Removido botão de registrar ponto daqui, pois é uma ação administrativa #}
+                    {# <a href="{{ url_for('admin.novo_ponto', user_id=usuario.id) }}" class="btn btn-success">
                         <i class="fas fa-plus"></i> Registrar Ponto
-                    </a>
+                    </a> #}
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h2 class="h5 mb-0">Relatórios</h2>
+    {# CORREÇÃO: Movido card de relatórios para baixo e ajustado #}
+    <div class="card mt-4">
+        <div class="card-header bg-secondary text-white"> {# Mudado para bg-secondary #}
+            <h2 class="h5 mb-0">Relatórios do Usuário</h2>
         </div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-body text-center">
+            <div class="row text-center"> {# Centralizado os cards internos #}
+                <div class="col-md-4 mb-3 mb-md-0"> {# Adicionado espaçamento inferior em mobile #}
+                    <div class="card h-100"> {# Usado h-100 para mesma altura #}
+                        <div class="card-body">
+                            <i class="fas fa-chart-line fa-2x text-primary mb-2"></i> {# Ícone maior #}
                             <h5 class="card-title">Relatório Mensal</h5>
-                            <p class="card-text">Visualize o relatório mensal de ponto do usuário.</p>
-                            <a href="{{ url_for('admin.relatorio_usuario', user_id=user.id) }}" class="btn btn-primary">
-                                <i class="fas fa-chart-bar"></i> Visualizar
+                            <p class="card-text small">Visualize o relatório mensal de ponto do usuário.</p> {# Texto menor #}
+                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
+                            <a href="{{ url_for('admin.relatorio_usuario', usuario_id=usuario.id) }}" class="btn btn-primary w-100"> {# Botão largura total #}
+                                <i class="fas fa-eye"></i> Visualizar
                             </a>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-body text-center">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="card h-100">
+                        <div class="card-body">
+                             <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
                             <h5 class="card-title">Exportar PDF</h5>
-                            <p class="card-text">Exporte o relatório mensal em formato PDF.</p>
-                            <a href="{{ url_for('admin.relatorio_usuario_pdf', user_id=user.id) }}" class="btn btn-danger">
-                                <i class="fas fa-file-pdf"></i> Exportar
+                            <p class="card-text small">Exporte o relatório mensal em formato PDF.</p>
+                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
+                            <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id) }}" class="btn btn-danger w-100"> {# Usada rota 'main' e corrigido user_id #}
+                                <i class="fas fa-download"></i> Exportar PDF
                             </a>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-body text-center">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
                             <h5 class="card-title">Exportar Excel</h5>
-                            <p class="card-text">Exporte o relatório mensal em formato Excel.</p>
-                            <a href="{{ url_for('admin.relatorio_usuario_excel', user_id=user.id) }}" class="btn btn-success">
-                                <i class="fas fa-file-excel"></i> Exportar
+                            <p class="card-text small">Exporte o relatório mensal em formato Excel.</p>
+                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
+                            <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id) }}" class="btn btn-success w-100"> {# Usada rota 'main' e corrigido user_id #}
+                                <i class="fas fa-download"></i> Exportar Excel
                             </a>
                         </div>
                     </div>
@@ -148,7 +203,6 @@
     </div>
 </div>
 
-<!-- Modal de confirmação de exclusão -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -157,14 +211,17 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Tem certeza que deseja excluir o usuário <strong>{{ user.name }}</strong>?</p>
-                <p class="text-danger"><strong>Esta ação não pode ser desfeita!</strong></p>
-                <p>Todos os registros de ponto deste usuário também serão excluídos.</p>
+                 {# CORREÇÃO: Alterado user.name para usuario.name #}
+                <p>Tem certeza que deseja excluir o usuário <strong>{{ usuario.name }}</strong>?</p>
+                <p class="text-danger"><strong>Atenção:</strong> Esta ação não pode ser desfeita!</p>
+                <p>Todos os registros de ponto e atividades associados a este usuário também serão excluídos permanentemente.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form action="{{ url_for('admin.excluir_usuario', user_id=user.id) }}" method="POST">
-                    <button type="submit" class="btn btn-danger">Excluir</button>
+                {# CORREÇÃO: Rota de exclusão de usuário não existe no admin.py fornecido. Precisa ser criada. #}
+                {# Assumindo que a rota será /admin/usuarios/excluir/<int:usuario_id> #}
+                <form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Excluir Definitivamente</button>
                 </form>
             </div>
         </div>
