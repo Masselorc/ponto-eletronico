@@ -14,7 +14,8 @@ from werkzeug.security import generate_password_hash
 # Importações locais
 from app import db
 from app.models.user import User
-from app.forms.auth import LoginForm, RegistrationForm
+# CORREÇÃO: Remover a importação de RegistrationForm, pois não está sendo usado
+from app.forms.auth import LoginForm
 
 # Configuração do Blueprint
 auth = Blueprint('auth', __name__)
@@ -61,7 +62,6 @@ def login():
     return render_template('auth/login.html', form=form, title="Login")
 
 
-# CORREÇÃO Item 9: Mudar logout para aceitar apenas POST
 @auth.route('/logout', methods=['POST']) # Aceita apenas POST
 @login_required # Garante que apenas usuários logados possam deslogar
 def logout():
@@ -76,8 +76,7 @@ def logout():
     return redirect(url_for('auth.login'))
 
 
-# Rota de Registro - Descomente e ajuste se o auto-registro for permitido
-# Geralmente, em sistemas corporativos, o admin cria os usuários.
+# Rota de Registro - Mantida comentada, pois o formulário não está definido/importado
 """
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
@@ -85,6 +84,8 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
+    # Precisaria definir RegistrationForm em app.forms.auth
+    # from app.forms.auth import RegistrationForm
     form = RegistrationForm()
     if form.validate_on_submit():
         try:
@@ -113,4 +114,3 @@ def register():
 
     return render_template('auth/register.html', title='Registrar', form=form)
 """
-
