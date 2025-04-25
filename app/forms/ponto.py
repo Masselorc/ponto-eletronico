@@ -1,7 +1,5 @@
 from flask_wtf import FlaskForm
-# CORREÇÃO: Importar SubmitField se for usá-lo nos forms
 from wtforms import StringField, PasswordField, BooleanField, SelectField, TextAreaField, DateField, TimeField, SubmitField
-# CORREÇÃO: Importar validadores necessários (ex: Length, DataRequired)
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
 from datetime import date
 
@@ -26,7 +24,7 @@ class RegistroPontoForm(FlaskForm):
     saida = TimeField('Saída', validators=[Optional()])
     atividades = TextAreaField('Atividades Realizadas', validators=[Optional()])
     observacoes = TextAreaField('Observações', validators=[Optional()])
-    # submit = SubmitField('Registrar Ponto') # Removido, botão será HTML
+    # submit = SubmitField('Registrar Ponto')
 
 class EditarPontoForm(FlaskForm):
     """Formulário para edição de registro de ponto."""
@@ -37,13 +35,13 @@ class EditarPontoForm(FlaskForm):
     saida = TimeField('Saída', validators=[Optional()])
     atividades = TextAreaField('Atividades Realizadas', validators=[Optional()])
     observacoes = TextAreaField('Observações', validators=[Optional()])
-    afastamento = BooleanField('Marcar como Afastamento (Férias, Licença, etc.)') # Label ajustado
+    afastamento = BooleanField('Marcar como Afastamento (Férias, Licença, etc.)')
     tipo_afastamento = SelectField(
         'Tipo de Afastamento',
         choices=TIPO_AFASTAMENTO_CHOICES,
         validators=[Optional()]
     )
-    # submit = SubmitField('Salvar Alterações') # Removido, botão será HTML
+    # submit = SubmitField('Salvar Alterações')
 
 class RegistroAfastamentoForm(FlaskForm):
     """Formulário para registro de afastamento (férias, licença, etc.)."""
@@ -51,19 +49,23 @@ class RegistroAfastamentoForm(FlaskForm):
     tipo_afastamento = SelectField(
         'Tipo de Afastamento',
         choices=TIPO_AFASTAMENTO_CHOICES,
-        # CORREÇÃO: Validador deve garantir que uma opção válida (não a vazia) seja escolhida
         validators=[DataRequired(message="Selecione o tipo de afastamento.")]
     )
-    # submit = SubmitField('Registrar Afastamento') # Removido, botão será HTML
+    # submit = SubmitField('Registrar Afastamento')
 
-# --- CORREÇÃO: Adicionando AtividadeForm ---
 class AtividadeForm(FlaskForm):
     """Formulário para registrar/editar atividades de um ponto."""
     descricao = TextAreaField(
         'Descrição das Atividades',
         validators=[DataRequired("A descrição das atividades é obrigatória."), Length(min=5, message="Descreva um pouco mais as atividades (mínimo 5 caracteres).")],
-        render_kw={"rows": 4, "placeholder": "Descreva as principais atividades realizadas neste dia..."} # Adiciona placeholder e rows
+        render_kw={"rows": 4, "placeholder": "Descreva as principais atividades realizadas neste dia..."}
     )
     submit = SubmitField('Salvar Atividade')
-# -----------------------------------------
+
+# --- CORREÇÃO: Formulário minimalista para CSRF em múltiplos pontos ---
+class MultiploPontoForm(FlaskForm):
+    """Formulário vazio usado apenas para gerar o token CSRF
+       na página de registro de múltiplos pontos."""
+    pass
+# -----------------------------------------------------------------
 
