@@ -45,8 +45,6 @@
                     <tbody>
                         {% for feriado in feriados %}
                         <tr>
-                            {# Exibe data e dia da semana (requer locale configurado no servidor para nomes em PT-BR) #}
-                            {# Usando um fallback simples se locale não estiver PT-BR #}
                             <td>{{ feriado.data.strftime('%d/%m/%Y') }} ({{ feriado.data.strftime('%A') | replace('Monday', 'Segunda') | replace('Tuesday', 'Terça') | replace('Wednesday', 'Quarta') | replace('Thursday', 'Quinta') | replace('Friday', 'Sexta') | replace('Saturday', 'Sábado') | replace('Sunday', 'Domingo') }})</td>
                             <td>{{ feriado.descricao }}</td>
                             <td class="text-end">
@@ -54,14 +52,16 @@
                                     <a href="{{ url_for('admin.editar_feriado', feriado_id=feriado.id) }}" class="btn btn-outline-primary" title="Editar Feriado">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    {# ===>>> GARANTA QUE csrf_token() ESTÁ DENTRO DO FORM <<<=== #}
+                                    {# ===>>> Formulário de Exclusão <<<=== #}
                                     <form method="POST" action="{{ url_for('admin.excluir_feriado', feriado_id=feriado.id) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o feriado \'{{ feriado.descricao|escape }}\' de {{ feriado.data.strftime('%d/%m/%Y') }}?');">
-                                        {{ csrf_token() }} {# Token CSRF dentro do form #}
+                                        {# ===>>> TOKEN CSRF AQUI DENTRO <<<=== #}
+                                        {{ csrf_token() }}
+                                        {# =================================== #}
                                         <button type="submit" class="btn btn-outline-danger" title="Excluir Feriado">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
-                                     {# ========================================================== #}
+                                     {# ===>>> Fim do Formulário <<<=== #}
                                 </div>
                             </td>
                         </tr>
