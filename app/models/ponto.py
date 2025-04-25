@@ -15,17 +15,22 @@ from datetime import datetime
 from app import db
 from sqlalchemy.orm import relationship # Importar relationship
 
-# Importar User para estabelecer o relacionamento (se não causar import circular)
-# Se causar, o relacionamento pode ser definido usando strings:
-# user = relationship("User", backref=...)
-# from app.models.user import User # Comentar se causar erro de importação circular
+# CORREÇÃO: Importar User explicitamente ANTES das classes dependentes
+# Isso ajuda SQLAlchemy a resolver a referência da ForeignKey.
+try:
+    from app.models.user import User
+except ImportError:
+    # Fallback ou log se necessário, mas idealmente User deve estar disponível
+    User = None # Ou levante um erro mais informativo
+    print("AVISO: Não foi possível importar o modelo User em app.models.ponto")
+
 
 class Ponto(db.Model):
     """Modelo para os registros de ponto."""
     __tablename__ = 'ponto' # Nome explícito da tabela
 
     id = db.Column(db.Integer, primary_key=True)
-    # CORREÇÃO: Garante que 'user.id' corresponda à tabela/coluna de User
+    # Garante que 'user.id' corresponda à tabela/coluna de User
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data = db.Column(db.Date, nullable=False, index=True) # Adicionado índice para otimizar buscas por data
@@ -35,11 +40,12 @@ class Ponto(db.Model):
 
     # Relacionamento com o usuário (opcional, mas útil)
     # O backref 'pontos' permite acessar os pontos a partir de um objeto User
-    # Usando string "User" para evitar potencial import circular
-    user = relationship("User", backref=db.backref('pontos', lazy=True))
+    # Usando string "User" para evitar potencial import circular, mas a importação acima é preferível
+    user = relationship("User", backref=db.backref('pontos', lazy='dynamic')) # Usar lazy='dynamic' para coleções grandes
 
     def __repr__(self):
         # Usar user.username se o relacionamento estiver ativo e carregado
+        # Adiciona verificação se self.user existe (pode não estar carregado)
         user_info = self.user.username if self.user else f"UserID:{self.user_id}"
         return f"<Ponto {user_info} {self.data.strftime('%Y-%m-%d')} {self.hora.strftime('%H:%M')} ({self.tipo})>"
 
@@ -48,7 +54,7 @@ class Afastamento(db.Model):
     __tablename__ = 'afastamento' # Nome explícito da tabela
 
     id = db.Column(db.Integer, primary_key=True)
-    # CORREÇÃO: Garante que 'user.id' corresponda à tabela/coluna de User
+    # Garante que 'user.id' corresponda à tabela/coluna de User
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     data_inicio = db.Column(db.Date, nullable=False, index=True) # Índice
     data_fim = db.Column(db.Date, nullable=False, index=True) # Índice
@@ -56,7 +62,7 @@ class Afastamento(db.Model):
     timestamp_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     # Relacionamento com o usuário
-    user = relationship("User", backref=db.backref('afastamentos', lazy=True))
+    user = relationship("User", backref=db.backref('afastamentos', lazy='dynamic'))
 
     def __repr__(self):
         user_info = self.user.username if self.user else f"UserID:{self.user_id}"
@@ -67,20 +73,19 @@ class Atividade(db.Model):
     __tablename__ = 'atividade' # Nome explícito da tabela
 
     id = db.Column(db.Integer, primary_key=True)
-    # CORREÇÃO: Garante que 'user.id' corresponda à tabela/coluna de User
+    # Garante que 'user.id' corresponda à tabela/coluna de User
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     data = db.Column(db.Date, nullable=False, index=True) # Índice
     descricao = db.Column(db.Text, nullable=False)
     timestamp_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     # Relacionamento com o usuário
-    user = relationship("User", backref=db.backref('atividades', lazy=True))
+    user = relationship("User", backref=db.backref('atividades', lazy='dynamic'))
 
     def __repr__(self):
         user_info = self.user.username if self.user else f"UserID:{self.user_id}"
         return f"<Atividade {user_info} {self.data.strftime('%d/%m/%Y')} ({self.descricao[:20]}...)>"
 
-# Nota: A definição explícita de __tablename__ é uma boa prática.
-# Certifique-se de que o modelo User em app/models/user.py também tenha
-# __tablename__ = 'user' (ou o nome correto que está sendo referenciado).
+# Nota: A importação explícita de User no topo deste arquivo é a principal
+# tentativa de corrigir o NoReferencedTableError.
 # Se estiver usando Flask-Migrate, lembre-se das migrações.
