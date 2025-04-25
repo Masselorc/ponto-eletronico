@@ -1,5 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
+# --- CORREÇÃO: Importar wraps ---
+from functools import wraps
+# ---------------------------------
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade # Adicionada importação de Atividade
 from app.models.feriado import Feriado
@@ -54,6 +57,7 @@ def listar_feriados():
         # Lidar com ano inválido (ex: fora do range suportado por date)
         flash('Ano inválido selecionado.', 'danger')
         ano = date.today().year # Resetar para o ano atual
+        # Correção: Usar db.extract para filtrar por ano no SQLite
         feriados = Feriado.query.filter(
             db.extract('year', Feriado.data) == ano
         ).order_by(Feriado.data).all()
@@ -135,6 +139,7 @@ def editar_feriado(feriado_id):
                 # Atualiza os dados do feriado
                 feriado.data = nova_data
                 # Usa o setter da propriedade 'nome' que atualiza '_nome' (coluna 'descricao')
+                # Correção: Usar diretamente o atributo 'descricao' se ele for a coluna real
                 feriado.descricao = nova_descricao
                 db.session.commit()
                 flash('Feriado atualizado com sucesso!', 'success')
