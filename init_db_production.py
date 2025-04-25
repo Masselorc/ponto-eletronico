@@ -27,7 +27,8 @@ Variáveis de Ambiente (Opcional):
 import os
 import sys
 import logging
-from datetime import date
+# CORREÇÃO: Importar date e datetime do módulo datetime
+from datetime import date, datetime
 from sqlalchemy import inspect, text
 
 # Adiciona o diretório raiz do projeto ao sys.path para permitir importações de 'app'
@@ -45,6 +46,12 @@ except ImportError as e:
     print(f"ERRO FATAL: Falha ao importar componentes da aplicação: {e}")
     print("Verifique se o script está no diretório raiz ou se o PYTHONPATH está configurado.")
     sys.exit(1)
+except Exception as e: # Captura outros erros de inicialização (ex: DB não conecta)
+    print(f"ERRO FATAL durante importação inicial: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+
 
 # Configuração básica de logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
@@ -69,11 +76,13 @@ def init_production_db():
     logger.info("================================================================================")
     logger.info("INICIALIZAÇÃO DO BANCO DE DADOS DE PRODUÇÃO")
     logger.info("================================================================================")
+    # CORREÇÃO: datetime agora está importado e pode ser usado
     logger.info(f"Data e hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     logger.info(f"Python version: {sys.version}")
     logger.info(f"Diretório atual: {os.getcwd()}")
     logger.info("--------------------------------------------------------------------------------")
 
+    app = None # Inicializa app como None
     try:
         # [1/6] Criar Aplicação Flask
         logger.info("[1/6] Criando aplicação Flask...")
@@ -94,19 +103,20 @@ def init_production_db():
                 modelos_esperados = [User, Ponto, Feriado, Afastamento, Atividade]
                 tabelas_esperadas = [m.__tablename__ for m in modelos_esperados if hasattr(m, '__tablename__')]
 
-                tabelas_criadas = False
+                tabelas_criadas_ou_verificadas = True
                 for nome_tabela in tabelas_esperadas:
                     if nome_tabela not in tabelas_existentes:
-                        logger.warning(f"  - Tabela '{nome_tabela}' não encontrada. Será criada por db.create_all() (já executado em create_app).")
-                        # Se create_all falhou em __init__, pode haver um problema maior.
-                        # Re-executar aqui pode ser uma opção, mas idealmente __init__ deve funcionar.
-                        # db.create_all() # Descomente se create_all em __init__ for removido/falhar
-                        tabelas_criadas = True
+                        logger.warning(f"  - Tabela '{nome_tabela}' não encontrada após create_app. Verifique a inicialização em app/__init__.py.")
+                        # Se create_all() em __init__ falhou silenciosamente, a app pode não funcionar.
+                        tabelas_criadas_ou_verificadas = False # Marcar como potencialmente problemático
                     else:
                         logger.info(f"  - Tabela '{nome_tabela}' encontrada.")
 
-                if tabelas_criadas:
-                     logger.info("Novas tabelas foram criadas (ou a tentativa foi feita em create_app).")
+                if not tabelas_criadas_ou_verificadas:
+                     logger.warning("Algumas tabelas esperadas não foram encontradas. A aplicação pode não funcionar corretamente.")
+                     # Considerar retornar False ou tentar criar de novo:
+                     # logger.info("Tentando db.create_all() novamente...")
+                     # db.create_all()
 
                 logger.info("[3/6] Verificação/Criação de Tabelas concluída.")
 
@@ -131,16 +141,14 @@ def init_production_db():
                     admin_password = os.getenv('ADMIN_PASSWORD', ADMIN_DEFAULT_PASSWORD)
                     admin_cargo = os.getenv('ADMIN_CARGO', ADMIN_DEFAULT_CARGO)
 
-                    # CORREÇÃO: Usar os nomes de campo corretos do modelo User
-                    # e remover argumentos inválidos.
+                    # Cria o objeto User
                     admin = User(
                         username=admin_username,
                         email=admin_email,
-                        nome_completo=admin_name, # Usando nome_completo
+                        nome_completo=admin_name,
                         cargo=admin_cargo,
                         is_admin=True,
-                        ativo=True # Usando 'ativo'
-                        # Remover campos inexistentes: matricula, uf, telefone, vinculo, foto_path
+                        ativo=True
                     )
                     admin.set_password(admin_password)
                     db.session.add(admin)
@@ -160,9 +168,9 @@ def init_production_db():
 
                 except Exception as e:
                     db.session.rollback()
-                    logger.error(f"ERRO AO INICIALIZAR O BANCO DE DADOS: {e}", exc_info=True)
+                    logger.error(f"ERRO AO CRIAR ADMIN/DADOS INICIAIS: {e}", exc_info=True)
                     print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(f"ERRO AO INICIALIZAR O BANCO DE DADOS: {e}")
+                    print(f"ERRO AO CRIAR ADMIN/DADOS INICIAIS: {e}")
                     print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
                     return False # Falha na inicialização
 
@@ -171,15 +179,19 @@ def init_production_db():
             return True # Sucesso
 
     except Exception as e:
-        logger.error(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO DO BANCO DE DADOS: {e}", exc_info=True)
-        # Imprime o erro de forma destacada para visibilidade nos logs de build
+        # Captura erros que podem ocorrer antes ou fora do app_context
+        logger.error(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO: {e}", exc_info=True)
         print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO DO BANCO DE DADOS: {e}")
+        print(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO: {e}")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         print("Detalhes do erro:")
         import traceback
         traceback.print_exc()
         print("\n")
+        # Garante que app_context seja fechado se app foi criado
+        # (Normalmente o 'with' cuidaria disso, mas em caso de exceção fora dele)
+        # if app and app.app_context():
+        #     app.app_context().pop() # Não é a forma padrão, mas para garantir
         return False # Indica falha
 
 # --- Execução do Script ---
