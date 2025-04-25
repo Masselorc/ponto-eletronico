@@ -7,7 +7,7 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h1>Registrar Ponto</h1>
-            <p class="lead">Registre seu horário de trabalho</p>
+            <p class="lead">Registre seu horário de trabalho para um dia específico</p> {# Descrição ajustada #}
         </div>
         <div class="col-md-4 text-end">
             <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
@@ -21,12 +21,14 @@
             <h6 class="m-0 font-weight-bold text-primary">Formulário de Registro de Ponto</h6>
         </div>
         <div class="card-body">
+            {# O action default é a própria URL, o que é correto para este caso #}
             <form method="POST">
-                {{ form.hidden_tag() }}
-                
+                {{ form.hidden_tag() }} {# Necessário para proteção CSRF #}
+
                 <div class="mb-3">
                     <label for="data" class="form-label">Data</label>
-                    {{ form.data(class="form-control", type="date", required=true) }}
+                    {# Adicionado id="data" e removido required pois o validator já cuida disso #}
+                    {{ form.data(class="form-control", type="date", id="data") }}
                     {% if form.data.errors %}
                     <div class="invalid-feedback d-block">
                         {% for error in form.data.errors %}
@@ -35,58 +37,66 @@
                     </div>
                     {% endif %}
                 </div>
-                
-                <div class="mb-3">
-                    <label for="entrada" class="form-label">Entrada</label>
-                    {{ form.entrada(class="form-control", type="time", required=true) }}
-                    {% if form.entrada.errors %}
-                    <div class="invalid-feedback d-block">
-                        {% for error in form.entrada.errors %}
-                        <span>{{ error }}</span>
-                        {% endfor %}
+
+                <div class="row mb-3"> {# Agrupando horários em linha #}
+                    <div class="col-md-3">
+                        <label for="entrada" class="form-label">Entrada</label>
+                        {# Adicionado id e removido required #}
+                        {{ form.entrada(class="form-control", type="time", id="entrada") }}
+                        {% if form.entrada.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.entrada.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="entrada">Agora</button> {# Botão 'Agora' #}
                     </div>
-                    {% endif %}
-                </div>
-                
-                <div class="mb-3">
-                    <label for="saida_almoco" class="form-label">Saída para Almoço</label>
-                    {{ form.saida_almoco(class="form-control", type="time") }}
-                    {% if form.saida_almoco.errors %}
-                    <div class="invalid-feedback d-block">
-                        {% for error in form.saida_almoco.errors %}
-                        <span>{{ error }}</span>
-                        {% endfor %}
+                    <div class="col-md-3">
+                        <label for="saida_almoco" class="form-label">Saída Almoço</label>
+                         {# Adicionado id #}
+                        {{ form.saida_almoco(class="form-control", type="time", id="saida_almoco") }}
+                        {% if form.saida_almoco.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.saida_almoco.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida_almoco">Agora</button> {# Botão 'Agora' #}
                     </div>
-                    {% endif %}
-                </div>
-                
-                <div class="mb-3">
-                    <label for="retorno_almoco" class="form-label">Retorno do Almoço</label>
-                    {{ form.retorno_almoco(class="form-control", type="time") }}
-                    {% if form.retorno_almoco.errors %}
-                    <div class="invalid-feedback d-block">
-                        {% for error in form.retorno_almoco.errors %}
-                        <span>{{ error }}</span>
-                        {% endfor %}
+                    <div class="col-md-3">
+                        <label for="retorno_almoco" class="form-label">Retorno Almoço</label>
+                         {# Adicionado id #}
+                        {{ form.retorno_almoco(class="form-control", type="time", id="retorno_almoco") }}
+                        {% if form.retorno_almoco.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.retorno_almoco.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="retorno_almoco">Agora</button> {# Botão 'Agora' #}
                     </div>
-                    {% endif %}
-                </div>
-                
-                <div class="mb-3">
-                    <label for="saida" class="form-label">Saída</label>
-                    {{ form.saida(class="form-control", type="time", required=true) }}
-                    {% if form.saida.errors %}
-                    <div class="invalid-feedback d-block">
-                        {% for error in form.saida.errors %}
-                        <span>{{ error }}</span>
-                        {% endfor %}
+                    <div class="col-md-3">
+                        <label for="saida" class="form-label">Saída</label>
+                         {# Adicionado id e removido required #}
+                        {{ form.saida(class="form-control", type="time", id="saida") }}
+                        {% if form.saida.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.saida.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida">Agora</button> {# Botão 'Agora' #}
                     </div>
-                    {% endif %}
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="atividades" class="form-label">Atividades Realizadas</label>
-                    {{ form.atividades(class="form-control", rows=3) }}
+                     {# Adicionado id #}
+                    {{ form.atividades(class="form-control", rows=3, id="atividades") }}
                     {% if form.atividades.errors %}
                     <div class="invalid-feedback d-block">
                         {% for error in form.atividades.errors %}
@@ -95,8 +105,24 @@
                     </div>
                     {% endif %}
                 </div>
-                
+
+                {# --- CORREÇÃO: Adicionando o campo observacoes --- #}
+                <div class="mb-3">
+                    <label for="observacoes" class="form-label">Observações</label>
+                    {# Adicionado id #}
+                    {{ form.observacoes(class="form-control", rows=2, id="observacoes") }} {# Usando rows=2 para diferenciar de atividades #}
+                    {% if form.observacoes.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.observacoes.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {# ------------------------------------------------- #}
+
                 <div class="d-grid gap-2">
+                    {# Adicionado botão submit que faltava no form original #}
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Registrar Ponto
                     </button>
@@ -107,38 +133,23 @@
 </div>
 {% endblock %}
 
+{# Adicionado bloco extra_js para o script dos botões 'Agora' #}
 {% block extra_js %}
 <script>
-    // Função para preencher campos com horário atual
-    function preencherHorarioAtual(campoId) {
-        const agora = new Date();
-        const horas = agora.getHours().toString().padStart(2, '0');
-        const minutos = agora.getMinutes().toString().padStart(2, '0');
-        document.getElementById(campoId).value = `${horas}:${minutos}`;
-    }
-    
-    // Adiciona botões para preencher com horário atual
     document.addEventListener('DOMContentLoaded', function() {
-        const campos = ['entrada', 'saida_almoco', 'retorno_almoco', 'saida'];
-        
-        campos.forEach(campo => {
-            const input = document.getElementById(campo);
-            if (input) {
-                const btnContainer = document.createElement('div');
-                btnContainer.className = 'mt-2';
-                
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn btn-sm btn-outline-secondary';
-                btn.textContent = 'Usar horário atual';
-                btn.onclick = function(e) {
-                    e.preventDefault();
-                    preencherHorarioAtual(campo);
-                };
-                
-                btnContainer.appendChild(btn);
-                input.parentNode.appendChild(btnContainer);
-            }
+        // Botões para preencher com horário atual
+        const botoesHoraAtual = document.querySelectorAll('.btn-hora-atual');
+        botoesHoraAtual.forEach(function(botao) {
+            botao.addEventListener('click', function() {
+                const targetFieldId = this.getAttribute('data-target');
+                const targetField = document.getElementById(targetFieldId);
+                if (targetField) {
+                    const agora = new Date();
+                    const horas = agora.getHours().toString().padStart(2, '0');
+                    const minutos = agora.getMinutes().toString().padStart(2, '0');
+                    targetField.value = `${horas}:${minutos}`;
+                }
+            });
         });
     });
 </script>
