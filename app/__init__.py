@@ -4,7 +4,7 @@ Inicialização da Aplicação Flask.
 
 Este módulo configura e inicializa a aplicação Flask, incluindo:
 - Configuração da aplicação (chave secreta, URI do banco de dados).
-- Inicialização de extensões (SQLAlchemy, LoginManager, Bootstrap).
+- Inicialização de extensões (SQLAlchemy, LoginManager, CSRFProtect).
 - Registro de Blueprints (main, auth, admin).
 - Criação das tabelas do banco de dados (se necessário).
 - Tratamento de ambiente (desenvolvimento vs. produção/Render).
@@ -13,14 +13,14 @@ Este módulo configura e inicializa a aplicação Flask, incluindo:
 import logging
 import os
 import sys
-# CORREÇÃO: Importar datetime aqui para usar no context processor
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
 from flask import Flask, flash, redirect, url_for
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
-# from flask_bootstrap import Bootstrap # Bootstrap pode ser carregado via CDN no base.html
+# CORREÇÃO: Importar CSRFProtect
+from flask_wtf.csrf import CSRFProtect
 
 # Configuração do logging
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
@@ -29,13 +29,14 @@ logger = logging.getLogger(__name__)
 # Inicialização das extensões (sem app ainda)
 db = SQLAlchemy()
 login_manager = LoginManager()
+# CORREÇÃO: Inicializar CSRFProtect
+csrf = CSRFProtect()
+
 # Define a view de login (para onde @login_required redireciona)
 login_manager.login_view = 'auth.login'
 # Mensagem exibida quando o usuário tenta acessar uma página protegida sem login
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'info' # Categoria da mensagem flash
-
-# Bootstrap(app) # Inicialização do Bootstrap, se usado via extensão
 
 # --- Função Factory da Aplicação ---
 def create_app(config_class=None):
@@ -51,33 +52,35 @@ def create_app(config_class=None):
     Returns:
         Instância da aplicação Flask configurada.
     """
-    app = Flask(__name__)
+    app = Flask(__name__, instance_relative_config=True) # instance_relative_config=True é boa prática
 
     # --- Configuração ---
-    # Define a chave secreta
+    # Define a chave secreta - ESSENCIAL para CSRF e sessões
     # Use uma variável de ambiente em produção! Ex: os.environ.get('SECRET_KEY')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uma-chave-secreta-muito-segura-padrao')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uma-chave-secreta-muito-segura-padrao-para-dev')
+    # Adicionar configuração para WTForms CSRF (geralmente True por padrão, mas explícito é bom)
+    app.config['WTF_CSRF_ENABLED'] = True
 
     # Configuração do Banco de Dados (SQLite por padrão, detecta Render)
     is_render_env = 'RENDER' in os.environ
     db_name = 'ponto_eletronico.db'
-    # Ajusta o caminho base para a raiz do projeto, não dentro de 'app'
-    project_root_dir = os.path.dirname(os.path.dirname(app.root_path)) # Vai um nível acima de 'app'
-    instance_path_default = os.path.join(project_root_dir, 'instance') # Pasta instance na raiz
+    # Caminho da pasta 'instance' relativo à raiz da aplicação
+    # instance_path_default = app.instance_path # Flask define isso automaticamente com instance_relative_config=True
+    instance_path_default = os.path.join(os.path.dirname(os.path.dirname(app.root_path)), 'instance') # Garante ser na raiz do projeto
+
 
     if is_render_env:
         logger.info("Ambiente Render detectado.")
         # Em Render, usa o disco persistente montado em /data
         render_disk_path = '/data' # Caminho padrão do disco persistente no Render
         instance_path = render_disk_path
-        logger.info(f"Usando disco persistente em: {instance_path}")
+        logger.info(f"Tentando usar disco persistente em: {instance_path}")
         # Aviso se o disco não existir (pode indicar problema de configuração no Render)
-        if not os.path.exists(render_disk_path):
-             logger.warning(f"Disco persistente não encontrado em {render_disk_path}. Verifique a configuração do serviço no Render.")
+        if not os.path.exists(render_disk_path) or not os.access(render_disk_path, os.W_OK):
+             logger.warning(f"Disco persistente não encontrado ou não gravável em {render_disk_path}. Verifique a configuração do serviço no Render.")
              # Fallback para diretório local (DADOS SERÃO PERDIDOS)
              instance_path = instance_path_default
              logger.warning(f"Usando diretório local para instance: {instance_path}. Dados serão perdidos entre deploys.")
-
         db_path = os.path.join(instance_path, db_name)
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
         logger.info(f"Usando banco de dados em: {app.config['SQLALCHEMY_DATABASE_URI']}")
@@ -89,8 +92,7 @@ def create_app(config_class=None):
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
         logger.info(f"Usando banco de dados em: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
-    # Define explicitamente a pasta 'instance' para o Flask
-    # Isso é importante para o Flask encontrar o DB no lugar certo
+    # Define explicitamente a pasta 'instance' para o Flask (redundante com instance_relative_config=True, mas seguro)
     app.instance_path = instance_path
     logger.info(f"Flask instance_path definido como: {app.instance_path}")
 
@@ -102,15 +104,10 @@ def create_app(config_class=None):
         # Tenta ajustar permissões (pode falhar dependendo do ambiente)
         if sys.platform != 'win32': # chmod não existe no Windows
             try:
-                # Tenta permissão mais restrita primeiro, se falhar, tenta mais ampla
-                os.chmod(instance_path, 0o755)
+                os.chmod(instance_path, 0o755) # Permissão padrão mais segura
                 logger.info(f"Permissões do diretório instance ajustadas para 755")
-            except OSError:
-                try:
-                    os.chmod(instance_path, 0o777)
-                    logger.warning(f"Permissões do diretório instance ajustadas para 777 (modo amplo).")
-                except OSError as e:
-                    logger.warning(f"Não foi possível ajustar permissões para {instance_path}: {e}")
+            except OSError as e:
+                 logger.warning(f"Não foi possível ajustar permissões para {instance_path}: {e}")
         else:
              logger.info("Ajuste de permissões não aplicável no Windows.")
 
@@ -124,7 +121,8 @@ def create_app(config_class=None):
     # --- Inicialização das Extensões com a App ---
     db.init_app(app)
     login_manager.init_app(app)
-    # Bootstrap(app) # Se for usar a extensão
+    # CORREÇÃO: Inicializar CSRFProtect com a app
+    csrf.init_app(app)
 
     # --- Contexto da Aplicação ---
     with app.app_context():
@@ -165,31 +163,45 @@ def create_app(config_class=None):
              raise
 
         # --- Context Processors ---
-        # CORREÇÃO: Disponibiliza 'datetime' para todos os templates
+        # Disponibiliza 'datetime' para todos os templates
         @app.context_processor
         def inject_datetime():
             return {'datetime': datetime}
+
+        # A inicialização do CSRFProtect geralmente já disponibiliza csrf_token()
+        # Se ainda não funcionar, podemos injetá-lo explicitamente:
+        # @app.context_processor
+        # def inject_csrf():
+        #     from flask_wtf.csrf import generate_csrf
+        #     return {'csrf_token': generate_csrf}
 
         # --- Configuração de Logging Adicional (Opcional) ---
         if not app.debug and not app.testing:
             log_dir = os.path.join(app.instance_path, 'logs') # Salva logs na pasta instance
             if not os.path.exists(log_dir):
-                os.makedirs(log_dir, exist_ok=True) # Cria pasta de logs se não existir
+                try: # Adiciona try-except para criação de pasta de log
+                    os.makedirs(log_dir, exist_ok=True)
+                except OSError as e:
+                     logger.error(f"Não foi possível criar diretório de log {log_dir}: {e}")
+                     log_dir = None # Impede tentativa de criar handler se pasta falhou
 
-            log_file = os.path.join(log_dir, 'ponto_eletronico.log')
-            try:
-                file_handler = RotatingFileHandler(log_file, maxBytes=10240, backupCount=10)
-                file_handler.setFormatter(logging.Formatter(
-                    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-                file_handler.setLevel(logging.INFO)
-                # Remove handlers padrão se existirem para evitar duplicação
-                for handler in app.logger.handlers[:]:
-                    app.logger.removeHandler(handler)
-                app.logger.addHandler(file_handler)
-                app.logger.setLevel(logging.INFO)
-                app.logger.info('Aplicação Ponto Eletrônico iniciada (Logging para arquivo configurado)')
-            except Exception as e:
-                 app.logger.error(f"Falha ao configurar logging para arquivo em {log_file}: {e}")
+            if log_dir: # Só configura handler se a pasta existir/foi criada
+                log_file = os.path.join(log_dir, 'ponto_eletronico.log')
+                try:
+                    file_handler = RotatingFileHandler(log_file, maxBytes=10240, backupCount=10)
+                    file_handler.setFormatter(logging.Formatter(
+                        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+                    file_handler.setLevel(logging.INFO)
+                    # Remove handlers padrão se existirem para evitar duplicação
+                    for handler in app.logger.handlers[:]:
+                        app.logger.removeHandler(handler)
+                    app.logger.addHandler(file_handler)
+                    app.logger.setLevel(logging.INFO)
+                    app.logger.info('Aplicação Ponto Eletrônico iniciada (Logging para arquivo configurado)')
+                except Exception as e:
+                     app.logger.error(f"Falha ao configurar logging para arquivo em {log_file}: {e}")
+            else:
+                app.logger.warning("Logging para arquivo desabilitado devido a erro na criação do diretório de logs.")
 
         else:
              app.logger.info('Aplicação Ponto Eletrônico iniciada (Modo Debug/Testing)')
@@ -226,4 +238,3 @@ def admin_required(f):
             return redirect(url_for('main.dashboard'))
         return f(*args, **kwargs)
     return decorated_function
-
