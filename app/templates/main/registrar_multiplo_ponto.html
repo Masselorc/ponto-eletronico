@@ -21,9 +21,11 @@
             <h6 class="m-0 font-weight-bold text-primary">Preencha os dados para os dias desejados</h6>
         </div>
         <div class="card-body">
-            {# --- CORREÇÃO: Garantindo que o form tem o token DENTRO dele --- #}
+            {# --- GARANTIR QUE O FORM INICIA AQUI --- #}
             <form method="POST" id="formMultiploPonto">
-                {{ csrf_token() }} {# Token CSRF deve estar dentro do <form> #}
+                {# === CORREÇÃO IMPORTANTE: Token CSRF AQUI, DENTRO DO FORM === #}
+                {{ csrf_token() }}
+                {# ============================================================ #}
                 <div id="pontos-container">
                     {# Linha inicial de ponto #}
                     <div class="ponto-row mb-3 p-3 border rounded bg-light">
@@ -71,8 +73,7 @@
                          <i class="fas fa-save"></i> Registrar Todos os Pontos Informados
                     </button>
                 </div>
-            </form>
-             {# ---------------------------------------------------------------- #}
+            </form> {# --- GARANTIR QUE O FORM TERMINA AQUI --- #}
         </div>
     </div>
 </div>
