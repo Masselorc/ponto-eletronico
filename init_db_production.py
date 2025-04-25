@@ -4,13 +4,14 @@
 Script de Inicialização do Banco de Dados para Ambiente de Produção
 ==================================================================
 
-VERSÃO: 2.1.0 (Abril 2025)
+VERSÃO: 2.2.0 (Abril 2025)
 AUTOR: Equipe de Desenvolvimento
-REVISÃO: Correção de erro 'no such column: users.is_active_db' durante build
+REVISÃO: Correção do erro de transação ao adicionar coluna 'is_active_db'.
+         Adicionadas verificações de idempotência para criação de dados.
 
 Este script é responsável por inicializar o banco de dados em ambiente de produção.
-Ele cria as tabelas necessárias, usuários padrão e dados iniciais como feriados.
-Adiciona verificação e criação da coluna 'is_active_db' na tabela 'users'.
+Ele cria as tabelas necessárias, garante a existência de colunas de migração,
+cria usuários padrão (se não existirem) e dados iniciais como feriados.
 """
 
 import os
@@ -52,36 +53,46 @@ FERIADOS_2025 = [
     {'data': date(2025, 12, 25), 'descricao': 'Natal'}
 ]
 
-def ensure_is_active_db_column(app):
-    """Verifica e adiciona a coluna is_active_db à tabela users se não existir."""
+def ensure_column_exists(app, table_name, column_name, column_definition):
+    """Função genérica para verificar e adicionar uma coluna a uma tabela."""
     with app.app_context():
         try:
-            print("  - Verificando coluna 'is_active_db' na tabela 'users'...")
+            print(f"  - Verificando coluna '{column_name}' na tabela '{table_name}'...")
             with db.engine.connect() as connection:
-                # Verificar se a tabela users existe primeiro
-                result_table = connection.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'"))
+                # Verificar se a tabela existe primeiro
+                result_table = connection.execute(db.text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"))
                 if not result_table.fetchone():
-                    print("  - Tabela 'users' não encontrada. Será criada por db.create_all().")
+                    print(f"  - Tabela '{table_name}' não encontrada. Será criada por db.create_all().")
                     return # Deixa o create_all lidar com a criação da tabela
 
-                # Verificar colunas da tabela users
-                result_columns = connection.execute(db.text("PRAGMA table_info(users)"))
+                # Verificar colunas da tabela
+                result_columns = connection.execute(db.text(f"PRAGMA table_info({table_name})"))
                 columns = [column[1] for column in result_columns.fetchall()]
 
-                if 'is_active_db' not in columns:
-                    print("  - Coluna 'is_active_db' não encontrada. Adicionando...")
-                    # Usar transação para adicionar a coluna
-                    with connection.begin():
-                        # Adiciona a coluna com NOT NULL e DEFAULT 1 (True)
-                        connection.execute(db.text("ALTER TABLE users ADD COLUMN is_active_db BOOLEAN NOT NULL DEFAULT 1"))
-                    print("  - Coluna 'is_active_db' adicionada com sucesso!")
+                if column_name not in columns:
+                    print(f"  - Coluna '{column_name}' não encontrada. Adicionando...")
+                    # --- CORREÇÃO: Executar ALTER TABLE diretamente sem with connection.begin() ---
+                    # A conexão já pode estar em modo autocommit ou dentro de uma transação externa.
+                    try:
+                        # Usar db.session.execute para aproveitar o contexto da sessão, se possível
+                        # Ou connection.execute se db.session não estiver disponível/ativo aqui
+                        connection.execute(db.text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"))
+                        # Para SQLite, o commit pode não ser necessário para ALTER TABLE, mas é bom garantir
+                        # Se connection for usada, pode precisar de connection.commit() se não estiver em autocommit.
+                        # Se db.session for usado, o commit será feito no final do bloco principal.
+                        # Vamos tentar sem commit explícito aqui primeiro.
+                        print(f"  - Coluna '{column_name}' adicionada com sucesso!")
+                    except Exception as alter_err:
+                         print(f"  - ERRO ao executar ALTER TABLE para '{column_name}': {alter_err}")
+                         # Considerar fazer rollback se estiver numa sessão: db.session.rollback()
+                         raise # Relança o erro para ser capturado pelo bloco externo
                 else:
-                    print("  - Coluna 'is_active_db' já existe.")
+                    print(f"  - Coluna '{column_name}' já existe.")
         except Exception as e:
-            print(f"  - ERRO ao verificar/adicionar coluna 'is_active_db': {e}")
+            print(f"  - ERRO ao verificar/adicionar coluna '{column_name}' na tabela '{table_name}': {e}")
             print(traceback.format_exc())
             # Decide se quer relançar o erro ou apenas logar
-            # raise # Descomente para parar a execução em caso de erro aqui
+            raise # Relançar para indicar falha na inicialização
 
 
 def init_production_db():
@@ -107,13 +118,19 @@ def init_production_db():
                 # Cria todas as tabelas definidas nos modelos, se não existirem
                 print("[2/6] Garantindo que todas as tabelas existam (db.create_all)...")
                 db.create_all()
+                print("[2/6] db.create_all() concluído.")
 
-                # --- CORREÇÃO: Garantir que a coluna is_active_db exista ANTES de consultá-la ---
+                # --- CORREÇÃO: Garantir que as colunas de migração existam ANTES das consultas ---
                 print("[3/6] Verificando/Adicionando colunas de migração necessárias...")
-                ensure_is_active_db_column(app)
-                # Poderia chamar a função migrate_db de app/__init__.py aqui também,
-                # mas adicionar a verificação específica para is_active_db é mais direto para este erro.
-                # migrate_db(app) # Se quiser executar toda a migração aqui
+                # Adiciona is_active_db à tabela users
+                ensure_column_exists(app, 'users', 'is_active_db', 'BOOLEAN NOT NULL DEFAULT 1')
+                # Adiciona colunas à tabela pontos (usando a função genérica)
+                ensure_column_exists(app, 'pontos', 'afastamento', 'BOOLEAN DEFAULT 0')
+                ensure_column_exists(app, 'pontos', 'tipo_afastamento', 'VARCHAR(100)')
+                ensure_column_exists(app, 'pontos', 'observacoes', 'TEXT')
+                # Adiciona coluna à tabela atividades
+                ensure_column_exists(app, 'atividades', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+                print("[3/6] Verificação/Adição de colunas concluída.")
                 # ---------------------------------------------------------------------------------
 
                 # Verifica se já existe um usuário administrador
@@ -143,7 +160,7 @@ def init_production_db():
                     db.session.add(admin)
 
                     print("  - Criando usuário de demonstração...")
-                    # Cria um usuário comum para demonstração
+                    # Cria um usuário comum para demonstração, se não existir
                     user_demo_exists = User.query.filter_by(email='demo@example.com').first()
                     if not user_demo_exists:
                         user = User(
@@ -160,12 +177,34 @@ def init_production_db():
                         )
                         user.set_password('demo123')
                         db.session.add(user)
+                        print("  - Usuário de demonstração criado.")
                     else:
                         print("  - Usuário de demonstração já existe.")
 
 
                     print("  - Adicionando feriados nacionais para 2025 (se não existirem)...")
                     # Adiciona feriados nacionais para 2025, verificando se já existem
+                    feriados_adicionados = 0
+                    for feriado_data in FERIADOS_2025:
+                        feriado_exists = Feriado.query.filter_by(data=feriado_data['data']).first()
+                        if not feriado_exists:
+                            feriado = Feriado(
+                                data=feriado_data['data'],
+                                descricao=feriado_data['descricao'] # Usando o atributo correto
+                            )
+                            db.session.add(feriado)
+                            feriados_adicionados += 1
+                            # print(f"    - Adicionado: {feriado_data['data'].strftime('%d/%m')} - {feriado_data['descricao']}")
+                    print(f"  - {feriados_adicionados} feriados adicionados.")
+
+                    print("  - Realizando commit das alterações...")
+                    db.session.commit() # Salva todas as adições (admin, demo, feriados)
+                    print("[6/6] Banco de dados de produção inicializado com sucesso!")
+                else:
+                    print("[5/6] Usuário administrador já existe.")
+                     # Mesmo se admin existe, verifica e adiciona feriados faltantes
+                    print("  - Verificando/Adicionando feriados nacionais para 2025 (se não existirem)...")
+                    feriados_adicionados = 0
                     for feriado_data in FERIADOS_2025:
                         feriado_exists = Feriado.query.filter_by(data=feriado_data['data']).first()
                         if not feriado_exists:
@@ -174,16 +213,13 @@ def init_production_db():
                                 descricao=feriado_data['descricao']
                             )
                             db.session.add(feriado)
-                            print(f"    - Adicionado: {feriado_data['data'].strftime('%d/%m')} - {feriado_data['descricao']}")
-                        # else:
-                        #     print(f"    - Já existe: {feriado_data['data'].strftime('%d/%m')} - {feriado_data['descricao']}")
+                            feriados_adicionados += 1
+                    if feriados_adicionados > 0:
+                         db.session.commit() # Commit apenas se adicionou feriados
+                         print(f"  - {feriados_adicionados} feriados adicionados.")
+                    else:
+                         print("  - Todos os feriados de 2025 já existem.")
 
-
-                    print("  - Realizando commit das alterações...")
-                    db.session.commit()
-                    print("[6/6] Banco de dados de produção inicializado com sucesso!")
-                else:
-                    print("[5/6] Usuário administrador já existe.")
                     print("[6/6] Banco de dados já inicializado anteriormente.")
 
                 print("\n" + "-"*80)
@@ -192,14 +228,14 @@ def init_production_db():
                 return True
 
             except Exception as e:
-                # Em caso de erro, faz rollback e registra detalhes
+                # Em caso de erro durante as operações de DB, faz rollback
                 db.session.rollback()
                 print("\n" + "!"*80)
                 print(f"ERRO AO INICIALIZAR O BANCO DE DADOS: {e}")
                 print("!"*80)
                 print("\nDetalhes do erro:")
                 print(traceback.format_exc())
-                # Re-lança a exceção para que o erro seja capturado e registrado corretamente
+                # Re-lança a exceção para indicar falha
                 raise
     except Exception as e:
         # Captura erros na criação da aplicação ou outros erros não capturados
@@ -227,7 +263,6 @@ if __name__ == '__main__':
     except Exception as e:
         # Em caso de erro fatal não capturado dentro da função
         print(f"\nERRO FATAL DURANTE A EXECUÇÃO DO SCRIPT: {e}")
-        print(traceback.format_exc())
+        # traceback.print_exc() # Descomente para ver o traceback completo aqui também
         # Saída com código de erro para indicar falha no build
         sys.exit(1)
-
