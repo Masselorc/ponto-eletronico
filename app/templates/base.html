@@ -102,6 +102,27 @@
             padding-bottom: 1rem; /* Espaço acima do footer */
         }
 
+        /* Estilo para o formulário de logout (para parecer um link) */
+        .logout-form {
+            display: inline; /* Faz o form não quebrar linha */
+        }
+        .logout-button {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--bs-dropdown-link-color); /* Cor padrão de link do dropdown */
+            text-decoration: none; /* Remove sublinhado padrão de botão */
+            cursor: pointer;
+            display: inline; /* Garante que se comporte como texto */
+            text-align: left; /* Alinha texto à esquerda */
+            width: 100%; /* Ocupa a largura do item do dropdown */
+        }
+        .logout-button:hover {
+             color: var(--bs-dropdown-link-hover-color); /* Cor no hover */
+             background-color: var(--bs-dropdown-link-hover-bg); /* Fundo no hover */
+        }
+
+
     </style>
 
 </head>
@@ -165,7 +186,16 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{{ url_for('main.perfil') }}">Meu Perfil</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Sair <i class="bi bi-box-arrow-right"></i></a></li>
+                                {# CORREÇÃO Item 9: Usar formulário POST para logout #}
+                                <li>
+                                    <form class="logout-form" action="{{ url_for('auth.logout') }}" method="POST">
+                                        {# Inclui o token CSRF - assume que WTForms está configurado #}
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="dropdown-item logout-button">
+                                            Sair <i class="bi bi-box-arrow-right"></i>
+                                        </button>
+                                    </form>
+                                </li>
                             </ul>
                         </li>
                      {% else %}

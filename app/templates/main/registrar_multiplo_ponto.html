@@ -1,121 +1,194 @@
 {% extends 'base.html' %}
-
-{% block title %}{{ title or 'Registrar Múltiplos Pontos' }}{% endblock %}
+{% from "_formhelpers.html" import render_field %} {# Importa macro de renderização de campo, se existir #}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col-md-8">
-             <h1>Registrar Múltiplos Pontos</h1>
-             <p class="lead">Adicione rapidamente registros para vários dias.</p>
-        </div>
-         <div class="col-md-4 text-end">
-            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
-            </a>
-        </div>
-    </div>
+    <h1>Registrar/Editar Pontos do Dia</h1>
+    <p>Use este formulário para adicionar ou corrigir todos os registros de ponto para um dia específico.</p>
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Preencha os dados para os dias desejados</h6>
-        </div>
-        <div class="card-body">
-            <form method="POST" id="formMultiploPonto">
-                {# --- CORREÇÃO: Usar form.hidden_tag() para incluir CSRF --- #}
-                {{ form.hidden_tag() }}
-                {# ---------------------------------------------------------- #}
-                <div id="pontos-container">
-                    {# Linha inicial de ponto #}
-                    <div class="ponto-row mb-3 p-3 border rounded bg-light">
-                         <h6 class="font-weight-bold text-secondary mb-3">Registro 1</h6>
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label for="data-0" class="form-label">Data*</label>
-                                <input type="date" class="form-control form-control-sm" id="data-0" name="datas[]" required>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="entrada-0" class="form-label">Entrada</label>
-                                <input type="time" class="form-control form-control-sm" id="entrada-0" name="entradas[]">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="saida-almoco-0" class="form-label">Saída Almoço</label>
-                                <input type="time" class="form-control form-control-sm" id="saida-almoco-0" name="saidas_almoco[]">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="retorno-almoco-0" class="form-label">Retorno Almoço</label>
-                                <input type="time" class="form-control form-control-sm" id="retorno-almoco-0" name="retornos_almoco[]">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="saida-0" class="form-label">Saída</label>
-                                <input type="time" class="form-control form-control-sm" id="saida-0" name="saidas[]">
-                            </div>
-                            <div class="col-md-12 mt-2">
-                                <label for="atividades-0" class="form-label">Atividades Realizadas</label>
-                                <textarea class="form-control form-control-sm" id="atividades-0" name="atividades[]" rows="1"></textarea>
-                            </div>
+    <form method="POST" action="{{ url_for('main.registrar_multiplo_ponto') }}">
+        {# CORREÇÃO Item 8: Usar form.hidden_tag() para incluir CSRF e outros campos ocultos #}
+        {{ form.hidden_tag() }}
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                {# Renderiza o campo de data usando macro ou diretamente #}
+                {% if render_field %}
+                    {{ render_field(form.data, class="form-control") }}
+                {% else %}
+                    <label for="{{ form.data.id }}" class="form-label">{{ form.data.label }}</label>
+                    {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else "")) }}
+                    {% if form.data.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.data.errors[0] }}
                         </div>
-                    </div>
-                    {# Fim da linha inicial #}
-                </div>
-
-                <div class="mt-3 mb-3">
-                    <button type="button" class="btn btn-success" id="addPonto">
-                        <i class="fas fa-plus"></i> Adicionar Outro Dia
-                    </button>
-                </div>
-
-                <hr>
-
-                <div class="d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                         <i class="fas fa-save"></i> Registrar Todos os Pontos Informados
-                    </button>
-                </div>
-            </form> {# Fim do form #}
+                    {% endif %}
+                {% endif %}
+            </div>
         </div>
-    </div>
-</div>
 
-{# Script mantido como na versão anterior #}
+        <hr>
+        <h4>Registros de Ponto:</h4>
+         <div id="ponto-entries">
+            {% for entry_form in form.pontos %}
+            <div class="row g-3 mb-3 align-items-center ponto-entry">
+                 {# Campo oculto para ID do subform, se necessário #}
+                 {{ entry_form.hidden_tag() }}
+                 <div class="col-md-3">
+                     {% if render_field %}
+                         {{ render_field(entry_form.hora, class="form-control", placeholder="HH:MM") }}
+                     {% else %}
+                         <label for="{{ entry_form.hora.id }}" class="form-label visually-hidden">{{ entry_form.hora.label }}</label>
+                         {{ entry_form.hora(class="form-control time-input" + (" is-invalid" if entry_form.hora.errors else ""), placeholder="HH:MM") }}
+                         {% if entry_form.hora.errors %}
+                             <div class="invalid-feedback d-block">
+                                 {{ entry_form.hora.errors[0] }}
+                             </div>
+                         {% endif %}
+                     {% endif %}
+                 </div>
+                 <div class="col-md-3">
+                      {% if render_field %}
+                         {{ render_field(entry_form.tipo, class="form-select") }}
+                     {% else %}
+                         <label for="{{ entry_form.tipo.id }}" class="form-label visually-hidden">{{ entry_form.tipo.label }}</label>
+                         {{ entry_form.tipo(class="form-select" + (" is-invalid" if entry_form.tipo.errors else "")) }}
+                          {% if entry_form.tipo.errors %}
+                             <div class="invalid-feedback d-block">
+                                 {{ entry_form.tipo.errors[0] }}
+                             </div>
+                         {% endif %}
+                     {% endif %}
+                 </div>
+                 <div class="col-md-5">
+                     {% if render_field %}
+                         {{ render_field(entry_form.observacao, class="form-control", placeholder="Observação (opcional)") }}
+                     {% else %}
+                          <label for="{{ entry_form.observacao.id }}" class="form-label visually-hidden">{{ entry_form.observacao.label }}</label>
+                         {{ entry_form.observacao(class="form-control" + (" is-invalid" if entry_form.observacao.errors else ""), placeholder="Observação (opcional)") }}
+                          {% if entry_form.observacao.errors %}
+                             <div class="invalid-feedback d-block">
+                                 {{ entry_form.observacao.errors[0] }}
+                             </div>
+                         {% endif %}
+                     {% endif %}
+                 </div>
+                 <div class="col-md-1">
+                     {# Botão para remover a linha (exceto a primeira talvez) - requer JS #}
+                     <button type="button" class="btn btn-sm btn-outline-danger remove-entry-btn" title="Remover Registro">
+                         <i class="bi bi-x-lg"></i>
+                     </button>
+                 </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" id="add-entry-btn" class="btn btn-sm btn-outline-success mb-3">
+            <i class="bi bi-plus-circle"></i> Adicionar Registro
+        </button>
+
+        <div class="mt-4">
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('main.visualizar_ponto', data=form.data.data.isoformat() if form.data.data else '') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        let pontoIndex = 0;
-        document.getElementById('addPonto').addEventListener('click', function() {
-            pontoIndex++;
-            const container = document.getElementById('pontos-container');
-            const novoPontoRow = document.createElement('div');
-            novoPontoRow.className = 'ponto-row mb-3 p-3 border rounded bg-light';
-            novoPontoRow.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                     <h6 class="font-weight-bold text-secondary">Registro ${pontoIndex + 1}</h6>
-                    <button type="button" class="btn btn-sm btn-danger remove-ponto" title="Remover este dia">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-3"><label for="data-${pontoIndex}" class="form-label">Data*</label><input type="date" class="form-control form-control-sm" id="data-${pontoIndex}" name="datas[]" required></div>
-                    <div class="col-md-2"><label for="entrada-${pontoIndex}" class="form-label">Entrada</label><input type="time" class="form-control form-control-sm" id="entrada-${pontoIndex}" name="entradas[]"></div>
-                    <div class="col-md-2"><label for="saida-almoco-${pontoIndex}" class="form-label">Saída Almoço</label><input type="time" class="form-control form-control-sm" id="saida-almoco-${pontoIndex}" name="saidas_almoco[]"></div>
-                    <div class="col-md-2"><label for="retorno-almoco-${pontoIndex}" class="form-label">Retorno Almoço</label><input type="time" class="form-control form-control-sm" id="retorno-almoco-${pontoIndex}" name="retornos_almoco[]"></div>
-                    <div class="col-md-2"><label for="saida-${pontoIndex}" class="form-label">Saída</label><input type="time" class="form-control form-control-sm" id="saida-${pontoIndex}" name="saidas[]"></div>
-                    <div class="col-md-12 mt-2"><label for="atividades-${pontoIndex}" class="form-label">Atividades Realizadas</label><textarea class="form-control form-control-sm" id="atividades-${pontoIndex}" name="atividades[]" rows="1"></textarea></div>
-                </div>
-            `;
-            container.appendChild(novoPontoRow);
-            novoPontoRow.querySelector('.remove-ponto').addEventListener('click', function() {
-                novoPontoRow.remove();
-            });
-        });
-        document.getElementById('formMultiploPonto').addEventListener('submit', function(e) {
-            const dataInputs = document.querySelectorAll('input[name="datas[]"]');
-            let hasValidData = false;
-            for (const input of dataInputs) { if (input.value) { hasValidData = true; break; } }
-            if (!hasValidData) {
-                e.preventDefault();
-                alert('Por favor, preencha a data para pelo menos um registro.');
+document.addEventListener('DOMContentLoaded', function() {
+    const entriesContainer = document.getElementById('ponto-entries');
+    const addEntryButton = document.getElementById('add-entry-btn');
+
+    // Função para adicionar listener de remoção
+    function addRemoveListener(button) {
+        button.addEventListener('click', function() {
+            // Não remove se for a última linha (?) ou adiciona validação
+            if (entriesContainer.querySelectorAll('.ponto-entry').length > 1) {
+                 this.closest('.ponto-entry').remove();
+                 updateEntryIndices(); // Reindexa os campos após remover
+            } else {
+                // Limpa os campos da última linha em vez de remover?
+                const entry = this.closest('.ponto-entry');
+                entry.querySelectorAll('input[type="time"], input[type="text"], select, textarea').forEach(input => input.value = '');
+                // Talvez resetar o select 'tipo' para 'Entrada'
+                const tipoSelect = entry.querySelector('select[name*="tipo"]');
+                if(tipoSelect) tipoSelect.value = 'Entrada';
+
+                alert("Pelo menos um registro é necessário. Os campos foram limpos.");
             }
         });
+    }
+
+    // Função para reindexar nomes e IDs dos campos
+    function updateEntryIndices() {
+        const entries = entriesContainer.querySelectorAll('.ponto-entry');
+        entries.forEach((entry, index) => {
+            entry.querySelectorAll('input, select, textarea, label').forEach(element => {
+                const name = element.getAttribute('name');
+                const id = element.getAttribute('id');
+                const labelFor = element.getAttribute('for');
+
+                if (name) {
+                    element.setAttribute('name', name.replace(/pontos-\d+-/, `pontos-${index}-`));
+                }
+                if (id) {
+                    element.setAttribute('id', id.replace(/pontos-\d+-/, `pontos-${index}-`));
+                }
+                 if (labelFor) {
+                    element.setAttribute('for', labelFor.replace(/pontos-\d+-/, `pontos-${index}-`));
+                }
+            });
+        });
+    }
+
+
+    // Adiciona listener aos botões de remoção existentes
+    entriesContainer.querySelectorAll('.remove-entry-btn').forEach(addRemoveListener);
+
+    // Adiciona nova entrada
+    addEntryButton.addEventListener('click', function() {
+        const lastEntry = entriesContainer.querySelector('.ponto-entry:last-of-type');
+        if (!lastEntry) return; // Não faz nada se não houver entradas
+
+        const newEntry = lastEntry.cloneNode(true);
+        const currentIndex = entriesContainer.querySelectorAll('.ponto-entry').length;
+
+        // Limpa os valores e ajusta nomes/IDs dos campos clonados
+        newEntry.querySelectorAll('input, select, textarea').forEach(input => {
+            const name = input.getAttribute('name');
+            const id = input.getAttribute('id');
+            input.value = ''; // Limpa valor
+            if (name) {
+                 input.setAttribute('name', name.replace(/pontos-\d+-/, `pontos-${currentIndex}-`));
+            }
+             if (id) {
+                input.setAttribute('id', id.replace(/pontos-\d+-/, `pontos-${currentIndex}-`));
+                // Limpa estado de erro visual
+                input.classList.remove('is-invalid');
+            }
+             // Limpa mensagens de erro associadas
+             const errorDiv = newEntry.querySelector(`div.invalid-feedback[for="${id}"]`) || input.closest('.col-md-3, .col-md-5')?.querySelector('.invalid-feedback');
+             if (errorDiv) errorDiv.textContent = '';
+
+        });
+         // Ajusta 'for' dos labels
+         newEntry.querySelectorAll('label').forEach(label => {
+             const labelFor = label.getAttribute('for');
+              if (labelFor) {
+                 label.setAttribute('for', labelFor.replace(/pontos-\d+-/, `pontos-${currentIndex}-`));
+             }
+         });
+
+        // Adiciona listener ao novo botão de remover
+        const newRemoveButton = newEntry.querySelector('.remove-entry-btn');
+        if (newRemoveButton) {
+            addRemoveListener(newRemoveButton);
+        }
+
+        entriesContainer.appendChild(newEntry);
     });
+});
 </script>
 {% endblock %}

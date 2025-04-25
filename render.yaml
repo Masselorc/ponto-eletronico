@@ -1,18 +1,46 @@
-# Configuração para o Render.com
 services:
   - type: web
-    name: ponto-eletronico
+    name: ponto-eletronico # Ou o nome do seu serviço
     env: python
-    buildCommand: pip install -r requirements.txt
+    plan: free # Ou seu plano pago
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      # Executa o script de inicialização/verificação primeiro (opcional, mas pode ser útil)
+      # python init_db_production.py
+      # Executa as migrações do banco de dados ANTES de iniciar o servidor
+      flask db upgrade
     startCommand: gunicorn wsgi:app
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11 # Ou a versão que você está usando
+      - key: FLASK_APP # Necessário para o comando flask db
+        value: wsgi:app # Ou o ponto de entrada da sua app Flask
+      - key: FLASK_DEBUG
+        value: 0 # Desabilita debug em produção
       - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URI
-        value: sqlite:///instance/ponto_eletronico.db
-      - key: DEBUG
-        value: false
-    disk:
-      name: sqlite-data
-      mountPath: /opt/render/project/src/instance
-      sizeGB: 1
+        generateValue: true # Render gera uma chave segura
+      - key: DATABASE_URL # Se usar PostgreSQL no Render em vez de SQLite
+        fromDatabase:
+          name: ponto-eletronico-db # Nome do seu serviço de banco de dados no Render
+          property: connectionString
+      # Adicione outras variáveis de ambiente necessárias (ADMIN_EMAIL, etc.)
+      # - key: ADMIN_EMAIL
+      #   value: seu_email_admin@provedor.com
+      # - key: ADMIN_PASSWORD
+      #   sync: false # Para não exibir no log
+
+    # Configuração do Disco Persistente (se estiver usando SQLite)
+    # disks:
+    #   - name: data # Nome do disco
+    #     mountPath: /data # Ponto de montagem (onde o app/__init__.py espera encontrar)
+    #     sizeGB: 1 # Tamanho do disco
+
+# build: # Seção build separada (alternativa ao buildCommand inline)
+#   - command: "pip install --upgrade pip"
+#   - command: "pip install -r requirements.txt"
+#   - command: "flask db upgrade" # Executa migrations no final do build
+
+# postDeploy: # Hook Pós-Deploy (outra alternativa para migrations)
+#   - command: "flask db upgrade"
+
