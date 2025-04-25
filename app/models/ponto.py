@@ -1,64 +1,44 @@
 from app import db
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time
 
 class Ponto(db.Model):
+    """Modelo para os registros de ponto."""
     __tablename__ = 'pontos'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    # CORREÇÃO DEFINITIVA: Removido completamente qualquer valor padrão para o campo data
-    data = db.Column(db.Date, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    data = db.Column(db.Date, nullable=False, index=True)
     entrada = db.Column(db.Time, nullable=True)
     saida_almoco = db.Column(db.Time, nullable=True)
     retorno_almoco = db.Column(db.Time, nullable=True)
     saida = db.Column(db.Time, nullable=True)
-    horas_trabalhadas = db.Column(db.Float, nullable=True)
-    afastamento = db.Column(db.Boolean, default=False)
-    tipo_afastamento = db.Column(db.String(100), nullable=True)
+    horas_trabalhadas = db.Column(db.Float, nullable=True) # Armazena como float (ex: 8.5 para 8h30m)
     observacoes = db.Column(db.Text, nullable=True)
-    
-    # Relacionamentos
+    afastamento = db.Column(db.Boolean, default=False, nullable=False)
+    tipo_afastamento = db.Column(db.String(100), nullable=True)
+    # --- NOVO CAMPO ---
+    resultados_produtos = db.Column(db.Text, nullable=True) # Campo para Resultados/Produtos Gerados
+    # ------------------
+
+    # Relacionamento com Atividades (um Ponto pode ter várias Atividades)
+    # cascade="all, delete-orphan" garante que as atividades sejam excluídas se o ponto for excluído
     atividades = db.relationship('Atividade', backref='ponto', lazy=True, cascade="all, delete-orphan")
-    
-    def calcular_horas_trabalhadas(self):
-        """Calcula as horas trabalhadas com base nos horários registrados"""
-        if self.afastamento:
-            self.horas_trabalhadas = 0
-            return
-            
-        total_horas = 0
-        
-        # Período da manhã (entrada até saída para almoço)
-        if self.entrada and self.saida_almoco:
-            # CORREÇÃO DEFINITIVA: Garantir que a data do registro seja usada
-            delta_manha = datetime.combine(self.data, self.saida_almoco) - datetime.combine(self.data, self.entrada)
-            total_horas += delta_manha.total_seconds() / 3600
-            
-        # Período da tarde (retorno do almoço até saída)
-        if self.retorno_almoco and self.saida:
-            # CORREÇÃO DEFINITIVA: Garantir que a data do registro seja usada
-            delta_tarde = datetime.combine(self.data, self.saida) - datetime.combine(self.data, self.retorno_almoco)
-            total_horas += delta_tarde.total_seconds() / 3600
-            
-        # Se não tiver registro de almoço, mas tiver entrada e saída
-        if self.entrada and self.saida and not (self.saida_almoco or self.retorno_almoco):
-            # CORREÇÃO DEFINITIVA: Garantir que a data do registro seja usada
-            delta_total = datetime.combine(self.data, self.saida) - datetime.combine(self.data, self.entrada)
-            total_horas = delta_total.total_seconds() / 3600
-            
-        self.horas_trabalhadas = round(total_horas, 1)
-    
+
+    # Índices compostos podem ser úteis para otimizar buscas por usuário e data
+    __table_args__ = (db.Index('ix_ponto_user_data', 'user_id', 'data'), )
+
     def __repr__(self):
-        return f'<Ponto {self.data} - Usuário {self.user_id}>'
+        return f'<Ponto {self.id} - User {self.user_id} - Data {self.data}>'
 
 class Atividade(db.Model):
+    """Modelo para as atividades diárias vinculadas a um registro de ponto."""
     __tablename__ = 'atividades'
-    __table_args__ = {'extend_existing': True}
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    ponto_id = db.Column(db.Integer, db.ForeignKey('pontos.id', ondelete='CASCADE'), nullable=False)
+    ponto_id = db.Column(db.Integer, db.ForeignKey('pontos.id', ondelete='CASCADE'), nullable=False, index=True) # ondelete='CASCADE'
     descricao = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow) # Adicionado para rastreamento
+
     def __repr__(self):
-        return f'<Atividade {self.id} - Ponto {self.ponto_id}>'
+        return f'<Atividade {self.id} para Ponto {self.ponto_id}>'
+
