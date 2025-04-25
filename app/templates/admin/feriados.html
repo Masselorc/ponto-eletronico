@@ -54,14 +54,14 @@
                                     <a href="{{ url_for('admin.editar_feriado', feriado_id=feriado.id) }}" class="btn btn-outline-primary" title="Editar Feriado">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    {# --- CORREÇÃO: Movido csrf_token() para DENTRO do form --- #}
+                                    {# --- CORREÇÃO: Garantindo que csrf_token está DENTRO do form --- #}
                                     <form method="POST" action="{{ url_for('admin.excluir_feriado', feriado_id=feriado.id) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o feriado \'{{ feriado.descricao|escape }}\' de {{ feriado.data.strftime('%d/%m/%Y') }}?');">
-                                        {{ csrf_token() }}
+                                        {{ csrf_token() }} {# Token CSRF deve estar dentro do <form> #}
                                         <button type="submit" class="btn btn-outline-danger" title="Excluir Feriado">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
-                                     {# ------------------------------------------------------- #}
+                                     {# ------------------------------------------------------------ #}
                                 </div>
                             </td>
                         </tr>
