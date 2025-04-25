@@ -7,284 +7,212 @@
     <div class="row">
         <div class="col-md-12">
             <h1>Relatório Mensal - {{ nome_mes }} de {{ ano_atual }}</h1>
-            
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <a href="{{ url_for('main.relatorio_mensal', mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary">
-                        <i class="fas fa-chevron-left"></i> Mês Anterior
+            {# Adiciona nome do usuário sendo visualizado #}
+            {% if current_user.is_admin and usuario.id != current_user.id %}
+                <p class="lead text-muted">Visualizando relatório de: {{ usuario.name }}</p>
+            {% endif %}
+
+            {# Navegação e Exportação #}
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2"> {# Adicionado gap #}
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-chevron-left"></i> Ant.
                     </a>
-                    <a href="{{ url_for('main.relatorio_mensal', mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary">
-                        Próximo Mês <i class="fas fa-chevron-right"></i>
+                     <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id) }}" class="btn btn-outline-secondary btn-sm">Atual</a>
+                    <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary btn-sm">
+                        Próx. <i class="fas fa-chevron-right"></i>
                     </a>
                 </div>
-                <div>
-                    <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id, mes=mes, ano=ano) }}" class="btn btn-danger">
-                        <i class="fas fa-file-pdf"></i> Exportar PDF
+                <div class="btn-group" role="group">
+                    {# Passa user_id para as rotas de exportação #}
+                    <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-file-pdf"></i> PDF
                     </a>
-                    <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id, mes=mes, ano=ano) }}" class="btn btn-success">
-                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-file-excel"></i> Excel
                     </a>
                 </div>
             </div>
-            
+
+            {# Seletor de Usuário para Admin #}
             {% if current_user.is_admin and usuarios %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Selecionar Usuário</h5>
-                </div>
-                <div class="card-body">
-                    <form method="GET" action="{{ url_for('main.relatorio_mensal') }}">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body py-2"> {# Menos padding vertical #}
+                    <form method="GET" action="{{ url_for('main.relatorio_mensal') }}" class="row gx-2 gy-2 align-items-center">
                         <input type="hidden" name="mes" value="{{ mes_atual }}">
                         <input type="hidden" name="ano" value="{{ ano_atual }}">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <select name="user_id" class="form-select">
-                                    {% for user in usuarios %}
-                                    <option value="{{ user.id }}" {% if user.id == usuario.id %}selected{% endif %}>{{ user.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary">Visualizar</button>
-                            </div>
+                        <label for="user_id_select_report" class="col-auto col-form-label col-form-label-sm">Visualizar Relatório de:</label>
+                        <div class="col flex-grow-1">
+                            <select name="user_id" id="user_id_select_report" class="form-select form-select-sm">
+                                {% for u in usuarios %}
+                                <option value="{{ u.id }}" {% if u.id == usuario.id %}selected{% endif %}>{{ u.name }} ({{ u.matricula }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary btn-sm">Visualizar</button>
                         </div>
                     </form>
                 </div>
             </div>
             {% endif %}
-            
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Resumo do Mês</h5>
-                </div>
+
+            {# Resumo do Mês #}
+            <div class="card mb-4 shadow-sm">
+                 <div class="card-header">
+                     <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Resumo do Mês</h5>
+                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_uteis }}</h5>
-                                    <p class="card-text">Dias Úteis</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_trabalhados }}</h5>
-                                    <p class="card-text">Dias Trabalhados</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ dias_afastamento }}</h5>
-                                    <p class="card-text">Dias de Afastamento</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(horas_trabalhadas) }}h</h5>
-                                    <p class="card-text">Horas Trabalhadas</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(carga_horaria_devida) }}h</h5>
-                                    <p class="card-text">Carga Horária Devida</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="card text-center mb-3">
-                                <div class="card-body {% if saldo_horas < 0 %}bg-danger text-white{% elif saldo_horas > 0 %}bg-success text-white{% endif %}">
-                                    <h5 class="card-title">{{ "%.2f"|format(saldo_horas) }}h</h5>
-                                    <p class="card-text">Saldo de Horas</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="card text-center">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ "%.2f"|format(media_diaria) }}h</h5>
-                                    <p class="card-text">Média Diária de Horas Trabalhadas</p>
-                                </div>
-                            </div>
-                        </div>
+                     {# ... (Código do resumo mantido como antes) ... #}
+                     <div class="row text-center gy-3">
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_uteis }}</div><div class="text-muted small">Dias Úteis</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_trabalhados }}</div><div class="text-muted small">Dias Trabalhados</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_afastamento }}</div><div class="text-muted small">Dias Afastamento</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ "%.2f"|format(horas_trabalhadas) }}h</div><div class="text-muted small">Horas Trabalhadas</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ "%.2f"|format(carga_horaria_devida) }}h</div><div class="text-muted small">Carga Horária Devida</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100 {% if saldo_horas < 0 %}bg-danger-subtle{% elif saldo_horas > 0 %}bg-success-subtle{% endif %}"><div class="fs-4 fw-bold">{{ "%.2f"|format(saldo_horas) }}h</div><div class="text-muted small">Saldo de Horas</div></div></div>
                     </div>
                 </div>
             </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">Registros do Mês</h5>
-                </div>
-                <div class="card-body">
+
+            {# Tabela de Registros #}
+            <div class="card shadow-sm">
+                 <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Registros do Mês</h5>
+                 </div>
+                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
+                        <table class="table table-striped table-hover table-sm mb-0"> {# Adicionado table-sm #}
+                            <thead class="table-light"> {# Header mais leve #}
                                 <tr>
                                     <th>Data</th>
-                                    <th>Dia da Semana</th>
+                                    <th>Dia</th>
                                     <th>Entrada</th>
-                                    <th>Saída Almoço</th>
-                                    <th>Retorno Almoço</th>
+                                    <th>S.Alm</th>
+                                    <th>R.Alm</th>
                                     <th>Saída</th>
-                                    <th>Horas Trabalhadas</th>
+                                    <th>Horas Trab.</th>
                                     <th>Status</th>
+                                    <th>Atividades</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% set dias_semana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] %}
-                                {% for dia in range(1, ultimo_dia.day + 1) %}
-                                    {% set data_atual = date(ano_atual, mes_atual, dia) %}
-                                    {% set dia_semana = dias_semana[data_atual.weekday()] %}
-                                    
-                                    {% if data_atual in feriados_datas %}
-                                        <tr class="table-warning">
-                                            <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                            <td>{{ dia_semana }}</td>
-                                            <td colspan="5">Feriado: {{ feriados_dict[data_atual] }}</td>
-                                            <td>Feriado</td>
-                                            <td></td>
-                                        </tr>
-                                    {% elif data_atual.weekday() >= 5 %}
-                                        <tr class="table-light">
-                                            <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                            <td>{{ dia_semana }}</td>
-                                            <td colspan="5">Fim de semana</td>
-                                            <td>Fim de semana</td>
-                                            <td></td>
-                                        </tr>
-                                    {% else %}
-                                        {% set registro = registros_por_data.get(data_atual) %}
-                                        {% if registro %}
-                                            {% if registro.afastamento %}
-                                                <tr class="table-info">
-                                                    <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                                    <td>{{ dia_semana }}</td>
-                                                    <td colspan="5">{{ registro.tipo_afastamento or 'Afastamento' }}</td>
-                                                    <td>Afastamento</td>
-                                                    <td>
-                                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-info">
-                                                            <i class="fas fa-eye"></i>
-                                                        </a>
-                                                        <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-primary">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                        
-                                                        <!-- Modal de confirmação de exclusão -->
-                                                        <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1" aria-labelledby="excluirModalLabel{{ registro.id }}" aria-hidden="true">
-                                                            <div class="modal-dialog">
-                                                                <div class="modal-content">
-                                                                    <div class="modal-header">
-                                                                        <h5 class="modal-title" id="excluirModalLabel{{ registro.id }}">Confirmar Exclusão</h5>
-                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                                    </div>
-                                                                    <div class="modal-body">
-                                                                        Tem certeza que deseja excluir o registro de {{ data_atual.strftime('%d/%m/%Y') }}?
-                                                                    </div>
-                                                                    <div class="modal-footer">
-                                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                        <form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST">
-                                                                            <button type="submit" class="btn btn-danger">Excluir</button>
-                                                                        </form>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            {% else %}
-                                                <tr {% if registro.horas_trabalhadas and registro.horas_trabalhadas >= 8 %}class="table-success"{% elif registro.horas_trabalhadas %}class="table-warning"{% endif %}>
-                                                    <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                                    <td>{{ dia_semana }}</td>
-                                                    <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
-                                                    <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
-                                                    <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
-                                                    <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
-                                                    <td>{{ "%.2f"|format(registro.horas_trabalhadas) }}h</td>
-                                                    <td>
-                                                        {% if registro.horas_trabalhadas and registro.horas_trabalhadas >= 8 %}
-                                                            Completo
-                                                        {% elif registro.horas_trabalhadas %}
-                                                            Parcial
-                                                        {% else %}
-                                                            Pendente
-                                                        {% endif %}
-                                                    </td>
-                                                    <td>
-                                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-info">
-                                                            <i class="fas fa-eye"></i>
-                                                        </a>
-                                                        <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-primary">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                        
-                                                        <!-- Modal de confirmação de exclusão -->
-                                                        <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1" aria-labelledby="excluirModalLabel{{ registro.id }}" aria-hidden="true">
-                                                            <div class="modal-dialog">
-                                                                <div class="modal-content">
-                                                                    <div class="modal-header">
-                                                                        <h5 class="modal-title" id="excluirModalLabel{{ registro.id }}">Confirmar Exclusão</h5>
-                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                                    </div>
-                                                                    <div class="modal-body">
-                                                                        Tem certeza que deseja excluir o registro de {{ data_atual.strftime('%d/%m/%Y') }}?
-                                                                    </div>
-                                                                    <div class="modal-footer">
-                                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                        <form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST">
-                                                                            <button type="submit" class="btn btn-danger">Excluir</button>
-                                                                        </form>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                
-                                                {% set atividades = atividades_por_ponto.get(registro.id, []) %}
-                                                {% if atividades %}
-                                                <tr>
-                                                    <td colspan="9" class="table-light">
-                                                        <strong>Atividades:</strong>
-                                                        <ul>
-                                                            {% for atividade in atividades %}
-                                                            <li>{{ atividade.descricao }}</li>
-                                                            {% endfor %}
-                                                        </ul>
-                                                    </td>
-                                                </tr>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% else %}
-                                            <tr class="table-danger">
-                                                <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                                <td>{{ dia_semana }}</td>
-                                                <td colspan="5">Sem registro</td>
-                                                <td>Pendente</td>
-                                                <td>
-                                                    <a href="{{ url_for('main.registrar_ponto') }}?data={{ data_atual.strftime('%Y-%m-%d') }}" class="btn btn-sm btn-success">
-                                                        <i class="fas fa-plus"></i> Registrar
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        {% endif %}
+                                {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+                                {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                                    {% set data_atual = date(ano_atual, mes_atual, dia_num) %}
+                                    {% set dia_semana_idx = data_atual.weekday() %}
+                                    {% set dia_semana = dias_semana[dia_semana_idx] %}
+                                    {% set registro = registros_por_data.get(data_atual) %}
+                                    {% set is_feriado = data_atual in feriados_datas %}
+                                    {% set is_fim_semana = dia_semana_idx >= 5 %}
+
+                                    {# Define a classe da linha #}
+                                    {% set tr_class = '' %}
+                                    {% if is_feriado %}
+                                        {% set tr_class = 'table-warning' %}
+                                    {% elif is_fim_semana %}
+                                        {% set tr_class = 'table-light text-muted' %}
+                                    {% elif registro and registro.afastamento %}
+                                        {% set tr_class = 'table-info' %}
+                                    {% elif registro and registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}
+                                        {% set tr_class = 'table-success' %}
+                                    {% elif registro and registro.horas_trabalhadas is not none %}
+                                        {% set tr_class = 'table-warning' %}
+                                     {% elif not registro %} {# Dia útil sem registro #}
+                                         {% set tr_class = 'table-danger' %}
                                     {% endif %}
+
+                                    <tr class="{{ tr_class }}">
+                                        <td>{{ data_atual.strftime('%d/%m') }}</td> {# Formato mais curto #}
+                                        <td>{{ dia_semana }}</td>
+
+                                        {% if is_feriado %}
+                                            <td colspan="6" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
+                                            <td></td> {# Coluna Ações vazia #}
+                                        {% elif is_fim_semana %}
+                                            <td colspan="6" class="text-center fst-italic">Fim de Semana</td>
+                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
+                                            <td></td> {# Coluna Ações vazia #}
+                                        {% elif registro %}
+                                            {% if registro.afastamento %}
+                                                <td colspan="5" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                                <td class="text-center">-</td> {# Horas #}
+                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
+                                                <td>{# Atividades #}</td>
+                                            {% else %}
+                                                <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                                <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                                <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                                <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                                <td class="text-center">
+                                                    {% if registro.horas_trabalhadas is not none %}
+                                                        {{ "%.2f"|format(registro.horas_trabalhadas) }}h
+                                                    {% else %} - {% endif %}
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}
+                                                        <span class="badge bg-success">OK</span>
+                                                    {% elif registro.horas_trabalhadas is not none %}
+                                                        <span class="badge bg-warning text-dark">Parcial</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">Pendente</span>
+                                                    {% endif %}
+                                                </td>
+                                                 <td>
+                                                    {# Exibe um ícone se houver atividade #}
+                                                    {% set atividades = atividades_por_ponto.get(registro.id, []) %}
+                                                    {% if atividades %}
+                                                        <i class="fas fa-list-check text-success" title="{{ atividades|join('; ') }}"></i>
+                                                    {% endif %}
+                                                </td>
+                                            {% endif %}
+                                            {# Ações para registros existentes #}
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
+                                                    <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1" aria-labelledby="excluirModalLabel{{ registro.id }}" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="excluirModalLabel{{ registro.id }}">Confirmar Exclusão</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                Tem certeza que deseja excluir o registro de {{ data_atual.strftime('%d/%m/%Y') }}?
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                                {# --- CORREÇÃO: Adicionado csrf_token() --- #}
+                                                                <form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">
+                                                                    {{ csrf_token() }}
+                                                                    <button type="submit" class="btn btn-danger">Excluir</button>
+                                                                </form>
+                                                                {# ---------------------------------------- #}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        {% else %} {# Dia útil sem registro #}
+                                            <td colspan="6" class="text-center fst-italic">Sem Registro</td>
+                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td>
+                                            <td></td> {# Atividades #}
+                                            {# Ações para dias sem registro #}
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
+                                                    <a href="{{ url_for('main.registrar_afastamento', data=data_atual.isoformat()) }}" class="btn btn-outline-info" title="Registrar Afastamento"><i class="fas fa-user-clock"></i></a>
+                                                </div>
+                                            </td>
+                                        {% endif %}
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -295,3 +223,4 @@
     </div>
 </div>
 {% endblock %}
+

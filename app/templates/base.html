@@ -26,7 +26,8 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
+                    {# ... (itens do menu mantidos como na versão anterior) ... #}
+                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
                             <i class="fas fa-tachometer-alt me-1"></i> Dashboard
                         </a>
@@ -36,21 +37,9 @@
                             <i class="fas fa-clipboard-list me-1"></i> Registros
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="registrosDropdown">
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('main.registrar_ponto') }}">
-                                    <i class="fas fa-clock me-2"></i> Registrar Ponto Único
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('main.registrar_multiplo_ponto') }}">
-                                    <i class="fas fa-calendar-plus me-2"></i> Registrar Múltiplos Pontos
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('main.registrar_afastamento') }}">
-                                    <i class="fas fa-user-clock me-2"></i> Registrar Afastamento
-                                </a>
-                            </li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.registrar_ponto') }}"><i class="fas fa-clock me-2"></i> Registrar Ponto Único</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.registrar_multiplo_ponto') }}"><i class="fas fa-calendar-plus me-2"></i> Registrar Múltiplos Pontos</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.registrar_afastamento') }}"><i class="fas fa-user-clock me-2"></i> Registrar Afastamento</a></li>
                         </ul>
                     </li>
                     <li class="nav-item">
@@ -69,21 +58,9 @@
                             <i class="fas fa-user-shield me-1"></i> Administração
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.listar_usuarios') }}">
-                                    <i class="fas fa-users me-2"></i> Usuários
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}">
-                                    <i class="fas fa-calendar-day me-2"></i> Feriados
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.relatorios') }}">
-                                    <i class="fas fa-file-alt me-2"></i> Relatórios
-                                </a>
-                            </li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.listar_usuarios') }}"><i class="fas fa-users me-2"></i> Usuários</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}"><i class="fas fa-calendar-day me-2"></i> Feriados</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.relatorios') }}"><i class="fas fa-file-alt me-2"></i> Relatórios</a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -92,7 +69,13 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {% if current_user.foto_path %}
-                                <img src="{{ url_for('static', filename=current_user.foto_path) }}" alt="Foto" class="rounded-circle me-1" style="width: 25px; height: 25px; object-fit: cover;">
+                                {# CORREÇÃO: Adicionar fallback e tratamento de erro para imagem #}
+                                <img src="{{ url_for('static', filename=current_user.foto_path) }}"
+                                     alt="Foto" class="rounded-circle me-1"
+                                     style="width: 25px; height: 25px; object-fit: cover;"
+                                     onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_avatar.png') }}'; this.style.display='none'; document.getElementById('user-icon-{{ current_user.id }}').style.display='inline-block';" {# Fallback para ícone se imagem falhar #}
+                                >
+                                <i id="user-icon-{{ current_user.id }}" class="fas fa-user-circle me-1" style="display: none;"></i> {# Ícone de fallback escondido inicialmente #}
                             {% else %}
                                 <i class="fas fa-user-circle me-1"></i>
                             {% endif %}
@@ -106,9 +89,14 @@
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                {# --- CORREÇÃO: Logout via formulário POST --- #}
+                                <form id="logout-form" action="{{ url_for('auth.logout') }}" method="POST" style="display: none;">
+                                    {{ csrf_token() }} {# Adiciona token CSRF #}
+                                </form>
+                                <a class="dropdown-item" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                     <i class="fas fa-sign-out-alt me-2"></i> Sair
                                 </a>
+                                {# ------------------------------------------ #}
                             </li>
                         </ul>
                     </li>
@@ -138,9 +126,7 @@
 
     <footer class="footer mt-auto py-3 bg-light">
         <div class="container text-center">
-            {# --- CORREÇÃO: Usar a variável datetime injetada --- #}
             <span class="text-muted">Sistema de Ponto Eletrônico &copy; {{ datetime.utcnow().year }}</span>
-            {# --------------------------------------------------- #}
         </div>
     </footer>
 

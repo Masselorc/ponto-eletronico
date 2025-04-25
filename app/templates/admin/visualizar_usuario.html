@@ -6,9 +6,7 @@
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            {# CORREÇÃO: Alterado user.name para usuario.name #}
             <h1>{{ usuario.name }}</h1>
-            {# CORREÇÃO: Alterado user.email para usuario.email #}
             <p class="lead">{{ usuario.email }}</p>
         </div>
         <div class="col-md-4 text-end">
@@ -25,40 +23,17 @@
                     <h2 class="h5 mb-0">Informações do Usuário</h2>
                 </div>
                 <div class="card-body">
-                    <ul class="list-group list-group-flush"> {# Usado list-group-flush para remover bordas internas #}
-                        <li class="list-group-item">
-                            <strong>Nome:</strong> {{ usuario.name }}
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Email:</strong> {{ usuario.email }}
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Matrícula:</strong> {{ usuario.matricula }}
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Vínculo:</strong> {{ usuario.vinculo }}
-                        </li>
-                        {# CORREÇÃO: Adicionados campos que existem no modelo User mas faltavam no template #}
-                        <li class="list-group-item">
-                            <strong>Cargo:</strong> {{ usuario.cargo }}
-                        </li>
-                         <li class="list-group-item">
-                            <strong>UF:</strong> {{ usuario.uf }}
-                        </li>
-                         <li class="list-group-item">
-                            <strong>Telefone:</strong> {{ usuario.telefone }}
-                        </li>
-                        <li class="list-group-item">
-                            <strong>Administrador:</strong> {{ 'Sim' if usuario.is_admin else 'Não' }}
-                        </li>
-                        <li class="list-group-item">
-                            {# CORREÇÃO: Usando a propriedade is_active que vem do Flask-Login UserMixin #}
-                            <strong>Ativo:</strong> {{ 'Sim' if usuario.is_active else 'Não' }}
-                        </li>
-                         <li class="list-group-item">
-                            <strong>Data Cadastro:</strong> {{ usuario.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') if usuario.data_cadastro else 'N/A' }}
-                        </li>
-                        {# CORREÇÃO: Adicionada exibição da foto #}
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Nome:</strong> {{ usuario.name }}</li>
+                        <li class="list-group-item"><strong>Email:</strong> {{ usuario.email }}</li>
+                        <li class="list-group-item"><strong>Matrícula:</strong> {{ usuario.matricula }}</li>
+                        <li class="list-group-item"><strong>Vínculo:</strong> {{ usuario.vinculo }}</li>
+                        <li class="list-group-item"><strong>Cargo:</strong> {{ usuario.cargo }}</li>
+                        <li class="list-group-item"><strong>UF:</strong> {{ usuario.uf }}</li>
+                        <li class="list-group-item"><strong>Telefone:</strong> {{ usuario.telefone }}</li>
+                        <li class="list-group-item"><strong>Administrador:</strong> {{ 'Sim' if usuario.is_admin else 'Não' }}</li>
+                        <li class="list-group-item"><strong>Ativo:</strong> {{ 'Sim' if usuario.is_active else 'Não' }}</li>
+                        <li class="list-group-item"><strong>Data Cadastro:</strong> {{ usuario.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') if usuario.data_cadastro else 'N/A' }}</li>
                         <li class="list-group-item">
                             <strong>Foto:</strong><br>
                             {% if usuario.foto_path %}
@@ -71,16 +46,10 @@
                 </div>
                 <div class="card-footer">
                     <div class="btn-group">
-                        {# CORREÇÃO: Alterado user_id=user.id para usuario_id=usuario.id #}
                         <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-primary">
                             <i class="fas fa-edit"></i> Editar
                         </a>
-                        {# CORREÇÃO: Removido botão de excluir daqui, pois já existe o modal abaixo #}
-                        {# <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                            <i class="fas fa-trash"></i> Excluir
-                        </button> #}
                     </div>
-                     {# CORREÇÃO: Adicionado botão para o modal de exclusão #}
                      <button type="button" class="btn btn-danger float-end" data-bs-toggle="modal" data-bs-target="#deleteModal">
                          <i class="fas fa-trash"></i> Excluir Usuário
                      </button>
@@ -89,7 +58,7 @@
         </div>
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header bg-info text-white"> {# Mudado para bg-info para diferenciar #}
+                <div class="card-header bg-info text-white">
                     <h2 class="h5 mb-0">Últimos Registros de Ponto</h2>
                 </div>
                 <div class="card-body">
@@ -100,23 +69,17 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>{{ registro.data.strftime('%d/%m/%Y') }}</strong>
-                                    {% if registro.afastamento %}
-                                    <span class="badge bg-secondary">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</span> {# Usado bg-secondary para afastamento #}
-                                    {% else %}
-                                    <span class="badge bg-success">Trabalho</span>
-                                    {% endif %}
+                                    {% if registro.afastamento %}<span class="badge bg-secondary">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</span>
+                                    {% else %}<span class="badge bg-success">Trabalho</span>{% endif %}
                                 </div>
                                 <div>
                                     {% if not registro.afastamento and registro.horas_trabalhadas is not none %}
                                     <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% elif registro.horas_trabalhadas >= 6 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
                                         {{ "%.2f"|format(registro.horas_trabalhadas) }} h
                                     </span>
-                                    {% elif not registro.afastamento %}
-                                     <span class="badge bg-secondary">Pendente</span>
-                                    {% endif %}
+                                    {% elif not registro.afastamento %}<span class="badge bg-secondary">Pendente</span>{% endif %}
                                 </div>
                             </div>
-                             {# CORREÇÃO: Adicionada visualização dos horários #}
                              {% if not registro.afastamento %}
                              <small class="d-block text-muted">
                                  E: {{ registro.entrada.strftime('%H:%M') if registro.entrada else '--:--' }} |
@@ -125,48 +88,36 @@
                                  S: {{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}
                              </small>
                              {% endif %}
-                             {# CORREÇÃO: Adicionada visualização das observações se existirem #}
-                             {% if registro.observacoes %}
-                                <small class="d-block text-muted fst-italic">Obs: {{ registro.observacoes }}</small>
-                             {% endif %}
+                             {% if registro.observacoes %}<small class="d-block text-muted fst-italic">Obs: {{ registro.observacoes }}</small>{% endif %}
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="alert alert-light text-center"> {# Mudado para alert-light #}
-                        Nenhum registro de ponto encontrado para este usuário.
-                    </div>
+                    <div class="alert alert-light text-center">Nenhum registro de ponto encontrado para este usuário.</div>
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                     {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
                     <a href="{{ url_for('main.calendario', user_id=usuario.id) }}" class="btn btn-info">
                         <i class="fas fa-calendar-alt"></i> Ver Calendário Completo
                     </a>
-                    {# CORREÇÃO: Removido botão de registrar ponto daqui, pois é uma ação administrativa #}
-                    {# <a href="{{ url_for('admin.novo_ponto', user_id=usuario.id) }}" class="btn btn-success">
-                        <i class="fas fa-plus"></i> Registrar Ponto
-                    </a> #}
                 </div>
             </div>
         </div>
     </div>
 
-    {# CORREÇÃO: Movido card de relatórios para baixo e ajustado #}
     <div class="card mt-4">
-        <div class="card-header bg-secondary text-white"> {# Mudado para bg-secondary #}
+        <div class="card-header bg-secondary text-white">
             <h2 class="h5 mb-0">Relatórios do Usuário</h2>
         </div>
         <div class="card-body">
-            <div class="row text-center"> {# Centralizado os cards internos #}
-                <div class="col-md-4 mb-3 mb-md-0"> {# Adicionado espaçamento inferior em mobile #}
-                    <div class="card h-100"> {# Usado h-100 para mesma altura #}
+            <div class="row text-center">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="card h-100">
                         <div class="card-body">
-                            <i class="fas fa-chart-line fa-2x text-primary mb-2"></i> {# Ícone maior #}
+                            <i class="fas fa-chart-line fa-2x text-primary mb-2"></i>
                             <h5 class="card-title">Relatório Mensal</h5>
-                            <p class="card-text small">Visualize o relatório mensal de ponto do usuário.</p> {# Texto menor #}
-                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
-                            <a href="{{ url_for('admin.relatorio_usuario', usuario_id=usuario.id) }}" class="btn btn-primary w-100"> {# Botão largura total #}
+                            <p class="card-text small">Visualize o relatório mensal de ponto do usuário.</p>
+                            <a href="{{ url_for('admin.relatorio_usuario', usuario_id=usuario.id) }}" class="btn btn-primary w-100">
                                 <i class="fas fa-eye"></i> Visualizar
                             </a>
                         </div>
@@ -178,8 +129,7 @@
                              <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
                             <h5 class="card-title">Exportar PDF</h5>
                             <p class="card-text small">Exporte o relatório mensal em formato PDF.</p>
-                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
-                            <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id) }}" class="btn btn-danger w-100"> {# Usada rota 'main' e corrigido user_id #}
+                            <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id) }}" class="btn btn-danger w-100">
                                 <i class="fas fa-download"></i> Exportar PDF
                             </a>
                         </div>
@@ -191,8 +141,7 @@
                             <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
                             <h5 class="card-title">Exportar Excel</h5>
                             <p class="card-text small">Exporte o relatório mensal em formato Excel.</p>
-                             {# CORREÇÃO: Alterado user_id=user.id para user_id=usuario.id #}
-                            <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id) }}" class="btn btn-success w-100"> {# Usada rota 'main' e corrigido user_id #}
+                            <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id) }}" class="btn btn-success w-100">
                                 <i class="fas fa-download"></i> Exportar Excel
                             </a>
                         </div>
@@ -211,18 +160,18 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                 {# CORREÇÃO: Alterado user.name para usuario.name #}
                 <p>Tem certeza que deseja excluir o usuário <strong>{{ usuario.name }}</strong>?</p>
                 <p class="text-danger"><strong>Atenção:</strong> Esta ação não pode ser desfeita!</p>
                 <p>Todos os registros de ponto e atividades associados a este usuário também serão excluídos permanentemente.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                {# CORREÇÃO: Rota de exclusão de usuário não existe no admin.py fornecido. Precisa ser criada. #}
-                {# Assumindo que a rota será /admin/usuarios/excluir/<int:usuario_id> #}
-                <form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="POST">
+                {# --- CORREÇÃO: Adicionado csrf_token() --- #}
+                <form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="POST" style="display: inline;">
+                     {{ csrf_token() }}
                     <button type="submit" class="btn btn-danger">Excluir Definitivamente</button>
                 </form>
+                 {# ---------------------------------------- #}
             </div>
         </div>
     </div>

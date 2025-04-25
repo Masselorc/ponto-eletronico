@@ -22,15 +22,17 @@
         </div>
         <div class="card-body">
             <form method="POST" id="formMultiploPonto">
-                {{ csrf_token() }} {# Adicionado CSRF token #}
+                {# --- CORREÇÃO: Adicionado csrf_token() --- #}
+                {{ csrf_token() }}
+                {# ---------------------------------------- #}
                 <div id="pontos-container">
                     {# Linha inicial de ponto #}
-                    <div class="ponto-row mb-3 p-3 border rounded bg-light"> {# Adicionado bg-light #}
+                    <div class="ponto-row mb-3 p-3 border rounded bg-light">
                          <h6 class="font-weight-bold text-secondary mb-3">Registro 1</h6>
-                        <div class="row g-3"> {# Usando g-3 para espaçamento entre colunas #}
-                            <div class="col-md-3"> {# Ajustado para caber melhor #}
+                        <div class="row g-3">
+                            <div class="col-md-3">
                                 <label for="data-0" class="form-label">Data*</label>
-                                <input type="date" class="form-control form-control-sm" id="data-0" name="datas[]" required> {# Adicionado required e form-control-sm #}
+                                <input type="date" class="form-control form-control-sm" id="data-0" name="datas[]" required>
                             </div>
                             <div class="col-md-2">
                                 <label for="entrada-0" class="form-label">Entrada</label>
@@ -48,28 +50,25 @@
                                 <label for="saida-0" class="form-label">Saída</label>
                                 <input type="time" class="form-control form-control-sm" id="saida-0" name="saidas[]">
                             </div>
-                             {# --- CORREÇÃO: Garantindo que o name é 'atividades[]' --- #}
-                            <div class="col-md-12 mt-2"> {# Coluna completa para atividades #}
+                            <div class="col-md-12 mt-2">
                                 <label for="atividades-0" class="form-label">Atividades Realizadas</label>
-                                <textarea class="form-control form-control-sm" id="atividades-0" name="atividades[]" rows="1"></textarea> {# rows=1 para economizar espaço #}
+                                <textarea class="form-control form-control-sm" id="atividades-0" name="atividades[]" rows="1"></textarea>
                             </div>
-                             {# ------------------------------------------------------- #}
                         </div>
                     </div>
                     {# Fim da linha inicial #}
                 </div>
 
                 <div class="mt-3 mb-3">
-                    <button type="button" class="btn btn-success" id="addPonto"> {# Mudado para btn-success #}
+                    <button type="button" class="btn btn-success" id="addPonto">
                         <i class="fas fa-plus"></i> Adicionar Outro Dia
                     </button>
                 </div>
 
-                <hr> {# Linha divisória antes dos botões finais #}
+                <hr>
 
-                <div class="d-flex justify-content-end"> {# Alinhado botões à direita #}
-                    {# <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary me-2">Cancelar</a> #} {# Botão cancelar pode ser redundante com o do header #}
-                    <button type="submit" class="btn btn-primary btn-lg"> {# Botão maior #}
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary btn-lg">
                          <i class="fas fa-save"></i> Registrar Todos os Pontos Informados
                     </button>
                 </div>
@@ -78,18 +77,15 @@
     </div>
 </div>
 
+{# Script mantido como na versão anterior #}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        let pontoIndex = 0; // Índice para os IDs dos novos campos
-
+        let pontoIndex = 0;
         document.getElementById('addPonto').addEventListener('click', function() {
-            pontoIndex++; // Incrementa o índice para garantir IDs únicos
-
+            pontoIndex++;
             const container = document.getElementById('pontos-container');
             const novoPontoRow = document.createElement('div');
-            novoPontoRow.className = 'ponto-row mb-3 p-3 border rounded bg-light'; // Mesma classe da linha inicial
-
-            // Template HTML para a nova linha de registro
+            novoPontoRow.className = 'ponto-row mb-3 p-3 border rounded bg-light';
             novoPontoRow.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
                      <h6 class="font-weight-bold text-secondary">Registro ${pontoIndex + 1}</h6>
@@ -98,64 +94,28 @@
                     </button>
                 </div>
                 <div class="row g-3">
-                    <div class="col-md-3">
-                        <label for="data-${pontoIndex}" class="form-label">Data*</label>
-                        <input type="date" class="form-control form-control-sm" id="data-${pontoIndex}" name="datas[]" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="entrada-${pontoIndex}" class="form-label">Entrada</label>
-                        <input type="time" class="form-control form-control-sm" id="entrada-${pontoIndex}" name="entradas[]">
-                    </div>
-                    <div class="col-md-2">
-                        <label for="saida-almoco-${pontoIndex}" class="form-label">Saída Almoço</label>
-                        <input type="time" class="form-control form-control-sm" id="saida-almoco-${pontoIndex}" name="saidas_almoco[]">
-                    </div>
-                    <div class="col-md-2">
-                        <label for="retorno-almoco-${pontoIndex}" class="form-label">Retorno Almoço</label>
-                        <input type="time" class="form-control form-control-sm" id="retorno-almoco-${pontoIndex}" name="retornos_almoco[]">
-                    </div>
-                    <div class="col-md-2">
-                        <label for="saida-${pontoIndex}" class="form-label">Saída</label>
-                        <input type="time" class="form-control form-control-sm" id="saida-${pontoIndex}" name="saidas[]">
-                    </div>
-                    <div class="col-md-12 mt-2">
-                        <label for="atividades-${pontoIndex}" class="form-label">Atividades Realizadas</label>
-                        <textarea class="form-control form-control-sm" id="atividades-${pontoIndex}" name="atividades[]" rows="1"></textarea>
-                    </div>
+                    <div class="col-md-3"><label for="data-${pontoIndex}" class="form-label">Data*</label><input type="date" class="form-control form-control-sm" id="data-${pontoIndex}" name="datas[]" required></div>
+                    <div class="col-md-2"><label for="entrada-${pontoIndex}" class="form-label">Entrada</label><input type="time" class="form-control form-control-sm" id="entrada-${pontoIndex}" name="entradas[]"></div>
+                    <div class="col-md-2"><label for="saida-almoco-${pontoIndex}" class="form-label">Saída Almoço</label><input type="time" class="form-control form-control-sm" id="saida-almoco-${pontoIndex}" name="saidas_almoco[]"></div>
+                    <div class="col-md-2"><label for="retorno-almoco-${pontoIndex}" class="form-label">Retorno Almoço</label><input type="time" class="form-control form-control-sm" id="retorno-almoco-${pontoIndex}" name="retornos_almoco[]"></div>
+                    <div class="col-md-2"><label for="saida-${pontoIndex}" class="form-label">Saída</label><input type="time" class="form-control form-control-sm" id="saida-${pontoIndex}" name="saidas[]"></div>
+                    <div class="col-md-12 mt-2"><label for="atividades-${pontoIndex}" class="form-label">Atividades Realizadas</label><textarea class="form-control form-control-sm" id="atividades-${pontoIndex}" name="atividades[]" rows="1"></textarea></div>
                 </div>
             `;
-
             container.appendChild(novoPontoRow);
-
-            // Adicionar evento para o botão de remover da nova linha
             novoPontoRow.querySelector('.remove-ponto').addEventListener('click', function() {
                 novoPontoRow.remove();
-                // Reajustar índices ou títulos se necessário (opcional)
             });
         });
-
-        // Adicionar evento de remoção para o botão da primeira linha (se houver mais de uma)
-        // (Opcional, pode-se optar por não permitir remover a primeira linha)
-
-        // Validação básica do formulário no submit (opcional, mas recomendado)
         document.getElementById('formMultiploPonto').addEventListener('submit', function(e) {
             const dataInputs = document.querySelectorAll('input[name="datas[]"]');
             let hasValidData = false;
-            for (const input of dataInputs) {
-                if (input.value) {
-                    hasValidData = true;
-                    break;
-                }
-            }
-
+            for (const input of dataInputs) { if (input.value) { hasValidData = true; break; } }
             if (!hasValidData) {
-                e.preventDefault(); // Impede o envio do formulário
+                e.preventDefault();
                 alert('Por favor, preencha a data para pelo menos um registro.');
-                // Poderia adicionar destaque visual aos campos de data vazios
             }
-            // Adicionar mais validações se necessário (ex: entrada/saída obrigatórios se data preenchida?)
         });
     });
 </script>
 {% endblock %}
-
