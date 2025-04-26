@@ -12,7 +12,7 @@
                         {{ form.hidden_tag() }} {# Inclui CSRF token e outros campos ocultos #}
 
                         <div class="mb-3">
-                            {# CORREÇÃO: Usar form.email em vez de form.username #}
+                            {# Campo de email #}
                             {{ form.email.label(class="form-label") }}
                             {{ form.email(class="form-control form-control-lg" + (" is-invalid" if form.email.errors else ""), placeholder="Seu Email") }}
                             {% if form.email.errors %}
@@ -23,34 +23,7 @@
                         </div>
 
                         <div class="mb-3">
-                           {# Campo de senha permanece igual #}
-                            {{ form.password.label(class="form-label") }}
-                            {{ form.password(class="form-control form-control-lg" + (" is-invalid" if form.password.errors else ""), {% extends 'base.html' %}
-{# Removida importação de macro inexistente {% from "_formhelpers.html" import render_field %} #}
-
-{% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <h2 class="card-title text-center mb-4">{{ title or 'Login' }}</h2> {# Usa a variável title passada pela rota #}
-                    <form method="POST" action="{{ url_for('auth.login') }}">
-                        {{ form.hidden_tag() }} {# Inclui CSRF token e outros campos ocultos #}
-
-                        <div class="mb-3">
-                            {# Campo de email já estava correto #}
-                            {{ form.email.label(class="form-label") }}
-                            {{ form.email(class="form-control form-control-lg" + (" is-invalid" if form.email.errors else ""), placeholder="Seu Email") }}
-                            {% if form.email.errors %}
-                                <div class="invalid-feedback">
-                                    {{ form.email.errors[0] }}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-3">
-                           {# Campo de senha permanece igual #}
+                           {# Campo de senha - CORRIGIDO: Removido o {% extends ... %} daqui #}
                             {{ form.password.label(class="form-label") }}
                             {{ form.password(class="form-control form-control-lg" + (" is-invalid" if form.password.errors else ""), placeholder="Senha") }}
                             {% if form.password.errors %}
@@ -61,7 +34,7 @@
                         </div>
 
                         <div class="mb-3 form-check">
-                            {# CORREÇÃO: Usar form.remember em vez de form.remember_me #}
+                            {# Usar form.remember #}
                             {{ form.remember(class="form-check-input") }}
                             {{ form.remember.label(class="form-check-label") }}
                         </div>
