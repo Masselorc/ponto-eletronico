@@ -14,19 +14,20 @@ Imports:
     - io.BytesIO: Manipulação de dados em memória como arquivos binários.
     - flask: Framework web (Blueprint, render_template, request, flash, redirect, url_for, current_app, send_file).
     - flask_login: Gerenciamento de sessão de usuário (login_required, current_user).
-    - sqlalchemy: ORM para interação com banco de dados (desc).
+    - sqlalchemy: ORM para interação com banco de dados (desc, extract). # Adicionado extract
     - werkzeug.utils: Utilitários (secure_filename).
     - app: Módulo da aplicação (db).
     - app.models: Modelos de dados (User, Ponto, Feriado, Afastamento, Atividade).
     - app.forms: Formulários WTForms (RegistroPontoForm, DateForm, AfastamentoForm, AtividadeForm, MultiRegistroPontoForm, EditarPontoForm).
     - app.utils.export: Funções para exportar dados (gerar_relatorio_pdf_bytes, gerar_relatorio_excel_bytes).
-    - app.utils.helpers: Funções auxiliares (calcular_horas_trabalhadas_dia, calcular_saldo_banco_horas, get_dias_uteis_no_mes, get_feriados_no_mes, get_afastamentos_no_mes, get_atividades_no_mes).
+    - app.utils.helpers: Funções auxiliares (calcular_horas_trabalhadas_dia, calcular_saldo_banco_horas, get_dias_uteis_no_mes, get_feriados_no_mes, get_afastamentos_no_mes, get_atividades_no_mes, formatar_timedelta).
 """
 
 # Imports de bibliotecas padrão
 import calendar
 import logging
 import os
+# CORREÇÃO: Importar timedelta aqui para usar no contexto do template
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
 
@@ -34,7 +35,8 @@ from io import BytesIO
 from flask import (Blueprint, flash, redirect, render_template, request,
                    send_file, url_for, current_app) # Adicionado current_app se necessário
 from flask_login import current_user, login_required
-from sqlalchemy import desc
+# Adicionado extract para queries de data/hora
+from sqlalchemy import desc, extract
 
 # Imports locais
 from app import db
@@ -52,14 +54,13 @@ from app.utils.export import (gerar_relatorio_excel_bytes,
 from app.utils.helpers import (calcular_horas_trabalhadas_dia,
                                calcular_saldo_banco_horas,
                                get_afastamentos_no_mes, get_atividades_no_mes,
-                               get_dias_uteis_no_mes, get_feriados_no_mes, formatar_timedelta) # Adicionado formatar_timedelta se usado aqui
+                               get_dias_uteis_no_mes, get_feriados_no_mes, formatar_timedelta)
 
 
 # Configuração do Blueprint
 main = Blueprint('main', __name__)
 
 # Configuração do logging
-# logging.basicConfig(level=logging.INFO) # Configuração global geralmente feita em __init__
 logger = logging.getLogger(__name__)
 
 # --- Rotas Principais ---
@@ -106,12 +107,16 @@ def dashboard():
                                proximo_tipo=proximo_tipo,
                                afastamento_hoje=afastamento_hoje,
                                atividade_hoje=atividade_hoje,
-                               formatar_timedelta=formatar_timedelta) # Passa a função para o template
+                               formatar_timedelta=formatar_timedelta, # Passa a função para o template
+                               datetime=datetime, # Passa datetime para usar no template
+                               timedelta=timedelta) # CORREÇÃO: Passa timedelta para o contexto
+
     except Exception as e:
+        # Loga o erro detalhado
         logger.error(f"Erro ao carregar dashboard para usuário {current_user.id}: {e}", exc_info=True)
         flash("Ocorreu um erro ao carregar o dashboard. Tente novamente mais tarde.", "danger")
-        # Redireciona para uma página de erro ou login, dependendo da situação
-        return redirect(url_for('auth.login')) # Ou uma página de erro genérica
+        # Redireciona para a página de login em caso de erro no dashboard
+        return redirect(url_for('auth.login'))
 
 
 @main.route('/registrar_ponto', methods=['GET', 'POST'])
@@ -304,7 +309,8 @@ def visualizar_ponto():
                            saldo_dia=saldo_dia,
                            afastamento_dia=afastamento_dia,
                            atividade_dia=atividade_dia,
-                           formatar_timedelta=formatar_timedelta) # Passa a função helper
+                           formatar_timedelta=formatar_timedelta, # Passa a função helper
+                           timedelta=timedelta) # CORREÇÃO: Passa timedelta
 
 
 # CORREÇÃO Ponto 1: Adicionar <int:ponto_id> à rota
@@ -641,9 +647,21 @@ def relatorio_mensal():
         saldo_banco_horas_total = calcular_saldo_banco_horas(current_user.id)
 
         # Gera lista de anos e meses para o seletor
-        anos_disponiveis_query = db.session.query(extract('year', Ponto.data)).distinct().all()
-        anos_registrados = {a[0] for a in anos_disponiveis_query if a[0]} # Anos com pontos registrados
-        anos_disponiveis = sorted(list(anos_registrados | {ano_atual, ano_atual-1, ano_atual+1}), reverse=True) # Inclui atual, anterior e próximo
+        # Query para buscar anos distintos com registros de ponto
+        anos_com_pontos = db.session.query(extract('year', Ponto.data)).filter(Ponto.user_id == current_user.id).distinct().all()
+        # Query para buscar anos distintos com afastamentos
+        anos_com_afastamentos = db.session.query(extract('year', Afastamento.data_inicio)).filter(Afastamento.user_id == current_user.id).distinct().all()
+        # Query para buscar anos distintos com atividades
+        anos_com_atividades = db.session.query(extract('year', Atividade.data)).filter(Atividade.user_id == current_user.id).distinct().all()
+
+        # Combina todos os anos encontrados e remove duplicatas
+        anos_registrados = {a[0] for a in anos_com_pontos if a[0]} | \
+                           {a[0] for a in anos_com_afastamentos if a[0]} | \
+                           {a[0] for a in anos_com_atividades if a[0]}
+
+        # Adiciona ano atual, anterior e próximo, e ordena
+        anos_disponiveis = sorted(list(anos_registrados | {ano_atual, ano_atual-1, ano_atual+1}), reverse=True)
+
 
         meses_disponiveis = [
             (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
@@ -662,7 +680,7 @@ def relatorio_mensal():
                                saldo_mes=saldo_acumulado, # Saldo acumulado no final do mês
                                nome_mes=calendar.month_name[mes].capitalize(),
                                formatar_timedelta=formatar_timedelta, # Passa a função helper
-                               timedelta=timedelta) # Passa timedelta para comparações no template
+                               timedelta=timedelta) # CORREÇÃO: Passa timedelta
     except ValueError:
         flash('Data inválida fornecida.', 'danger')
         return redirect(url_for('main.relatorio_mensal'))
@@ -778,10 +796,13 @@ def exportar_relatorio():
 
         if formato == 'pdf':
             # Renderiza o template HTML para o PDF
-            html_content = render_template('exports/relatorio_ponto_pdf.html', **dados_relatorio)
+            # CORREÇÃO: Passar timedelta para o template de exportação
+            html_content = render_template('exports/relatorio_ponto_pdf.html', **dados_relatorio, timedelta=timedelta)
             pdf_bytes = gerar_relatorio_pdf_bytes(html_content)
             if pdf_bytes:
-                filename = f"relatorio_ponto_{current_user.username}_{ano}_{mes:02d}.pdf"
+                # Usa nome_completo ou username como fallback
+                username_export = current_user.nome_completo.replace(" ", "_") if current_user.nome_completo else current_user.username
+                filename = f"relatorio_ponto_{username_export}_{ano}_{mes:02d}.pdf"
                 return send_file(
                     BytesIO(pdf_bytes),
                     mimetype='application/pdf',
@@ -791,9 +812,11 @@ def exportar_relatorio():
             else:
                 flash('Erro ao gerar o relatório PDF.', 'danger')
         elif formato == 'excel':
-            excel_bytes = gerar_relatorio_excel_bytes(dados_relatorio)
+             # CORREÇÃO: Passar timedelta para a função de exportação Excel
+            excel_bytes = gerar_relatorio_excel_bytes(dados_relatorio, timedelta=timedelta)
             if excel_bytes:
-                filename = f"relatorio_ponto_{current_user.username}_{ano}_{mes:02d}.xlsx"
+                username_export = current_user.nome_completo.replace(" ", "_") if current_user.nome_completo else current_user.username
+                filename = f"relatorio_ponto_{username_export}_{ano}_{mes:02d}.xlsx"
                 return send_file(
                     BytesIO(excel_bytes),
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -871,11 +894,11 @@ def calendario():
         dias_do_mes = cal.monthdatescalendar(ano, mes)
 
         # Calcula mês/ano anterior e próximo para navegação
-        data_atual = date(ano, mes, 1)
-        mes_anterior = (data_atual - timedelta(days=1)).replace(day=1)
+        data_atual_obj = date(ano, mes, 1) # Renomeado para evitar conflito
+        mes_anterior_obj = (data_atual_obj - timedelta(days=1)).replace(day=1)
         # Para calcular o próximo mês, adiciona dias suficientes para passar do fim do mês atual
         dias_no_mes = calendar.monthrange(ano, mes)[1]
-        mes_proximo = (data_atual + timedelta(days=dias_no_mes)).replace(day=1)
+        mes_proximo_obj = (data_atual_obj + timedelta(days=dias_no_mes)).replace(day=1)
 
 
         return render_template('main/calendario.html',
@@ -888,8 +911,12 @@ def calendario():
                                afastamentos=afastamentos_mes,
                                atividades=atividades_mes, # Passa atividades para o template
                                dias_com_ponto=dias_com_ponto_set,
-                               mes_anterior=mes_anterior,
-                               mes_proximo=mes_proximo)
+                               mes_anterior=mes_anterior_obj, # Passa objeto date
+                               mes_proximo=mes_proximo_obj,   # Passa objeto date
+                               today_date=date.today(), # Passa data de hoje para destacar
+                               timedelta=timedelta) # CORREÇÃO: Passa timedelta
+
+
     except ValueError:
         flash('Data inválida fornecida para o calendário.', 'danger')
         return redirect(url_for('main.calendario'))
@@ -1121,4 +1148,3 @@ def excluir_atividade(atividade_id):
 
     # CORREÇÃO Ponto 8: Redireciona fora do try/except
     return redirect(redirect_url)
-
