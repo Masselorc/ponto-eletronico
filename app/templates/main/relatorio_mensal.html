@@ -32,7 +32,10 @@
         display: inline-block; margin-left: 5px; transition: transform 0.2s ease-in-out;
         font-size: 0.7em; color: #6c757d;
     }
-    tr[data-bs-toggle="collapse"]:not(.collapsed) .expand-icon { transform: rotate(90deg); }
+    /* Gira a seta quando a linha está expandida (classe 'collapsed' é removida pelo Bootstrap) */
+    tr[data-bs-toggle="collapse"][aria-expanded="true"] .expand-icon { /* Seleciona quando expandido */
+        transform: rotate(90deg);
+    }
 
     /* Alinhamento vertical */
     .table.align-middle th, .table.align-middle td { vertical-align: middle; }
@@ -138,6 +141,7 @@
                                     {% endif %}
                                     {% if tem_detalhes %}{% set _ = tr_class.append('linha-clicavel') %}{% endif %}
 
+                                    {# --- Linha Principal --- #}
                                     <tr class="{{ tr_class|join(' ') }}"
                                         {% if tem_detalhes %}
                                             data-bs-toggle="collapse"
@@ -152,7 +156,7 @@
                                         </td>
                                         <td>{{ dia_semana }}</td>
 
-                                        {# --- CORREÇÃO ESTRUTURAL E COLSPAN --- #}
+                                        {# --- Lógica reestruturada para colspan e alinhamento --- #}
                                         {% if is_feriado %}
                                             <td colspan="7" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td> {# Colspan 7 (Entrada -> Atividades) #}
                                             <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td> {# Status #}
@@ -166,6 +170,7 @@
                                                 <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td> {# Colspan 7 #}
                                                 <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
+                                                    {# ... botões e modal de exclusão ... #}
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
@@ -211,7 +216,7 @@
                                             {# --- CORREÇÃO Colspan: 7 colunas (Entrada a Atividades) --- #}
                                             <td colspan="7" class="text-center fst-italic">Sem Registro</td>
                                             {# ------------------------------------------------------- #}
-                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td>
+                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td> {# Status #}
                                             <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
