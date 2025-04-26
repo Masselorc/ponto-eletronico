@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{# Removida importação de macro inexistente #}
+{# Removida importação de macro inexistente {% from "_formhelpers.html" import render_field %} #}
 
 {% block content %}
 <div class="container mt-5">
@@ -7,8 +7,7 @@
         <div class="col-md-6 col-lg-5">
             <div class="card shadow-sm">
                 <div class="card-body p-4">
-                    {# CORREÇÃO: Usa a variável title passada pela rota #}
-                    <h2 class="card-title text-center mb-4">{{ title or 'Login' }}</h2>
+                    <h2 class="card-title text-center mb-4">{{ title or 'Login' }}</h2> {# Usa a variável title passada pela rota #}
                     <form method="POST" action="{{ url_for('auth.login') }}">
                         {{ form.hidden_tag() }} {# Inclui CSRF token e outros campos ocultos #}
 
