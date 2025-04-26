@@ -126,10 +126,8 @@
                                     {% set is_feriado = data_atual in feriados_datas %}
                                     {% set is_fim_semana = dia_semana_idx >= 5 %}
                                     {% set atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
-                                    {# Verifica se há detalhes para exibir (atividades, observações ou resultados) #}
                                     {% set tem_detalhes = (registro and (registro.observacoes or atividades or registro.resultados_produtos)) %}
 
-                                    {# Define a classe da linha principal #}
                                     {% set tr_class = [] %}
                                     {% if is_feriado %}{% set _ = tr_class.append('table-warning') %}
                                     {% elif is_fim_semana %}{% set _ = tr_class.append('table-light text-muted') %}
@@ -140,7 +138,6 @@
                                     {% endif %}
                                     {% if tem_detalhes %}{% set _ = tr_class.append('linha-clicavel') %}{% endif %}
 
-                                    {# Linha Principal #}
                                     <tr class="{{ tr_class|join(' ') }}"
                                         {% if tem_detalhes %}
                                             data-bs-toggle="collapse"
@@ -155,28 +152,25 @@
                                         </td>
                                         <td>{{ dia_semana }}</td>
 
+                                        {# --- CORREÇÃO ESTRUTURAL E COLSPAN --- #}
                                         {% if is_feriado %}
-                                            {# --- CORREÇÃO Colspan: 7 colunas (Entrada a Atividades) --- #}
-                                            <td colspan="7" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
-                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
+                                            <td colspan="7" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td> {# Colspan 7 (Entrada -> Atividades) #}
+                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td> {# Status #}
                                             <td class="text-center">-</td> {# Ações #}
                                         {% elif is_fim_semana %}
-                                            {# --- CORREÇÃO Colspan: 7 colunas (Entrada a Atividades) --- #}
-                                            <td colspan="7" class="text-center fst-italic">Fim de Semana</td>
-                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
+                                            <td colspan="7" class="text-center fst-italic">Fim de Semana</td> {# Colspan 7 #}
+                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td> {# Status #}
                                             <td class="text-center">-</td> {# Ações #}
                                         {% elif registro %}
                                             {% if registro.afastamento %}
-                                                {# --- CORREÇÃO Colspan: 7 colunas (Entrada a Atividades) --- #}
-                                                <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
-                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
+                                                <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td> {# Colspan 7 #}
+                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
                                                     </div>
-                                                    {# ... (modal mantido) ... #}
                                                      <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
                                                 </td>
                                             {% else %} {# Dia trabalhado #}
@@ -225,12 +219,12 @@
                                                 </div>
                                             </td>
                                         {% endif %}
+                                        {# --- FIM DA CORREÇÃO ESTRUTURAL E COLSPAN --- #}
                                     </tr>
                                     {# --- Linha de Detalhes Expansível --- #}
                                     {% if tem_detalhes %}
                                     <tr id="detalhes-{{ dia_num }}" class="collapse">
-                                        {# O colspan deve ser igual ao número total de colunas na tabela (10) #}
-                                        <td colspan="10" class="detalhes-row">
+                                        <td colspan="10" class="detalhes-row"> {# Colspan 10 para ocupar toda a largura #}
                                             {% if atividades %}
                                                 <h6><i class="fas fa-tasks text-muted me-1"></i> Atividades:</h6>
                                                 <ul class="list-unstyled ps-3">
@@ -239,7 +233,6 @@
                                                 {% endfor %}
                                                 </ul>
                                             {% endif %}
-                                            {# Exibe o novo campo Resultados/Produtos #}
                                             {% if registro.resultados_produtos %}
                                                 <h6><i class="fas fa-box-open text-muted me-1"></i> Resultados/Produtos:</h6>
                                                 <p class="ps-3"><small>{{ registro.resultados_produtos }}</small></p>
@@ -248,7 +241,6 @@
                                                 <h6><i class="fas fa-comment-dots text-muted me-1"></i> Observações:</h6>
                                                 <p class="ps-3"><small>{{ registro.observacoes }}</small></p>
                                             {% endif %}
-                                            {# Adiciona link para editar diretamente na linha de detalhes #}
                                             <div class="mt-2">
                                                 <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-secondary">
                                                     <i class="fas fa-edit me-1"></i> Editar Registro Completo
