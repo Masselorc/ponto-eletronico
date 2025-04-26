@@ -7,68 +7,125 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h1>Registrar Ponto</h1>
-            <p class="lead">Registre seu horário de trabalho para um dia específico</p>
+            <p class="lead">Registre seu horário de trabalho para um dia específico</p> {# Descrição ajustada #}
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Voltar</a>
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Dashboard
+            </a>
         </div>
     </div>
 
     <div class="card shadow mb-4">
-        <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Formulário de Registro</h6></div>
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Formulário de Registro de Ponto</h6>
+        </div>
         <div class="card-body">
+            {# O action default é a própria URL, o que é correto para este caso #}
             <form method="POST">
-                {{ form.hidden_tag() }}
+                {{ form.hidden_tag() }} {# Necessário para proteção CSRF #}
+
                 <div class="mb-3">
-                    {{ form.data.label(class="form-label") }}
-                    {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else ""), type="date", id="data") }}
-                    {% if form.data.errors %}<div class="invalid-feedback d-block">{% for e in form.data.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="data" class="form-label">Data</label>
+                    {# Adicionado id="data" e removido required pois o validator já cuida disso #}
+                    {{ form.data(class="form-control", type="date", id="data") }}
+                    {% if form.data.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.data.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="row mb-3">
+
+                <div class="row mb-3"> {# Agrupando horários em linha #}
                     <div class="col-md-3">
-                        {{ form.entrada.label(class="form-label") }}
-                        {{ form.entrada(class="form-control" + (" is-invalid" if form.entrada.errors else ""), type="time", id="entrada") }}
-                        {% if form.entrada.errors %}<div class="invalid-feedback d-block">{% for e in form.entrada.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="entrada">Agora</button>
+                        <label for="entrada" class="form-label">Entrada</label>
+                        {# Adicionado id e removido required #}
+                        {{ form.entrada(class="form-control", type="time", id="entrada") }}
+                        {% if form.entrada.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.entrada.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="entrada">Agora</button> {# Botão 'Agora' #}
                     </div>
                     <div class="col-md-3">
-                         {{ form.saida_almoco.label(class="form-label") }}
-                        {{ form.saida_almoco(class="form-control" + (" is-invalid" if form.saida_almoco.errors else ""), type="time", id="saida_almoco") }}
-                        {% if form.saida_almoco.errors %}<div class="invalid-feedback d-block">{% for e in form.saida_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida_almoco">Agora</button>
+                        <label for="saida_almoco" class="form-label">Saída Almoço</label>
+                         {# Adicionado id #}
+                        {{ form.saida_almoco(class="form-control", type="time", id="saida_almoco") }}
+                        {% if form.saida_almoco.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.saida_almoco.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida_almoco">Agora</button> {# Botão 'Agora' #}
                     </div>
                     <div class="col-md-3">
-                         {{ form.retorno_almoco.label(class="form-label") }}
-                        {{ form.retorno_almoco(class="form-control" + (" is-invalid" if form.retorno_almoco.errors else ""), type="time", id="retorno_almoco") }}
-                        {% if form.retorno_almoco.errors %}<div class="invalid-feedback d-block">{% for e in form.retorno_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="retorno_almoco">Agora</button>
+                        <label for="retorno_almoco" class="form-label">Retorno Almoço</label>
+                         {# Adicionado id #}
+                        {{ form.retorno_almoco(class="form-control", type="time", id="retorno_almoco") }}
+                        {% if form.retorno_almoco.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.retorno_almoco.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="retorno_almoco">Agora</button> {# Botão 'Agora' #}
                     </div>
                     <div class="col-md-3">
-                         {{ form.saida.label(class="form-label") }}
-                        {{ form.saida(class="form-control" + (" is-invalid" if form.saida.errors else ""), type="time", id="saida") }}
-                        {% if form.saida.errors %}<div class="invalid-feedback d-block">{% for e in form.saida.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida">Agora</button>
+                        <label for="saida" class="form-label">Saída</label>
+                         {# Adicionado id e removido required #}
+                        {{ form.saida(class="form-control", type="time", id="saida") }}
+                        {% if form.saida.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.saida.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                         <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida">Agora</button> {# Botão 'Agora' #}
                     </div>
                 </div>
+
                 <div class="mb-3">
-                     {{ form.atividades.label(class="form-label") }}
-                    {{ form.atividades(class="form-control" + (" is-invalid" if form.atividades.errors else ""), id="atividades") }}
-                    {% if form.atividades.errors %}<div class="invalid-feedback d-block">{% for e in form.atividades.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="atividades" class="form-label">Atividades Realizadas</label>
+                     {# Adicionado id #}
+                    {{ form.atividades(class="form-control", rows=3, id="atividades") }}
+                    {% if form.atividades.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.atividades.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                {# --- NOVO CAMPO ADICIONADO --- #}
+
+                {# --- CORREÇÃO: Adicionando o campo observacoes --- #}
                 <div class="mb-3">
-                    {{ form.resultados_produtos.label(class="form-label") }}
-                    {{ form.resultados_produtos(class="form-control" + (" is-invalid" if form.resultados_produtos.errors else ""), id="resultados_produtos") }}
-                    {% if form.resultados_produtos.errors %}<div class="invalid-feedback d-block">{% for e in form.resultados_produtos.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="observacoes" class="form-label">Observações</label>
+                    {# Adicionado id #}
+                    {{ form.observacoes(class="form-control", rows=2, id="observacoes") }} {# Usando rows=2 para diferenciar de atividades #}
+                    {% if form.observacoes.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.observacoes.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                {# ---------------------------- #}
-                <div class="mb-3">
-                     {{ form.observacoes.label(class="form-label") }}
-                    {{ form.observacoes(class="form-control" + (" is-invalid" if form.observacoes.errors else ""), id="observacoes") }}
-                    {% if form.observacoes.errors %}<div class="invalid-feedback d-block">{% for e in form.observacoes.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                </div>
+                {# ------------------------------------------------- #}
+
                 <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Registrar Ponto</button>
+                    {# Adicionado botão submit que faltava no form original #}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Registrar Ponto
+                    </button>
                 </div>
             </form>
         </div>
@@ -76,9 +133,11 @@
 </div>
 {% endblock %}
 
+{# Adicionado bloco extra_js para o script dos botões 'Agora' #}
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Botões para preencher com horário atual
         const botoesHoraAtual = document.querySelectorAll('.btn-hora-atual');
         botoesHoraAtual.forEach(function(botao) {
             botao.addEventListener('click', function() {

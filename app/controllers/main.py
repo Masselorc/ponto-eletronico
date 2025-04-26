@@ -1,10 +1,10 @@
-# ... (imports e funções auxiliares mantidos) ...
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 import calendar
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
 from app.models.feriado import Feriado
+# Importa todos os forms necessários de ponto.py
 from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm, AtividadeForm, MultiploPontoForm
 from app import db
 from datetime import datetime, date, timedelta, time
@@ -12,64 +12,127 @@ import logging
 import os
 import tempfile
 import pandas as pd
+# Importar utils apenas quando necessário para evitar erros de importação cíclica ou prematura
+# from app.utils.export import generate_pdf, generate_excel
 
 main = Blueprint('main', __name__)
+
 logger = logging.getLogger(__name__)
 
+# --- Funções Auxiliares ---
 def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
-    # ... (código mantido) ...
-    if not entrada or not saida: return None
+    """Calcula as horas trabalhadas, lidando com horários opcionais."""
+    if not entrada or not saida:
+        return None
     try:
-        entrada_dt = datetime.combine(data_ref, entrada); saida_dt = datetime.combine(data_ref, saida)
-        if saida_dt < entrada_dt: saida_dt += timedelta(days=1)
-        diff_total = saida_dt - entrada_dt; horas_trabalhadas = diff_total.total_seconds() / 3600
+        entrada_dt = datetime.combine(data_ref, entrada)
+        saida_dt = datetime.combine(data_ref, saida)
+        if saida_dt < entrada_dt:
+            saida_dt += timedelta(days=1)
+        diff_total = saida_dt - entrada_dt
+        horas_trabalhadas = diff_total.total_seconds() / 3600
         if saida_almoco and retorno_almoco:
-            saida_almoco_dt = datetime.combine(data_ref, saida_almoco); retorno_almoco_dt = datetime.combine(data_ref, retorno_almoco)
-            if retorno_almoco_dt < saida_almoco_dt: retorno_almoco_dt += timedelta(days=1)
-            diff_almoco = retorno_almoco_dt - saida_almoco_dt; horas_trabalhadas -= diff_almoco.total_seconds() / 3600
+            saida_almoco_dt = datetime.combine(data_ref, saida_almoco)
+            retorno_almoco_dt = datetime.combine(data_ref, retorno_almoco)
+            if retorno_almoco_dt < saida_almoco_dt:
+                retorno_almoco_dt += timedelta(days=1)
+            diff_almoco = retorno_almoco_dt - saida_almoco_dt
+            horas_trabalhadas -= diff_almoco.total_seconds() / 3600
         return max(0, horas_trabalhadas)
-    except Exception as e: logger.error(f"Erro calc horas {data_ref}: {e}", exc_info=True); return None
+    except Exception as e:
+        logger.error(f"Erro ao calcular horas para data {data_ref}: {e}", exc_info=True)
+        return None
 
 def get_usuario_contexto():
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_selecionado = current_user
+    """Obtém o usuário a ser exibido (atual ou outro, se admin)."""
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_selecionado = current_user
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_selecionado = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+        if usuario_req:
+            usuario_selecionado = usuario_req
+        else:
+            flash(f"Usuário com ID {user_id_req} não encontrado.", "warning")
     usuarios_para_admin = User.query.order_by(User.name).all() if current_user.is_admin else None
     return usuario_selecionado, usuarios_para_admin
 
+# --- Rotas Principais ---
+
 @main.route('/')
 @login_required
-def index(): return redirect(url_for('main.dashboard'))
+def index():
+    """Redireciona para o dashboard."""
+    return redirect(url_for('main.dashboard'))
 
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    # ... (código mantido) ...
-    usuario_ctx, usuarios_admin = get_usuario_contexto(); hoje = date.today()
-    mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
+    """Exibe o dashboard do usuário com resumo e registros do mês."""
+    usuario_ctx, usuarios_admin = get_usuario_contexto()
+    hoje = date.today()
+    mes_req = request.args.get('mes', default=hoje.month, type=int)
+    ano_req = request.args.get('ano', default=hoje.year, type=int)
     try:
-        if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
-        primeiro_dia = date(ano_req, mes_req, 1); num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]; ultimo_dia = date(ano_req, mes_req, num_dias_mes)
-        registros = Ponto.query.filter(Ponto.user_id == usuario_ctx.id, Ponto.data >= primeiro_dia, Ponto.data <= ultimo_dia).order_by(Ponto.data.desc()).all()
-        feriados = Feriado.query.filter(Feriado.data >= primeiro_dia, Feriado.data <= ultimo_dia).all(); feriados_dict = {f.data: f.descricao for f in feriados}; feriados_datas = set(feriados_dict.keys())
-        dias_uteis, dias_trabalhados, dias_afastamento, horas_trabalhadas = 0, 0, 0, 0.0; registros_dict = {r.data: r for r in registros}
+        # Validação básica de data
+        primeiro_dia = date(ano_req, mes_req, 1)
+        num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]
+        ultimo_dia = date(ano_req, mes_req, num_dias_mes)
+
+        # Busca dados
+        registros = Ponto.query.filter(
+            Ponto.user_id == usuario_ctx.id,
+            Ponto.data >= primeiro_dia,
+            Ponto.data <= ultimo_dia
+        ).order_by(Ponto.data.desc()).all()
+        feriados = Feriado.query.filter(
+            Feriado.data >= primeiro_dia,
+            Feriado.data <= ultimo_dia
+        ).all()
+        feriados_dict = {f.data: f.descricao for f in feriados}
+        feriados_datas = set(feriados_dict.keys())
+
+        # Calcula estatísticas
+        dias_uteis, dias_trabalhados, dias_afastamento, horas_trabalhadas = 0, 0, 0, 0.0
+        registros_dict = {r.data: r for r in registros} # Para lookup rápido
         for dia_num in range(1, ultimo_dia.day + 1):
             data_atual = date(ano_req, mes_req, dia_num)
             if data_atual.weekday() < 5 and data_atual not in feriados_datas:
                  registro_dia = registros_dict.get(data_atual)
-                 if registro_dia and registro_dia.afastamento: dias_afastamento += 1
-                 else: dias_uteis += 1
+                 if registro_dia and registro_dia.afastamento:
+                     dias_afastamento += 1
+                 else:
+                     dias_uteis += 1
         for r in registros:
-            if not r.afastamento and r.horas_trabalhadas is not None: dias_trabalhados += 1; horas_trabalhadas += r.horas_trabalhadas
-        carga_horaria_devida = dias_uteis * 8.0; saldo_horas = horas_trabalhadas - carga_horaria_devida; media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
-        nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']; nome_mes = nomes_meses[mes_req]
-        mes_anterior, ano_anterior = (12, ano_req - 1) if mes_req == 1 else (mes_req - 1, ano_req); proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
-        return render_template('main/dashboard.html', registros=registros, mes_atual=mes_req, ano_atual=ano_req, nome_mes=nome_mes, dias_uteis=dias_uteis, dias_trabalhados=dias_trabalhados, dias_afastamento=dias_afastamento, horas_trabalhadas=horas_trabalhadas, carga_horaria_devida=carga_horaria_devida, saldo_horas=saldo_horas, media_diaria=media_diaria, usuario=usuario_ctx, usuarios=usuarios_admin, mes_anterior=mes_anterior, ano_anterior=ano_anterior, proximo_mes=proximo_mes, proximo_ano=proximo_ano)
-    except ValueError: flash('Data inválida.', 'danger'); return redirect(url_for('main.dashboard'))
-    except Exception as e: logger.error(f"Erro dashboard: {e}", exc_info=True); flash('Erro ao carregar dashboard.', 'danger'); hoje = date.today(); return render_template('main/dashboard.html', registros=[], mes_atual=hoje.month, ano_atual=hoje.year, nome_mes="Mês Atual", dias_uteis=0, dias_trabalhados=0, dias_afastamento=0, horas_trabalhadas=0, carga_horaria_devida=0, saldo_horas=0, media_diaria=0, usuario=current_user, usuarios=None)
+            if not r.afastamento and r.horas_trabalhadas is not None:
+                dias_trabalhados += 1
+                horas_trabalhadas += r.horas_trabalhadas
+
+        carga_horaria_devida = dias_uteis * 8.0
+        saldo_horas = horas_trabalhadas - carga_horaria_devida
+        media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
+
+        # Prepara contexto para template
+        nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        nome_mes = nomes_meses[mes_req]
+        mes_anterior, ano_anterior = (12, ano_req - 1) if mes_req == 1 else (mes_req - 1, ano_req)
+        proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
+
+        return render_template('main/dashboard.html',
+                              registros=registros, mes_atual=mes_req, ano_atual=ano_req, nome_mes=nome_mes,
+                              dias_uteis=dias_uteis, dias_trabalhados=dias_trabalhados, dias_afastamento=dias_afastamento,
+                              horas_trabalhadas=horas_trabalhadas, carga_horaria_devida=carga_horaria_devida,
+                              saldo_horas=saldo_horas, media_diaria=media_diaria, usuario=usuario_ctx,
+                              usuarios=usuarios_admin, mes_anterior=mes_anterior, ano_anterior=ano_anterior,
+                              proximo_mes=proximo_mes, proximo_ano=proximo_ano)
+    except ValueError:
+        flash('Data inválida.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        logger.error(f"Erro ao carregar dashboard: {e}", exc_info=True)
+        flash('Erro ao carregar o dashboard. Tente novamente.', 'danger')
+        hoje = date.today() # Garante que hoje está definido no escopo do except
+        return render_template('main/dashboard.html', registros=[], mes_atual=hoje.month, ano_atual=hoje.year, nome_mes="Mês Atual", dias_uteis=0, dias_trabalhados=0, dias_afastamento=0, horas_trabalhadas=0, carga_horaria_devida=0, saldo_horas=0, media_diaria=0, usuario=current_user, usuarios=None)
+
 
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
@@ -79,8 +142,12 @@ def registrar_ponto():
     if request.method == 'GET':
         data_query = request.args.get('data')
         if data_query:
-            try: form.data.data = date.fromisoformat(data_query)
-            except ValueError: flash('Data URL inválida.', 'warning')
+            # --- CORREÇÃO: SyntaxError - try/except indentado ---
+            try:
+                form.data.data = date.fromisoformat(data_query)
+            except ValueError:
+                flash('Data URL inválida.', 'warning')
+            # ----------------------------------------------------
 
     if form.validate_on_submit():
         try:
@@ -95,11 +162,7 @@ def registrar_ponto():
                 user_id=current_user.id, data=data_selecionada, entrada=form.entrada.data,
                 saida_almoco=form.saida_almoco.data, retorno_almoco=form.retorno_almoco.data,
                 saida=form.saida.data, horas_trabalhadas=horas_calculadas,
-                observacoes=form.observacoes.data,
-                # --- SALVANDO NOVO CAMPO ---
-                resultados_produtos=form.resultados_produtos.data,
-                # -------------------------
-                afastamento=False, tipo_afastamento=None
+                observacoes=form.observacoes.data, afastamento=False, tipo_afastamento=None
             )
             db.session.add(novo_registro)
             db.session.flush() # Para obter o ID
@@ -127,16 +190,11 @@ def editar_ponto(ponto_id): # Assinatura corrigida
         flash('Permissão negada.', 'danger')
         return redirect(url_for('main.dashboard'))
 
-    form = EditarPontoForm(obj=registro) # Preenche com dados existentes
+    form = EditarPontoForm(obj=registro)
     atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
 
-    # Preenche campo de atividades se GET e não houver erro de validação anterior
     if request.method == 'GET' and atividade_existente and not form.atividades.data:
          form.atividades.data = atividade_existente.descricao
-    # Preenche campo de resultados/produtos se GET e não houver erro de validação anterior
-    # (obj=registro já deve fazer isso, mas podemos garantir)
-    if request.method == 'GET' and not form.resultados_produtos.data:
-         form.resultados_produtos.data = registro.resultados_produtos
 
     if form.validate_on_submit():
         try:
@@ -153,9 +211,6 @@ def editar_ponto(ponto_id): # Assinatura corrigida
             registro.afastamento = is_afastamento
             registro.tipo_afastamento = tipo_afastamento
             registro.observacoes = form.observacoes.data
-            # --- ATUALIZANDO NOVO CAMPO ---
-            registro.resultados_produtos = form.resultados_produtos.data
-            # ----------------------------
 
             if is_afastamento:
                 registro.entrada, registro.saida_almoco, registro.retorno_almoco, registro.saida, registro.horas_trabalhadas = None, None, None, None, None
@@ -183,38 +238,64 @@ def editar_ponto(ponto_id): # Assinatura corrigida
             flash('Erro ao atualizar.', 'danger')
     return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
-# ... (Restante das rotas mantidas como antes) ...
 
 @main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
 def registrar_afastamento():
-    # ... (código mantido) ...
-    form = RegistroAfastamentoForm();
-    if request.method == 'GET': data_query = request.args.get('data');
-    if data_query: try: form.data.data = date.fromisoformat(data_query); except ValueError: flash('Data URL inválida.', 'warning')
+    """Registra um dia inteiro como afastamento."""
+    form = RegistroAfastamentoForm()
+    if request.method == 'GET':
+        data_query = request.args.get('data')
+        if data_query:
+            try:
+                 form.data.data = date.fromisoformat(data_query)
+            except ValueError:
+                 flash('Data URL inválida.', 'warning')
+
     if form.validate_on_submit():
         try:
-            data_selecionada = form.data.data; tipo_afastamento = form.tipo_afastamento.data; registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).first()
-            if registro_existente: flash(f'Registro para {data_selecionada.strftime("%d/%m/%Y")} já existe.', 'danger'); return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+            data_selecionada = form.data.data
+            tipo_afastamento = form.tipo_afastamento.data
+            registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).first()
+            if registro_existente:
+                flash(f'Registro para {data_selecionada.strftime("%d/%m/%Y")} já existe.', 'danger')
+                return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+
             novo_afastamento = Ponto(user_id=current_user.id, data=data_selecionada, afastamento=True, tipo_afastamento=tipo_afastamento, entrada=None, saida_almoco=None, retorno_almoco=None, saida=None, horas_trabalhadas=None, observacoes=None)
-            db.session.add(novo_afastamento); db.session.commit(); flash('Afastamento registrado!', 'success'); return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro reg afastamento: {e}", exc_info=True); flash('Erro ao registrar.', 'danger')
+            db.session.add(novo_afastamento)
+            db.session.commit()
+            flash('Afastamento registrado!', 'success')
+            return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro reg afastamento: {e}", exc_info=True)
+            flash('Erro ao registrar.', 'danger')
     return render_template('main/registrar_afastamento.html', form=form, title="Registrar Afastamento")
+
 
 @main.route('/registrar-ferias', methods=['GET', 'POST'])
 @login_required
-def registrar_ferias(): flash('Use "Registrar Afastamento".', 'info'); return redirect(url_for('main.registrar_afastamento', **request.args))
+def registrar_ferias():
+    """Rota obsoleta, redireciona para afastamento."""
+    flash('Use "Registrar Afastamento".', 'info')
+    return redirect(url_for('main.registrar_afastamento', **request.args))
+
 
 @main.route('/calendario')
 @login_required
 def calendario():
-    # ... (código mantido) ...
-    usuario_ctx, usuarios_admin = get_usuario_contexto(); hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
+    """Exibe o calendário mensal."""
+    usuario_ctx, usuarios_admin = get_usuario_contexto()
+    hoje = date.today()
+    mes_req = request.args.get('mes', default=hoje.month, type=int)
+    ano_req = request.args.get('ano', default=hoje.year, type=int)
     try:
+        # Validação e busca de dados (mantido)
         if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
         primeiro_dia = date(ano_req, mes_req, 1); num_dias_mes = calendar.monthrange(ano_req, mes_req)[1]; ultimo_dia = date(ano_req, mes_req, num_dias_mes)
         registros = Ponto.query.filter(Ponto.user_id == usuario_ctx.id, Ponto.data >= primeiro_dia, Ponto.data <= ultimo_dia).all(); registros_dict = {r.data: r for r in registros}
         feriados = Feriado.query.filter(Feriado.data >= primeiro_dia, Feriado.data <= ultimo_dia).all(); feriados_dict = {f.data: f.descricao for f in feriados}; feriados_datas = set(feriados_dict.keys())
+        # Cálculo de estatísticas (mantido)
         dias_uteis, dias_trabalhados, dias_afastamento, horas_trabalhadas = 0, 0, 0, 0.0
         for dia_num in range(1, ultimo_dia.day + 1):
             data_atual = date(ano_req, mes_req, dia_num)
@@ -225,8 +306,10 @@ def calendario():
         for r in registros:
             if not r.afastamento and r.horas_trabalhadas is not None: dias_trabalhados += 1; horas_trabalhadas += r.horas_trabalhadas
         carga_horaria_devida = dias_uteis * 8.0; saldo_horas = horas_trabalhadas - carga_horaria_devida; media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
+        # Preparação do contexto (mantido)
         nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']; nome_mes = nomes_meses[mes_req]
         mes_anterior, ano_anterior = (12, ano_req - 1) if mes_req == 1 else (mes_req - 1, ano_req); proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
+        # Geração da matriz do calendário (mantido)
         cal = calendar.Calendar(firstweekday=6); semanas_mes = cal.monthdayscalendar(ano_req, mes_req); calendario_data = []
         for semana in semanas_mes:
             semana_data = []
@@ -235,13 +318,16 @@ def calendario():
                 if dia != 0: data_atual = date(ano_req, mes_req, dia); dia_info.update({'data': data_atual, 'is_mes_atual': True, 'registro': registros_dict.get(data_atual), 'feriado': feriados_dict.get(data_atual), 'is_hoje': (data_atual == hoje), 'is_fim_semana': (data_atual.weekday() >= 5)})
                 semana_data.append(dia_info)
             calendario_data.append(semana_data)
+        # Renderização (mantido)
         return render_template('main/calendario.html', calendario_data=calendario_data, mes_atual=mes_req, ano_atual=ano_req, nome_mes=nome_mes, dias_uteis=dias_uteis, dias_trabalhados=dias_trabalhados, dias_afastamento=dias_afastamento, horas_trabalhadas=horas_trabalhadas, carga_horaria_devida=carga_horaria_devida, saldo_horas=saldo_horas, media_diaria=media_diaria, usuario=usuario_ctx, usuarios=usuarios_admin, mes_anterior=mes_anterior, ano_anterior=ano_anterior, proximo_mes=proximo_mes, proximo_ano=proximo_ano)
     except ValueError: flash('Data inválida.', 'danger'); return redirect(url_for('main.dashboard'))
     except Exception as e: logger.error(f"Erro calendário: {e}", exc_info=True); flash('Erro ao carregar calendário.', 'danger'); return redirect(url_for('main.dashboard'))
 
+
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
+    """Exibe o relatório mensal detalhado."""
     # ... (código mantido) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto(); hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
     try:
@@ -269,71 +355,129 @@ def relatorio_mensal():
     except ValueError: flash('Data inválida.', 'danger'); return redirect(url_for('main.dashboard'))
     except Exception as e: logger.error(f"Erro relatório mensal: {e}", exc_info=True); flash('Erro ao gerar relatório.', 'danger'); return redirect(url_for('main.dashboard'))
 
+
 @main.route('/relatorio-mensal/pdf')
 @login_required
 def relatorio_mensal_pdf():
-    # ... (código mantido com correção de if/else) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
+    """Gera o relatório mensal em PDF."""
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_alvo = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+        # --- CORREÇÃO: Bloco if/else formatado corretamente ---
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+        # ------------------------------------------------------
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
     try:
-        from app.utils.export import generate_pdf; pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
-        if pdf_rel_path: pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path);
-        if os.path.exists(pdf_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
-        else: logger.error(f"PDF não encontrado: {pdf_abs_path}"); flash('Erro: PDF não encontrado.', 'danger')
-        else: flash('Erro ao gerar PDF.', 'danger')
-    except Exception as e: logger.error(f"Erro gerar/enviar PDF: {e}", exc_info=True); flash('Erro inesperado ao gerar PDF.', 'danger')
+        from app.utils.export import generate_pdf # Importa aqui para evitar erro circular/prematuro
+        pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
+        if pdf_rel_path:
+            pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
+            if os.path.exists(pdf_abs_path):
+                 nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                 download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                 return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
+            else:
+                 logger.error(f"PDF não encontrado: {pdf_abs_path}")
+                 flash('Erro: PDF não encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar PDF.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro gerar/enviar PDF: {e}", exc_info=True)
+        flash('Erro inesperado ao gerar PDF.', 'danger')
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
+
 
 @main.route('/relatorio-mensal/excel')
 @login_required
 def relatorio_mensal_excel():
-    # ... (código mantido com correção de if/else) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
+    """Gera o relatório mensal em Excel."""
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_alvo = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+         # --- CORREÇÃO: Bloco if/else formatado corretamente ---
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+         # ------------------------------------------------------
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
     try:
-        from app.utils.export import generate_excel; excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
-        if excel_rel_path: excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path);
-        if os.path.exists(excel_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"; return send_file(excel_abs_path, as_attachment=True, download_name=download_name, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        else: logger.error(f"Excel não encontrado: {excel_abs_path}"); flash('Erro: Excel não encontrado.', 'danger')
-        else: flash('Erro ao gerar Excel.', 'danger')
-    except Exception as e: logger.error(f"Erro gerar/enviar Excel: {e}", exc_info=True); flash('Erro inesperado ao gerar Excel.', 'danger')
+        from app.utils.export import generate_excel # Importa aqui
+        excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
+        if excel_rel_path:
+            excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path)
+            if os.path.exists(excel_abs_path):
+                 nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                 download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"
+                 return send_file(excel_abs_path, as_attachment=True, download_name=download_name, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            else:
+                 logger.error(f"Excel não encontrado: {excel_abs_path}")
+                 flash('Erro: Excel não encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar Excel.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro gerar/enviar Excel: {e}", exc_info=True)
+        flash('Erro inesperado ao gerar Excel.', 'danger')
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
+
 
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
 def visualizar_ponto(ponto_id): # Assinatura corrigida
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id);
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all(); usuario_dono = User.query.get(registro.user_id)
-    if not usuario_dono: flash('Usuário não encontrado.', 'danger'); return redirect(url_for('main.dashboard'))
+    """Exibe detalhes de um registro de ponto."""
+    registro = Ponto.query.get_or_404(ponto_id)
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Permissão negada.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
+    usuario_dono = User.query.get(registro.user_id)
+    if not usuario_dono:
+         flash('Usuário não encontrado.', 'danger')
+         return redirect(url_for('main.dashboard'))
     return render_template('main/visualizar_ponto.html', registro=registro, atividades=atividades, usuario=usuario_dono, title="Visualizar Registro")
+
 
 @main.route('/excluir-ponto/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id): # Assinatura corrigida
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id); data_registro = registro.data
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    try: db.session.delete(registro); db.session.commit(); flash('Registro excluído!', 'success')
-    except Exception as e: db.session.rollback(); logger.error(f"Erro excluir ponto {ponto_id}: {e}", exc_info=True); flash('Erro ao excluir.', 'danger')
+    """Exclui um registro de ponto."""
+    registro = Ponto.query.get_or_404(ponto_id)
+    data_registro = registro.data
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Permissão negada.', 'danger')
+        return redirect(url_for('main.dashboard'))
+    try:
+        db.session.delete(registro)
+        db.session.commit()
+        flash('Registro excluído!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erro excluir ponto {ponto_id}: {e}", exc_info=True)
+        flash('Erro ao excluir.', 'danger')
     return redirect(url_for('main.dashboard', mes=data_registro.month, ano=data_registro.year))
+
 
 @main.route('/perfil')
 @login_required
 def perfil():
-    # ... (código mantido) ...
-    usuario_atualizado = User.query.get(current_user.id);
-    if not usuario_atualizado: flash('Erro ao carregar perfil.', 'danger'); return redirect(url_for('main.dashboard'))
+    """Exibe o perfil do usuário logado."""
+    usuario_atualizado = User.query.get(current_user.id)
+    if not usuario_atualizado:
+         flash('Erro ao carregar perfil.', 'danger')
+         return redirect(url_for('main.dashboard'))
     return render_template('main/perfil.html', usuario=usuario_atualizado, title="Meu Perfil")
+
 
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
@@ -359,7 +503,6 @@ def registrar_multiplo_ponto():
                     entrada_t = time.fromisoformat(entrada_str) if entrada_str else None; saida_almoco_t = time.fromisoformat(saida_almoco_str_i) if saida_almoco_str_i else None; retorno_almoco_t = time.fromisoformat(retorno_almoco_str_i) if retorno_almoco_str_i else None; saida_t = time.fromisoformat(saida_str_i) if saida_str_i else None
                 except ValueError: flash(f'Hora inválida {data.strftime("%d/%m/%Y")}.', 'warning'); continue
                 horas_calculadas = calcular_horas(data, entrada_t, saida_t, saida_almoco_t, retorno_almoco_t)
-                # Assume que 'resultados_produtos' não é coletado neste form
                 novo_registro = Ponto(user_id=current_user.id, data=data, entrada=entrada_t, saida_almoco=saida_almoco_t, retorno_almoco=retorno_almoco_t, saida=saida_t, horas_trabalhadas=horas_calculadas, afastamento=False, tipo_afastamento=None)
                 db.session.add(novo_registro)
                 try:

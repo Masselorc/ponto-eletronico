@@ -5,7 +5,7 @@ from datetime import date
 
 # Opções padrão para tipo de afastamento
 TIPO_AFASTAMENTO_CHOICES = [
-    ('', '-- Selecione --'),
+    ('', '-- Selecione --'), # Opção vazia
     ('Férias', 'Férias'),
     ('Licença Médica', 'Licença Médica'),
     ('Licença Maternidade/Paternidade', 'Licença Maternidade/Paternidade'),
@@ -22,11 +22,8 @@ class RegistroPontoForm(FlaskForm):
     saida_almoco = TimeField('Saída para Almoço', validators=[Optional()])
     retorno_almoco = TimeField('Retorno do Almoço', validators=[Optional()])
     saida = TimeField('Saída', validators=[Optional()])
-    atividades = TextAreaField('Atividades Realizadas', validators=[Optional()], render_kw={"rows": 3})
-    # --- NOVO CAMPO ---
-    resultados_produtos = TextAreaField('Resultados/Produtos Gerados', validators=[Optional()], render_kw={"rows": 3})
-    # ------------------
-    observacoes = TextAreaField('Observações', validators=[Optional()], render_kw={"rows": 2})
+    atividades = TextAreaField('Atividades Realizadas', validators=[Optional()])
+    observacoes = TextAreaField('Observações', validators=[Optional()])
     # submit = SubmitField('Registrar Ponto')
 
 class EditarPontoForm(FlaskForm):
@@ -36,11 +33,8 @@ class EditarPontoForm(FlaskForm):
     saida_almoco = TimeField('Saída para Almoço', validators=[Optional()])
     retorno_almoco = TimeField('Retorno do Almoço', validators=[Optional()])
     saida = TimeField('Saída', validators=[Optional()])
-    atividades = TextAreaField('Atividades Realizadas', validators=[Optional()], render_kw={"rows": 3})
-    # --- NOVO CAMPO ---
-    resultados_produtos = TextAreaField('Resultados/Produtos Gerados', validators=[Optional()], render_kw={"rows": 3})
-    # ------------------
-    observacoes = TextAreaField('Observações', validators=[Optional()], render_kw={"rows": 2})
+    atividades = TextAreaField('Atividades Realizadas', validators=[Optional()])
+    observacoes = TextAreaField('Observações', validators=[Optional()])
     afastamento = BooleanField('Marcar como Afastamento (Férias, Licença, etc.)')
     tipo_afastamento = SelectField(
         'Tipo de Afastamento',
@@ -61,7 +55,6 @@ class RegistroAfastamentoForm(FlaskForm):
 
 class AtividadeForm(FlaskForm):
     """Formulário para registrar/editar atividades de um ponto."""
-    # Nota: Este form é separado, não inclui resultados/produtos
     descricao = TextAreaField(
         'Descrição das Atividades',
         validators=[DataRequired("A descrição das atividades é obrigatória."), Length(min=5, message="Descreva um pouco mais as atividades (mínimo 5 caracteres).")],
@@ -69,8 +62,10 @@ class AtividadeForm(FlaskForm):
     )
     submit = SubmitField('Salvar Atividade')
 
+# --- CORREÇÃO: Formulário minimalista para CSRF em múltiplos pontos ---
 class MultiploPontoForm(FlaskForm):
     """Formulário vazio usado apenas para gerar o token CSRF
        na página de registro de múltiplos pontos."""
     pass
+# -----------------------------------------------------------------
 

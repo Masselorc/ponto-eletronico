@@ -7,81 +7,125 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h1>Editar Registro</h1>
+            {# CORREÇÃO: Usando 'registro' que é passado pelo controller #}
             <p class="lead">Editando registro de: {{ registro.data.strftime('%d/%m/%Y') if registro and registro.data else 'Data Inválida' }}</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Voltar</a>
+             {# CORREÇÃO: Usando 'registro' #}
+            <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar para Visualização
+            </a>
         </div>
     </div>
 
     <div class="card shadow mb-4">
-        <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Formulário de Edição</h6></div>
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Formulário de Edição de Ponto</h6>
+        </div>
         <div class="card-body">
+             {# CORREÇÃO: Usando 'registro' #}
             <form method="POST" action="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}">
                 {{ form.hidden_tag() }}
+
                 <div class="mb-3">
-                    {{ form.data.label(class="form-label") }}
-                    {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else ""), type="date", id="data") }}
-                    {% if form.data.errors %}<div class="invalid-feedback d-block">{% for e in form.data.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="data" class="form-label">Data</label>
+                    {{ form.data(class="form-control", type="date", id="data") }}
+                    {% if form.data.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.data.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
+
+                {# --- CORREÇÃO: Adicionando campos de afastamento --- #}
                 <div class="mb-3 form-check">
-                    {{ form.afastamento(class="form-check-input", id="check_afastamento", **{'data-toggle': 'afastamento'}) }}
-                    {{ form.afastamento.label(class="form-check-label", for="check_afastamento") }}
-                    {% if form.afastamento.errors %}<div class="text-danger small mt-1">{% for e in form.afastamento.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    {{ form.afastamento(class="form-check-input", id="check_afastamento", **{'data-toggle': 'afastamento'}) }} {# Adicionado data-toggle para JS #}
+                    <label class="form-check-label" for="check_afastamento">
+                        Marcar como Afastamento (Férias, Licença, etc.)
+                    </label>
+                    {% if form.afastamento.errors %}
+                    <div class="text-danger small mt-1">
+                        {% for error in form.afastamento.errors %}<span>{{ error }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="mb-3" id="div_tipo_afastamento" style="display: {% if form.afastamento.data %}block{% else %}none{% endif %};">
-                     {{ form.tipo_afastamento.label(class="form-label") }}
-                    {{ form.tipo_afastamento(class="form-select" + (" is-invalid" if form.tipo_afastamento.errors else ""), id="tipo_afastamento") }}
-                    {% if form.tipo_afastamento.errors %}<div class="invalid-feedback d-block">{% for e in form.tipo_afastamento.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                     <small class="form-text text-muted">Obrigatório se "Afastamento" estiver marcado.</small>
+
+                <div class="mb-3" id="div_tipo_afastamento" style="display: {% if form.afastamento.data %}block{% else %}none{% endif %};"> {# Visibilidade inicial baseada no dado #}
+                    <label for="tipo_afastamento" class="form-label">Tipo de Afastamento</label>
+                    {{ form.tipo_afastamento(class="form-select", id="tipo_afastamento") }}
+                    {% if form.tipo_afastamento.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.tipo_afastamento.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                     <small class="form-text text-muted">Obrigatório se "Marcar como Afastamento" estiver selecionado.</small>
                 </div>
+                 {# ---------------------------------------------------- #}
+
+                {# Div para agrupar horários, controlada por JS #}
                 <div id="div_horarios" style="display: {% if form.afastamento.data %}none{% else %}block{% endif %};">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            {{ form.entrada.label(class="form-label") }}
-                            {{ form.entrada(class="form-control" + (" is-invalid" if form.entrada.errors else ""), type="time", id="entrada") }}
-                            {% if form.entrada.errors %}<div class="invalid-feedback d-block">{% for e in form.entrada.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="entrada">Agora</button>
+                            <label for="entrada" class="form-label">Entrada</label>
+                            {{ form.entrada(class="form-control", type="time", id="entrada") }}
+                            {% if form.entrada.errors %}
+                            <div class="invalid-feedback d-block">{% for e in form.entrada.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                            {% endif %}
+                             <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="entrada">Agora</button>
                         </div>
                         <div class="col-md-3">
-                             {{ form.saida_almoco.label(class="form-label") }}
-                            {{ form.saida_almoco(class="form-control" + (" is-invalid" if form.saida_almoco.errors else ""), type="time", id="saida_almoco") }}
-                            {% if form.saida_almoco.errors %}<div class="invalid-feedback d-block">{% for e in form.saida_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                            <label for="saida_almoco" class="form-label">Saída Almoço</label>
+                            {{ form.saida_almoco(class="form-control", type="time", id="saida_almoco") }}
+                            {% if form.saida_almoco.errors %}
+                            <div class="invalid-feedback d-block">{% for e in form.saida_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                            {% endif %}
                             <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida_almoco">Agora</button>
                         </div>
                         <div class="col-md-3">
-                             {{ form.retorno_almoco.label(class="form-label") }}
-                            {{ form.retorno_almoco(class="form-control" + (" is-invalid" if form.retorno_almoco.errors else ""), type="time", id="retorno_almoco") }}
-                            {% if form.retorno_almoco.errors %}<div class="invalid-feedback d-block">{% for e in form.retorno_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="retorno_almoco">Agora</button>
+                            <label for="retorno_almoco" class="form-label">Retorno Almoço</label>
+                            {{ form.retorno_almoco(class="form-control", type="time", id="retorno_almoco") }}
+                            {% if form.retorno_almoco.errors %}
+                            <div class="invalid-feedback d-block">{% for e in form.retorno_almoco.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                            {% endif %}
+                             <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="retorno_almoco">Agora</button>
                         </div>
                         <div class="col-md-3">
-                             {{ form.saida.label(class="form-label") }}
-                            {{ form.saida(class="form-control" + (" is-invalid" if form.saida.errors else ""), type="time", id="saida") }}
-                            {% if form.saida.errors %}<div class="invalid-feedback d-block">{% for e in form.saida.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida">Agora</button>
+                            <label for="saida" class="form-label">Saída</label>
+                            {{ form.saida(class="form-control", type="time", id="saida") }}
+                            {% if form.saida.errors %}
+                            <div class="invalid-feedback d-block">{% for e in form.saida.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                            {% endif %}
+                             <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-hora-atual" data-target="saida">Agora</button>
                         </div>
                     </div>
                 </div>
+
                 <div class="mb-3">
-                     {{ form.atividades.label(class="form-label") }}
-                    {{ form.atividades(class="form-control" + (" is-invalid" if form.atividades.errors else ""), id="atividades") }}
-                    {% if form.atividades.errors %}<div class="invalid-feedback d-block">{% for e in form.atividades.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="atividades" class="form-label">Atividades Realizadas</label>
+                    {{ form.atividades(class="form-control", rows=3, id="atividades") }}
+                    {% if form.atividades.errors %}
+                    <div class="invalid-feedback d-block">{% for e in form.atividades.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                    {% endif %}
                 </div>
-                 {# --- NOVO CAMPO ADICIONADO --- #}
+
                 <div class="mb-3">
-                    {{ form.resultados_produtos.label(class="form-label") }}
-                    {{ form.resultados_produtos(class="form-control" + (" is-invalid" if form.resultados_produtos.errors else ""), id="resultados_produtos") }}
-                    {% if form.resultados_produtos.errors %}<div class="invalid-feedback d-block">{% for e in form.resultados_produtos.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
+                    <label for="observacoes" class="form-label">Observações</label>
+                    {{ form.observacoes(class="form-control", rows=2, id="observacoes") }}
+                    {% if form.observacoes.errors %}
+                    <div class="invalid-feedback d-block">{% for e in form.observacoes.errors %}<span>{{ e }}</span>{% endfor %}</div>
+                    {% endif %}
                 </div>
-                {# ---------------------------- #}
-                <div class="mb-3">
-                     {{ form.observacoes.label(class="form-label") }}
-                    {{ form.observacoes(class="form-control" + (" is-invalid" if form.observacoes.errors else ""), id="observacoes") }}
-                    {% if form.observacoes.errors %}<div class="invalid-feedback d-block">{% for e in form.observacoes.errors %}<span>{{ e }}</span>{% endfor %}</div>{% endif %}
-                </div>
+
                 <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar Alterações</button>
+                    {# --- CORREÇÃO: Removido form.submit e adicionado botão HTML --- #}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Salvar Alterações
+                    </button>
+                    {# ----------------------------------------------------------- #}
                 </div>
             </form>
         </div>
@@ -89,6 +133,7 @@
 </div>
 {% endblock %}
 
+{# Adicionado JS para controlar visibilidade dos campos de afastamento/horários #}
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -96,29 +141,70 @@
         const divTipoAfastamento = document.getElementById('div_tipo_afastamento');
         const selectTipoAfastamento = document.getElementById('tipo_afastamento');
         const divHorarios = document.getElementById('div_horarios');
-        const camposHorario = [document.getElementById('entrada'), document.getElementById('saida_almoco'), document.getElementById('retorno_almoco'), document.getElementById('saida')];
+        const camposHorario = [
+            document.getElementById('entrada'),
+            document.getElementById('saida_almoco'),
+            document.getElementById('retorno_almoco'),
+            document.getElementById('saida')
+        ];
         const botoesHoraAtual = document.querySelectorAll('.btn-hora-atual');
 
         function toggleAfastamentoFields() {
             const isChecked = checkAfastamento.checked;
             divTipoAfastamento.style.display = isChecked ? 'block' : 'none';
-            divHorarios.style.display = isChecked ? 'none' : 'block';
-            camposHorario.forEach(campo => { if (campo) campo.disabled = isChecked; });
-            botoesHoraAtual.forEach(botao => { if (botao) botao.disabled = isChecked; });
-            if (selectTipoAfastamento) { selectTipoAfastamento.required = isChecked; if (!isChecked) { selectTipoAfastamento.value = ''; } }
-            if (isChecked) { camposHorario.forEach(campo => { if (campo) campo.value = ''; }); }
+            divHorarios.style.display = isChecked ? 'none' : 'block'; // Ou 'flex' se usar row
+
+            // Habilita/desabilita campos de horário
+            camposHorario.forEach(campo => {
+                if (campo) campo.disabled = isChecked;
+            });
+            // Habilita/desabilita botões 'Agora'
+             botoesHoraAtual.forEach(botao => {
+                if (botao) botao.disabled = isChecked;
+            });
+
+            // Torna tipo_afastamento obrigatório apenas se afastamento estiver marcado
+            if (selectTipoAfastamento) {
+                 selectTipoAfastamento.required = isChecked;
+                 // Limpa seleção se desmarcar afastamento
+                 if (!isChecked) {
+                    selectTipoAfastamento.value = '';
+                 }
+            }
+
+            // Limpa campos de horário se marcar afastamento
+            if (isChecked) {
+                camposHorario.forEach(campo => {
+                    if (campo) campo.value = '';
+                });
+            }
         }
 
-        if (checkAfastamento) { checkAfastamento.addEventListener('change', toggleAfastamentoFields); }
+        // Adiciona listener ao checkbox
+        if (checkAfastamento) {
+            checkAfastamento.addEventListener('change', toggleAfastamentoFields);
+            // Chama a função inicialmente para garantir o estado correto ao carregar a página
+            // (caso o formulário seja recarregado com o checkbox marcado após um erro de validação)
+            // toggleAfastamentoFields(); // Removido pois a visibilidade inicial é definida pelo Jinja
+        }
+
+         // Botões para preencher com horário atual (código duplicado de registrar_ponto, idealmente colocar em main.js)
         botoesHoraAtual.forEach(function(botao) {
             botao.addEventListener('click', function() {
+                // Só preenche se o campo não estiver desabilitado
                 if (!this.disabled) {
                     const targetFieldId = this.getAttribute('data-target');
                     const targetField = document.getElementById(targetFieldId);
-                    if (targetField) { const agora = new Date(); const horas = agora.getHours().toString().padStart(2, '0'); const minutos = agora.getMinutes().toString().padStart(2, '0'); targetField.value = `${horas}:${minutos}`; }
+                    if (targetField) {
+                        const agora = new Date();
+                        const horas = agora.getHours().toString().padStart(2, '0');
+                        const minutos = agora.getMinutes().toString().padStart(2, '0');
+                        targetField.value = `${horas}:${minutos}`;
+                    }
                 }
             });
         });
     });
 </script>
 {% endblock %}
+
