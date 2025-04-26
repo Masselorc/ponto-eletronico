@@ -14,7 +14,7 @@ from werkzeug.security import generate_password_hash
 # Importações locais
 from app import db
 from app.models.user import User
-# CORREÇÃO: Remover a importação de RegistrationForm, pois não está sendo usado
+# Importar apenas LoginForm
 from app.forms.auth import LoginForm
 
 # Configuração do Blueprint
@@ -27,43 +27,42 @@ logger = logging.getLogger(__name__)
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     """Processa o login do usuário."""
-    # Se o usuário já estiver autenticado, redireciona para o dashboard
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
     form = LoginForm()
     if form.validate_on_submit():
         try:
-            user = User.query.filter_by(username=form.username.data).first()
+            # CORREÇÃO: Filtrar por email, conforme o campo do formulário
+            user = User.query.filter_by(email=form.email.data).first()
             # Verifica se o usuário existe e a senha está correta
             if user and user.check_password(form.password.data):
-                 # Verifica se o usuário está ativo
                  if not user.ativo:
                       flash('Sua conta está desativada. Entre em contato com o administrador.', 'warning')
-                      logger.warning(f"Tentativa de login falhou para usuário inativo: {form.username.data}")
-                      return redirect(url_for('auth.login'))
+                      logger.warning(f"Tentativa de login falhou para usuário inativo: {form.email.data}")
+                      # CORREÇÃO: Passar title também no redirect/render de erro
+                      return render_template('auth/login.html', form=form, title="Login")
 
-                 # Registra o usuário na sessão
                  login_user(user, remember=form.remember_me.data)
-                 logger.info(f"Usuário '{user.username}' logado com sucesso.")
-                 # Redireciona para a página que o usuário tentava acessar (next) ou para o dashboard
+                 logger.info(f"Usuário '{user.username}' (Email: {user.email}) logado com sucesso.")
                  next_page = request.args.get('next')
-                 # Segurança: Garante que next_page seja uma URL relativa para evitar Open Redirect
                  if next_page and not next_page.startswith('/'):
-                      next_page = None # Ignora URLs externas
+                      next_page = None
                  return redirect(next_page or url_for('main.dashboard'))
             else:
-                flash('Login inválido. Verifique seu nome de usuário e senha.', 'danger')
-                logger.warning(f"Tentativa de login falhou para usuário: {form.username.data}")
+                flash('Login inválido. Verifique seu e-mail e senha.', 'danger')
+                logger.warning(f"Tentativa de login falhou para email: {form.email.data}")
         except Exception as e:
-            logger.error(f"Erro durante o processo de login para {form.username.data}: {e}", exc_info=True)
+            logger.error(f"Erro durante o processo de login para {form.email.data}: {e}", exc_info=True)
             flash("Ocorreu um erro inesperado durante o login. Tente novamente.", "danger")
+            # Não precisa redirecionar aqui, apenas renderiza o template com o form e o title
 
+    # CORREÇÃO: Passar a variável 'title' para o template
     return render_template('auth/login.html', form=form, title="Login")
 
 
-@auth.route('/logout', methods=['POST']) # Aceita apenas POST
-@login_required # Garante que apenas usuários logados possam deslogar
+@auth.route('/logout', methods=['POST'])
+@login_required
 def logout():
     """Processa o logout do usuário."""
     try:
@@ -76,41 +75,12 @@ def logout():
     return redirect(url_for('auth.login'))
 
 
-# Rota de Registro - Mantida comentada, pois o formulário não está definido/importado
+# Rota de Registro - Mantida comentada
 """
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
-    # Impede acesso se já estiver logado
-    if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
-
-    # Precisaria definir RegistrationForm em app.forms.auth
-    # from app.forms.auth import RegistrationForm
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        try:
-            # Verifica se o auto-registro está habilitado (ex: config da app)
-            # if not current_app.config.get('ALLOW_SELF_REGISTRATION', False):
-            #     flash('O auto-registro não está habilitado.', 'warning')
-            #     return redirect(url_for('auth.login'))
-
-            user = User(
-                username=form.username.data,
-                email=form.email.data,
-                nome_completo=form.nome_completo.data, # Adicionado nome completo
-                # Outros campos podem ser definidos aqui ou deixados como padrão/null
-                ativo=True # Novos usuários registrados são ativos por padrão?
-            )
-            user.set_password(form.password.data)
-            db.session.add(user)
-            db.session.commit()
-            logger.info(f"Novo usuário '{user.username}' registrado com sucesso.")
-            flash('Sua conta foi criada com sucesso! Faça o login.', 'success')
-            return redirect(url_for('auth.login'))
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Erro durante o registro do usuário {form.username.data}: {e}", exc_info=True)
-            flash("Ocorreu um erro ao tentar criar sua conta. Tente novamente.", "danger")
-
-    return render_template('auth/register.html', title='Registrar', form=form)
+    # ... (código comentado como antes) ...
+    # Precisaria definir RegistrationForm e passar 'title'
+    # return render_template('auth/register.html', title='Registrar', form=form)
 """
+
