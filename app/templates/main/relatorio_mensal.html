@@ -158,17 +158,21 @@
 
                                         {# --- Lógica reestruturada para colspan e alinhamento --- #}
                                         {% if is_feriado %}
-                                            <td colspan="7" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td> {# Colspan 7 (Entrada -> Atividades) #}
+                                            {# Colspan 5 (Entrada -> Horas Trab) + 1 (Status) + 1 (Atividades) = 7 #}
+                                            <td colspan="5" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
                                             <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center">-</td> {# Ações #}
                                         {% elif is_fim_semana %}
-                                            <td colspan="7" class="text-center fst-italic">Fim de Semana</td> {# Colspan 7 #}
+                                            <td colspan="5" class="text-center fst-italic">Fim de Semana</td> {# Colspan 5 #}
                                             <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center">-</td> {# Ações #}
                                         {% elif registro %}
                                             {% if registro.afastamento %}
-                                                <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td> {# Colspan 7 #}
+                                                <td colspan="5" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td> {# Colspan 5 #}
                                                 <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
+                                                <td class="text-center">-</td> {# Atividades #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                     {# ... botões e modal de exclusão mantidos ... #}
                                                      <div class="btn-group btn-group-sm">
@@ -213,10 +217,11 @@
                                                 </td>
                                             {% endif %}
                                         {% else %} {# Dia útil sem registro #}
-                                            {# --- CORREÇÃO Colspan: 7 colunas (Entrada a Atividades) --- #}
-                                            <td colspan="7" class="text-center fst-italic">Sem Registro</td>
-                                            {# ------------------------------------------------------- #}
+                                            {# --- CORREÇÃO Colspan: 5 colunas (Entrada -> Horas Trab) --- #}
+                                            <td colspan="5" class="text-center fst-italic">Sem Registro</td>
+                                            {# --------------------------------------------------------- #}
                                             <td class="text-center"><span class="badge bg-danger">Pendente</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
