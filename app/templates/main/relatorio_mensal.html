@@ -46,13 +46,13 @@
                 <div class="col-md-6">
                     <strong>Saldo Acumulado no Mês:</strong>
                     <span class="badge bg-{{ 'success' if saldo_mes >= timedelta(0) else 'danger' }}">
-                        {{ format_timedelta(saldo_mes, mostrar_sinal=True) }}
+                        {{ formatar_timedelta(saldo_mes, mostrar_sinal=True) }}
                     </span>
                 </div>
                 <div class="col-md-6">
                     <strong>Saldo Total (Banco de Horas):</strong>
                      <span class="badge bg-{{ 'success' if saldo_banco_horas_total >= timedelta(0) else 'danger' }}">
-                        {{ format_timedelta(saldo_banco_horas_total, mostrar_sinal=True) }}
+                        {{ formatar_timedelta(saldo_banco_horas_total, mostrar_sinal=True) }}
                     </span>
                 </div>
             </div>
@@ -84,38 +84,32 @@
                     <td class="text-center align-middle">{{ dia.data.strftime('%d/%m') }}</td> {# 1 #}
                     <td class="text-center align-middle">{{ dia.dia_semana }}</td> {# 2 #}
 
-                    {# Lógica para exibir os pontos - assume no máximo 4 pontos por dia #}
+                    {# Lógica para exibir os pontos #}
                     {% set entrada1 = dia.pontos[0].hora.strftime('%H:%M') if dia.pontos and dia.pontos[0] else '-' %}
                     {% set saida_almoco = dia.pontos[1].hora.strftime('%H:%M') if dia.pontos|length > 1 and dia.pontos[1] else None %}
                     {% set retorno_almoco = dia.pontos[2].hora.strftime('%H:%M') if dia.pontos|length > 2 and dia.pontos[2] else None %}
-                    {# Ajuste: Saída final é o último ponto registrado no dia #}
                     {% set saida_final = dia.pontos[-1].hora.strftime('%H:%M') if dia.pontos and dia.pontos|length > 1 and dia.pontos[-1].tipo == 'Saída' else ('-' if entrada1 == '-' else '?') %}
-                    {# Se só tem entrada, saída final é '?' #}
                     {% if dia.pontos|length == 1 and dia.pontos[0].tipo == 'Entrada' %}
                         {% set saida_final = '?' %}
                     {% endif %}
 
-
                     {# Se não houver pontos registrados (ex: Falta) #}
                     {% if not dia.pontos and not dia.afastamento and not dia.atividade and not dia.e_feriado and not dia.e_fim_semana %}
-                        <td class="text-center align-middle">-</td> {# Entrada 1 #}
-                        {# CORREÇÃO Ponto 3: Colspan para dia sem registro #}
-                        {# Abrange Saída Alm, Ret Alm, Saída Fim, Hrs Trab, Saldo Dia (5 colunas) #}
-                        <td colspan="5" class="text-center text-muted fst-italic align-middle small">Dia útil sem registro</td>
-                        <td class="text-center align-middle">-</td> {# Saldo Dia #}
-                        <td class="align-middle small"><span class="badge bg-danger">Falta</span></td> {# Status #}
-                        <td class="text-center align-middle text-nowrap"> {# Ações #}
+                        <td class="text-center align-middle">-</td> {# Entrada 1 (Col 3) #}
+                        {# CORREÇÃO Ponto 3: colspan="6" para abranger colunas 3 a 8 #}
+                        <td colspan="6" class="text-center text-muted fst-italic align-middle small">Dia útil sem registro</td>
+                        <td class="align-middle small"><span class="badge bg-danger">Falta</span></td> {# Status (Col 9) #}
+                        <td class="text-center align-middle text-nowrap"> {# Ações (Col 10) #}
                              <a href="{{ url_for('main.registrar_multiplo_ponto', data=dia.data.isoformat()) }}" class="btn btn-sm btn-outline-secondary me-1" title="Registrar Dia">
                                 <i class="bi bi-plus-circle"></i>
                             </a>
                         </td>
-
                     {# Se houver pontos, afastamento ou atividade #}
                     {% else %}
                         <td class="text-center align-middle">{{ entrada1 }}</td> {# 3 #}
 
                         {# Correção Almoço (Ponto 1) #}
-                        {% if not saida_almoco and not retorno_almoco and dia.pontos|length <= 2 and entrada1 != '-' %} {# Só mostra se teve entrada #}
+                        {% if not saida_almoco and not retorno_almoco and dia.pontos|length <= 2 and entrada1 != '-' %}
                             <td colspan="2" class="text-center text-muted fst-italic align-middle small">Sem registro de almoço</td> {# 4 & 5 #}
                         {% else %}
                             <td class="text-center align-middle">{{ saida_almoco or '-' }}</td> {# 4 #}
@@ -127,16 +121,16 @@
                         {# Horas Trabalhadas e Saldo do Dia #}
                         <td class="text-center align-middle"> {# 7 #}
                             {% if dia.horas_trabalhadas != timedelta(0) or (not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade) %}
-                                {{ format_timedelta(dia.horas_trabalhadas) }}
+                                {{ formatar_timedelta(dia.horas_trabalhadas) }}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
                         <td class="text-center align-middle {% if dia.saldo_dia < timedelta(0) %}text-danger{% elif dia.saldo_dia > timedelta(0) %}text-success{% endif %}"> {# 8 #}
                              {% if not dia.e_fim_semana and not dia.e_feriado and not dia.afastamento and not dia.atividade %}
-                                {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
-                             {% elif dia.horas_trabalhadas > timedelta(0) %} {# Mostra horas extras em dias não úteis #}
-                                 {{ format_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
+                                {{ formatar_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
+                             {% elif dia.horas_trabalhadas > timedelta(0) %}
+                                 {{ formatar_timedelta(dia.saldo_dia, mostrar_sinal=True) }}
                              {% else %}
                                 -
                              {% endif %}
@@ -147,7 +141,6 @@
                             {% if dia.status %}
                                 <span class="badge bg-{{ 'secondary' if dia.e_fim_semana else 'info' if dia.e_feriado else 'warning' if dia.afastamento else 'primary' if dia.atividade else 'danger' if dia.status == 'Falta' else 'light text-dark' }}">{{ dia.status }}</span>
                             {% endif %}
-                            {# Exibe comentários/observações dos pontos, se houver #}
                             {% set obs_list = [] %}
                             {% for p in dia.pontos if p.observacao %}
                                  {% set _ = obs_list.append(p.observacao) %}
@@ -155,20 +148,19 @@
                             {% if obs_list %}
                                  <br><i class="bi bi-chat-left-text"></i> {{ obs_list | join('; ') }}
                             {% endif %}
-                             {% if dia.comentarios %} {# Comentários como Entrada/Saída sem par #}
+                             {% if dia.comentarios %}
                                  <br><span class="text-danger fst-italic">{{ dia.comentarios | join('; ') }}</span>
                             {% endif %}
                         </td>
 
-                        {# Ações (Ponto 2 - Alinhamento) #}
+                        {# Ações #}
                         <td class="text-center align-middle text-nowrap"> {# 10 #}
-                            {% if not dia.afastamento and not dia.atividade %} {# Não permite editar/excluir dias com afastamento/atividade #}
+                            {% if not dia.afastamento and not dia.atividade %}
                                 <a href="{{ url_for('main.registrar_multiplo_ponto', data=dia.data.isoformat()) }}" class="btn btn-sm btn-outline-primary me-1" title="Editar/Ver Dia">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
-                                {# Botão de exclusão (requer rota e confirmação) - Mantido comentado #}
-                                {% else %}
-                                <span class="text-muted small">N/A</span> {# Sem ações para dias com afastamento/atividade #}
+                            {% else %}
+                                <span class="text-muted small">N/A</span>
                             {% endif %}
                         </td>
                     {% endif %} {# Fim do if not dia.pontos #}
@@ -179,4 +171,3 @@
     </div>
 </div>
 {% endblock %}
-

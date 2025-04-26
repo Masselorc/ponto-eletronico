@@ -29,7 +29,6 @@ def time_check(form, field):
     """Validador para garantir que a hora esteja no formato HH:MM."""
     if field.data:
         try:
-            # Tenta converter para objeto time para validação implícita do formato
             if isinstance(field.data, time):
                  pass # Já é um objeto time
             else:
@@ -40,12 +39,11 @@ def time_check(form, field):
 class RegistroPontoForm(FlaskForm):
     """Formulário para registrar um único ponto (entrada ou saída)."""
     data = DateField('Data', validators=[DataRequired()], default=date.today)
-    # Hora opcional, se não preenchida, usa a hora atual no backend
     hora = TimeField('Hora (HH:MM)', validators=[Optional(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[DataRequired()])
-    observacao = TextAreaField('Observação', validators=[Optional(), Length(max=500)]) # Adicionado limite
-    # CORREÇÃO Ponto 6: Adicionar campo atividades (se desejado)
-    # atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=500)])
+    observacao = TextAreaField('Observação', validators=[Optional(), Length(max=500)])
+    # CORREÇÃO Ponto 6: Adicionado campo atividades
+    atividades = TextAreaField('Atividades Realizadas (Opcional)', validators=[Optional(), Length(max=500)])
     submit = SubmitField('Registrar Ponto')
 
 class DateForm(FlaskForm):
@@ -59,24 +57,22 @@ class EditarPontoForm(FlaskForm):
     hora = TimeField('Hora (HH:MM)', validators=[DataRequired(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[DataRequired()])
     observacao = TextAreaField('Observação', validators=[Optional(), Length(max=500)])
-    # CORREÇÃO Ponto 6: Adicionar campo atividades (se desejado)
-    # atividades = TextAreaField('Atividades Realizadas', validators=[Optional(), Length(max=500)])
+    # CORREÇÃO Ponto 6: Adicionado campo atividades
+    atividades = TextAreaField('Atividades Realizadas (Opcional)', validators=[Optional(), Length(max=500)])
     submit = SubmitField('Salvar Alterações')
 
 class PontoEntryForm(FlaskForm):
     """
     Sub-formulário para representar uma única entrada/saída de ponto.
     Usado dentro do MultiRegistroPontoForm.
-    Não tem CSRF próprio, pois é parte de um formulário maior.
     """
     hora = TimeField('Hora', validators=[Optional(), time_check], format='%H:%M')
     tipo = SelectField('Tipo', choices=[('Entrada', 'Entrada'), ('Saída', 'Saída')], validators=[Optional()])
-    observacao = StringField('Observação', validators=[Optional(), Length(max=200)]) # Limite menor para subform
+    observacao = StringField('Observação', validators=[Optional(), Length(max=200)])
 
 class MultiRegistroPontoForm(FlaskForm):
     """Formulário para registrar múltiplos pontos em um dia."""
     data = DateField('Data', validators=[DataRequired()], default=date.today)
-    # FieldList permite ter uma lista dinâmica de sub-formulários (PontoEntryForm)
     pontos = FieldList(FormField(PontoEntryForm), min_entries=1)
     submit = SubmitField('Salvar Registros do Dia')
 
@@ -86,7 +82,6 @@ class AfastamentoForm(FlaskForm):
     """Formulário para registrar um período de afastamento."""
     data_inicio = DateField('Data de Início', validators=[DataRequired()], default=date.today)
     data_fim = DateField('Data Final', validators=[DataRequired()], default=date.today)
-    # Usando validators.Length importado corretamente
     motivo = StringField('Motivo', validators=[DataRequired(), Length(min=3, max=100)])
     submit = SubmitField('Registrar Afastamento')
 
@@ -99,7 +94,6 @@ class AfastamentoForm(FlaskForm):
 class AtividadeForm(FlaskForm):
     """Formulário para registrar uma atividade externa ou home office."""
     data = DateField('Data', validators=[DataRequired()], default=date.today)
-    # Usando validators.Length importado corretamente
     descricao = TextAreaField('Descrição da Atividade', validators=[DataRequired(), Length(min=5, max=200)])
     submit = SubmitField('Registrar Atividade')
 
