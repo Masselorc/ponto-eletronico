@@ -1,98 +1,126 @@
-# -*- coding: utf-8 -*-
-"""
-Controlador para Autenticação e Gerenciamento de Contas de Usuário.
-
-Este módulo define as rotas para login, logout e registro de usuários.
-Utiliza Flask Blueprints e Flask-Login.
-"""
-
-import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
-# CORREÇÃO: Remover import não utilizado
-# from werkzeug.security import generate_password_hash
-
-# Importações locais
-from app import db
 from app.models.user import User
-# Importar apenas LoginForm (RegisterForm não é usado pois a rota está comentada)
-from app.forms.auth import LoginForm
+from app import db
+from app.forms.auth import LoginForm, RegisterForm
+import os
+from werkzeug.utils import secure_filename
+import uuid
+from datetime import datetime
 
-# Configuração do Blueprint
 auth = Blueprint('auth', __name__)
 
-logger = logging.getLogger(__name__)
+def save_picture(form_picture):
+    """Salva a imagem de perfil e retorna o caminho relativo."""
+    if not form_picture:
+        return None # Retorna None se nenhuma foto for enviada
 
-# --- Rotas de Autenticação ---
+    try:
+        random_hex = uuid.uuid4().hex
+        _, f_ext = os.path.splitext(form_picture.filename)
+        picture_filename = random_hex + f_ext.lower() # Garante extensão minúscula
+
+        # Define o caminho para salvar a imagem (usando instance_path é mais seguro)
+        # upload_folder = os.path.join(current_app.root_path, 'static/uploads/fotos') # Caminho antigo
+        upload_folder = os.path.join(current_app.instance_path, 'uploads/fotos') # Novo caminho seguro
+        os.makedirs(upload_folder, exist_ok=True) # Cria diretórios se não existirem
+
+        picture_path = os.path.join(upload_folder, picture_filename)
+        form_picture.save(picture_path)
+
+        # Retorna o caminho relativo a partir da pasta 'instance' para referência futura
+        # Nota: Servir arquivos de 'instance' requer configuração adicional no servidor web (Flask não faz isso por padrão)
+        # Alternativa: Salvar em 'static' mas garantir que nomes são únicos e seguros.
+        # Vamos manter em 'instance' por segurança, mas a exibição precisará de uma rota específica.
+        # Por ora, retornaremos um caminho que *não* será diretamente servível pelo Flask.
+        # A exibição precisará de uma rota como /user_photo/<filename>
+        # return 'instance/uploads/fotos/' + picture_filename # Caminho não servível diretamente
+
+        # --- Alternativa: Salvar em static (mais simples para exibir, requer cuidado com nomes) ---
+        static_upload_folder = os.path.join(current_app.static_folder, 'uploads/fotos')
+        os.makedirs(static_upload_folder, exist_ok=True)
+        static_picture_path = os.path.join(static_upload_folder, picture_filename)
+        form_picture.save(static_picture_path)
+        return 'uploads/fotos/' + picture_filename # Caminho relativo a 'static'
+        # ------------------------------------------------------------------------------------
+
+    except Exception as e:
+        current_app.logger.error(f"Erro ao salvar foto: {e}", exc_info=True)
+        return None # Retorna None em caso de erro
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
-    """Processa o login do usuário."""
-    # Se o usuário já está autenticado, redireciona para o dashboard
+    """Rota de login."""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
     form = LoginForm()
     if form.validate_on_submit():
-        try:
-            # Filtrar por email, conforme o campo do formulário
-            user = User.query.filter_by(email=form.email.data).first()
+        user = User.query.filter_by(email=form.email.data).first()
+        # Verifica se usuário existe E se a senha está correta E se o usuário está ativo
+        if user and user.check_password(form.password.data) and user.is_active:
+            login_user(user, remember=form.remember.data)
+            next_page = request.args.get('next')
+            # Redireciona para a página desejada ou dashboard
+            flash(f'Login bem-sucedido! Bem-vindo(a), {user.name}.', 'success')
+            return redirect(next_page or url_for('main.dashboard'))
+        elif user and not user.is_active:
+             flash('Sua conta está inativa. Entre em contato com o administrador.', 'warning')
+        else:
+            flash('Email ou senha inválidos. Por favor, tente novamente.', 'danger')
 
-            # Verifica se o usuário existe e a senha está correta
-            if user and user.check_password(form.password.data):
-                 # Verifica se o usuário está ativo
-                 if not user.ativo:
-                      flash('Sua conta está desativada. Entre em contato com o administrador.', 'warning')
-                      logger.warning(f"Tentativa de login falhou para usuário inativo: {form.email.data}")
-                      return render_template('auth/login.html', form=form, title="Login") # Renderiza novamente a página de login
-
-                 # CORREÇÃO: Usar form.remember.data (o campo no form é 'remember')
-                 login_user(user, remember=form.remember.data)
-                 # Usa email no log pois username pode não ser único ou pode não existir dependendo da opção
-                 logger.info(f"Usuário (Email: {user.email}) logado com sucesso.")
-
-                 # Redireciona para a página 'next' se existir, senão para o dashboard
-                 next_page = request.args.get('next')
-                 # Validação básica para evitar redirecionamento aberto
-                 if next_page and not next_page.startswith('/'):
-                      next_page = None # Ignora se não for um caminho relativo
-                 return redirect(next_page or url_for('main.dashboard'))
-            else:
-                # Mensagem de erro genérica para não dar dicas sobre qual campo está errado
-                flash('Login inválido. Verifique seu e-mail e senha.', 'danger')
-                logger.warning(f"Tentativa de login falhou para email: {form.email.data}")
-        except Exception as e:
-            logger.error(f"Erro durante o processo de login para {form.email.data}: {e}", exc_info=True)
-            flash("Ocorreu um erro inesperado durante o login. Tente novamente.", "danger")
-            # Não precisa redirecionar aqui, apenas renderiza o template com o form e o title
-
-    # Renderiza o template de login (se GET ou se a validação falhar)
     return render_template('auth/login.html', form=form, title="Login")
 
-
-# Rota de logout já estava correta (aceita POST e requer login)
+# --- CORREÇÃO: Alterado para aceitar apenas POST ---
 @auth.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    """Processa o logout do usuário."""
-    try:
-        # Usa email no log para consistência
-        logger.info(f"Usuário (Email: {current_user.email}) deslogado.")
-        logout_user()
-        flash('Você foi desconectado com sucesso.', 'success')
-    except Exception as e:
-        # Tenta obter o email, fallback para ID se não disponível
-        user_identifier = getattr(current_user, 'email', f"ID:{getattr(current_user, 'id', 'N/A')}")
-        logger.error(f"Erro durante o logout do usuário {user_identifier}: {e}", exc_info=True)
-        flash("Ocorreu um erro ao tentar desconectar.", "danger")
+    """Rota de logout (agora apenas POST)."""
+    logout_user()
+    flash('Você saiu do sistema com sucesso.', 'info')
     return redirect(url_for('auth.login'))
+# --------------------------------------------------
 
-
-# Rota de Registro - Mantida comentada conforme o original
-"""
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
-    # ... (código comentado como antes) ...
-    # Precisaria definir RegistrationForm e passar 'title'
-    # return render_template('auth/register.html', title='Registrar', form=form)
-"""
+    """Rota de cadastro de novos usuários."""
+    # Redireciona se já estiver logado
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+
+    form = RegisterForm()
+    if form.validate_on_submit():
+        try:
+            # Tenta salvar a foto
+            foto_rel_path = save_picture(form.foto.data)
+            if foto_rel_path is None and form.foto.data: # Verifica se houve erro ao salvar
+                 flash('Erro ao salvar a foto. Tente novamente.', 'danger')
+                 return render_template('auth/register.html', form=form, title="Cadastro")
+
+            # Cria o novo usuário
+            new_user = User(
+                name=form.name.data,
+                email=form.email.data,
+                matricula=form.matricula.data,
+                cargo=form.cargo.data,
+                uf=form.uf.data,
+                telefone=form.telefone.data,
+                vinculo=form.vinculo.data,
+                foto_path=foto_rel_path, # Armazena o caminho relativo
+                is_admin=False, # Novos usuários nunca são admin por padrão
+                is_active_db=True # Novos usuários são ativos por padrão
+            )
+            new_user.set_password(form.password.data)
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            flash('Cadastro realizado com sucesso! Agora você pode fazer login.', 'success')
+            return redirect(url_for('auth.login'))
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro durante o cadastro do usuário {form.email.data}: {e}", exc_info=True)
+            flash('Ocorreu um erro durante o cadastro. Tente novamente.', 'danger')
+
+    return render_template('auth/register.html', form=form, title="Cadastro")

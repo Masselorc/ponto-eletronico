@@ -1,91 +1,44 @@
-# -*- coding: utf-8 -*-
-"""
-Modelos SQLAlchemy para a entidade Ponto e relacionadas.
-
-Este módulo define as classes que representam as tabelas no banco de dados
-relacionadas aos registros de ponto, afastamentos e atividades dos usuários.
-
-Classes:
-    - Ponto: Representa um registro de ponto (entrada ou saída).
-    - Afastamento: Representa um período de afastamento (férias, licença).
-    - Atividade: Representa um dia de atividade externa ou home office.
-"""
-
-from datetime import datetime
 from app import db
-from sqlalchemy.orm import relationship # Importar relationship
-
-# CORREÇÃO: Importar User explicitamente ANTES das classes dependentes
-# Isso ajuda SQLAlchemy a resolver a referência da ForeignKey.
-try:
-    from app.models.user import User
-except ImportError:
-    # Fallback ou log se necessário, mas idealmente User deve estar disponível
-    User = None # Ou levante um erro mais informativo
-    print("AVISO: Não foi possível importar o modelo User em app.models.ponto")
-
+from datetime import datetime, date, time
 
 class Ponto(db.Model):
     """Modelo para os registros de ponto."""
-    __tablename__ = 'ponto' # Nome explícito da tabela
+    __tablename__ = 'pontos'
 
     id = db.Column(db.Integer, primary_key=True)
-    # Garante que 'user.id' corresponda à tabela/coluna de User
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    data = db.Column(db.Date, nullable=False, index=True) # Adicionado índice para otimizar buscas por data
-    hora = db.Column(db.Time, nullable=False)
-    tipo = db.Column(db.String(10), nullable=False)  # 'Entrada' ou 'Saída'
-    observacao = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    data = db.Column(db.Date, nullable=False, index=True)
+    entrada = db.Column(db.Time, nullable=True)
+    saida_almoco = db.Column(db.Time, nullable=True)
+    retorno_almoco = db.Column(db.Time, nullable=True)
+    saida = db.Column(db.Time, nullable=True)
+    horas_trabalhadas = db.Column(db.Float, nullable=True) # Armazena como float (ex: 8.5 para 8h30m)
+    observacoes = db.Column(db.Text, nullable=True)
+    afastamento = db.Column(db.Boolean, default=False, nullable=False)
+    tipo_afastamento = db.Column(db.String(100), nullable=True)
+    # --- NOVO CAMPO ---
+    resultados_produtos = db.Column(db.Text, nullable=True) # Campo para Resultados/Produtos Gerados
+    # ------------------
 
-    # Relacionamento com o usuário (opcional, mas útil)
-    # O backref 'pontos' permite acessar os pontos a partir de um objeto User
-    # Usando string "User" para evitar potencial import circular, mas a importação acima é preferível
-    user = relationship("User", backref=db.backref('pontos', lazy='dynamic')) # Usar lazy='dynamic' para coleções grandes
+    # Relacionamento com Atividades (um Ponto pode ter várias Atividades)
+    # cascade="all, delete-orphan" garante que as atividades sejam excluídas se o ponto for excluído
+    atividades = db.relationship('Atividade', backref='ponto', lazy=True, cascade="all, delete-orphan")
 
-    def __repr__(self):
-        # Usar user.username se o relacionamento estiver ativo e carregado
-        # Adiciona verificação se self.user existe (pode não estar carregado)
-        user_info = self.user.username if self.user else f"UserID:{self.user_id}"
-        return f"<Ponto {user_info} {self.data.strftime('%Y-%m-%d')} {self.hora.strftime('%H:%M')} ({self.tipo})>"
-
-class Afastamento(db.Model):
-    """Modelo para os registros de afastamento (férias, licenças, etc.)."""
-    __tablename__ = 'afastamento' # Nome explícito da tabela
-
-    id = db.Column(db.Integer, primary_key=True)
-    # Garante que 'user.id' corresponda à tabela/coluna de User
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    data_inicio = db.Column(db.Date, nullable=False, index=True) # Índice
-    data_fim = db.Column(db.Date, nullable=False, index=True) # Índice
-    motivo = db.Column(db.String(100), nullable=False)
-    timestamp_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    # Relacionamento com o usuário
-    user = relationship("User", backref=db.backref('afastamentos', lazy='dynamic'))
+    # Índices compostos podem ser úteis para otimizar buscas por usuário e data
+    __table_args__ = (db.Index('ix_ponto_user_data', 'user_id', 'data'), )
 
     def __repr__(self):
-        user_info = self.user.username if self.user else f"UserID:{self.user_id}"
-        return f"<Afastamento {user_info} {self.data_inicio.strftime('%d/%m/%Y')}-{self.data_fim.strftime('%d/%m/%Y')} ({self.motivo})>"
+        return f'<Ponto {self.id} - User {self.user_id} - Data {self.data}>'
 
 class Atividade(db.Model):
-    """Modelo para os registros de atividade externa ou home office."""
-    __tablename__ = 'atividade' # Nome explícito da tabela
+    """Modelo para as atividades diárias vinculadas a um registro de ponto."""
+    __tablename__ = 'atividades'
 
     id = db.Column(db.Integer, primary_key=True)
-    # Garante que 'user.id' corresponda à tabela/coluna de User
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    data = db.Column(db.Date, nullable=False, index=True) # Índice
+    ponto_id = db.Column(db.Integer, db.ForeignKey('pontos.id', ondelete='CASCADE'), nullable=False, index=True) # ondelete='CASCADE'
     descricao = db.Column(db.Text, nullable=False)
-    timestamp_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-    # Relacionamento com o usuário
-    user = relationship("User", backref=db.backref('atividades', lazy='dynamic'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow) # Adicionado para rastreamento
 
     def __repr__(self):
-        user_info = self.user.username if self.user else f"UserID:{self.user_id}"
-        return f"<Atividade {user_info} {self.data.strftime('%d/%m/%Y')} ({self.descricao[:20]}...)>"
+        return f'<Atividade {self.id} para Ponto {self.ponto_id}>'
 
-# Nota: A importação explícita de User no topo deste arquivo é a principal
-# tentativa de corrigir o NoReferencedTableError.
-# Se estiver usando Flask-Migrate, lembre-se das migrações.

@@ -1,240 +1,151 @@
-# -*- coding: utf-8 -*-
-"""
-Inicialização da Aplicação Flask.
-
-Este módulo configura e inicializa a aplicação Flask, incluindo:
-- Configuração da aplicação (chave secreta, URI do banco de dados).
-- Inicialização de extensões (SQLAlchemy, LoginManager, CSRFProtect).
-- Registro de Blueprints (main, auth, admin).
-- Criação das tabelas do banco de dados (se necessário).
-- Tratamento de ambiente (desenvolvimento vs. produção/Render).
-"""
-
-import logging
-import os
-import sys
-from datetime import datetime
-from logging.handlers import RotatingFileHandler
-
-from flask import Flask, flash, redirect, url_for
-from flask_login import LoginManager, current_user
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-# CORREÇÃO: Importar CSRFProtect
+from flask_login import LoginManager
+# --- CORREÇÃO CSRF: Importar CSRFProtect ---
 from flask_wtf.csrf import CSRFProtect
+# ------------------------------------------
+import os
+import sqlite3
+from dotenv import load_dotenv
+import logging
+import shutil
+from datetime import datetime
+import calendar # Importar calendar aqui se migrate_db for movida para cá
 
-# Configuração do logging
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
-logger = logging.getLogger(__name__)
+# Carrega variáveis de ambiente do arquivo .env
+load_dotenv()
 
-# Inicialização das extensões (sem app ainda)
+# Inicializa extensões
 db = SQLAlchemy()
 login_manager = LoginManager()
-# CORREÇÃO: Inicializar CSRFProtect
+# --- CORREÇÃO CSRF: Criar instância do CSRFProtect ---
 csrf = CSRFProtect()
+# ---------------------------------------------------
 
-# Define a view de login (para onde @login_required redireciona)
-login_manager.login_view = 'auth.login'
-# Mensagem exibida quando o usuário tenta acessar uma página protegida sem login
-login_manager.login_message = 'Por favor, faça login para acessar esta página.'
-login_manager.login_message_category = 'info' # Categoria da mensagem flash
+# Nota: A função migrate_db foi movida para init_db_production.py
+# Se for necessário executá-la também na inicialização normal da app (não apenas no build),
+# ela precisaria ser definida aqui ou importada. Por agora, vamos assumir
+# que a migração durante o build é suficiente.
 
-# --- Função Factory da Aplicação ---
-def create_app(config_class=None):
-    """
-    Cria e configura uma instância da aplicação Flask.
+# def migrate_db(app):
+#    """Adiciona as colunas necessárias às tabelas se não existirem"""
+#    # ... (código da função migrate_db, adaptado se necessário) ...
+#    pass
 
-    Utiliza o padrão Application Factory.
 
-    Args:
-        config_class: Classe de configuração a ser usada. Se None, tenta detectar
-                      o ambiente (Render vs. local).
+def ensure_instance_directory(app):
+    """Garante que o diretório instance exista e tenha as permissões corretas"""
+    try:
+        instance_path = app.instance_path
+        app.logger.info(f"Verificando diretório instance: {instance_path}")
+        if not os.path.exists(instance_path):
+            os.makedirs(instance_path, exist_ok=True)
+            app.logger.info(f"Diretório instance criado: {instance_path}")
+        try:
+             os.chmod(instance_path, 0o777)
+             app.logger.info(f"Permissões do diretório instance ajustadas para 777")
+        except OSError as e:
+             app.logger.warning(f"Não foi possível alterar permissões do diretório instance: {e}")
 
-    Returns:
-        Instância da aplicação Flask configurada.
-    """
-    app = Flask(__name__, instance_relative_config=True) # instance_relative_config=True é boa prática
+        render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', app.instance_path)
+        if os.environ.get('RENDER'):
+            app.logger.info(f"Ambiente Render detectado. Verificando disco persistente em: {render_disk_mount_path}")
+            if not os.path.exists(render_disk_mount_path):
+                os.makedirs(render_disk_mount_path, exist_ok=True)
+                try:
+                    os.chmod(render_disk_mount_path, 0o777)
+                    app.logger.info(f"Diretório no disco persistente criado: {render_disk_mount_path}")
+                except OSError as e:
+                    app.logger.warning(f"Não foi possível alterar permissões do diretório no disco persistente: {e}")
+    except Exception as e:
+        app.logger.error(f"Erro ao verificar/criar diretório instance: {e}", exc_info=True)
 
-    # --- Configuração ---
+
+def create_app():
+    # Cria e configura a aplicação
+    app = Flask(__name__, instance_relative_config=True)
     # Define a chave secreta - ESSENCIAL para CSRF e sessões
-    # Use uma variável de ambiente em produção! Ex: os.environ.get('SECRET_KEY')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uma-chave-secreta-muito-segura-padrao-para-dev')
-    # Adicionar configuração para WTForms CSRF (geralmente True por padrão, mas explícito é bom)
+    # Render deve injetar uma chave segura via variável de ambiente
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'uma-chave-secreta-muito-forte-e-dificil-de-adivinhar')
+    # Adiciona configuração para habilitar CSRF (já é True por padrão, mas explícito é bom)
     app.config['WTF_CSRF_ENABLED'] = True
 
-    # Configuração do Banco de Dados (SQLite por padrão, detecta Render)
-    is_render_env = 'RENDER' in os.environ
+    # Configuração de logging
+    log_level = logging.DEBUG if os.environ.get('DEBUG', 'False').lower() == 'true' else logging.INFO
+    app.logger.setLevel(log_level)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
+    handler.setFormatter(formatter)
+    if not app.logger.handlers:
+        app.logger.addHandler(handler)
+
+    # Configuração do banco de dados
+    render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', app.instance_path)
     db_name = 'ponto_eletronico.db'
-    # Caminho da pasta 'instance' relativo à raiz da aplicação
-    # instance_path_default = app.instance_path # Flask define isso automaticamente com instance_relative_config=True
-    instance_path_default = os.path.join(os.path.dirname(os.path.dirname(app.root_path)), 'instance') # Garante ser na raiz do projeto
-
-
-    if is_render_env:
-        logger.info("Ambiente Render detectado.")
-        # Em Render, usa o disco persistente montado em /data
-        render_disk_path = '/data' # Caminho padrão do disco persistente no Render
-        instance_path = render_disk_path
-        logger.info(f"Tentando usar disco persistente em: {instance_path}")
-        # Aviso se o disco não existir (pode indicar problema de configuração no Render)
-        if not os.path.exists(render_disk_path) or not os.access(render_disk_path, os.W_OK):
-             logger.warning(f"Disco persistente não encontrado ou não gravável em {render_disk_path}. Verifique a configuração do serviço no Render.")
-             # Fallback para diretório local (DADOS SERÃO PERDIDOS)
-             instance_path = instance_path_default
-             logger.warning(f"Usando diretório local para instance: {instance_path}. Dados serão perdidos entre deploys.")
-        db_path = os.path.join(instance_path, db_name)
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-        logger.info(f"Usando banco de dados em: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    default_db_path = os.path.join(render_disk_mount_path, db_name)
+    if os.environ.get('RENDER'):
+        db_uri = f'sqlite:///{default_db_path}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        app.logger.info(f"Ambiente Render detectado. Usando banco de dados em: {db_uri}")
     else:
-        # Ambiente local
-        logger.info("Ambiente local detectado.")
-        instance_path = instance_path_default
-        db_path = os.path.join(instance_path, db_name)
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-        logger.info(f"Usando banco de dados em: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        dev_db_path = os.path.join(app.instance_path, db_name)
+        db_uri = f'sqlite:///{dev_db_path}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        app.logger.info(f"Ambiente de desenvolvimento. Usando banco de dados em: {db_uri}")
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Define explicitamente a pasta 'instance' para o Flask (redundante com instance_relative_config=True, mas seguro)
-    app.instance_path = instance_path
-    logger.info(f"Flask instance_path definido como: {app.instance_path}")
-
-
-    # Garante que a pasta 'instance' exista
-    try:
-        logger.info(f"Verificando diretório instance: {instance_path}")
-        os.makedirs(instance_path, exist_ok=True)
-        # Tenta ajustar permissões (pode falhar dependendo do ambiente)
-        if sys.platform != 'win32': # chmod não existe no Windows
-            try:
-                os.chmod(instance_path, 0o755) # Permissão padrão mais segura
-                logger.info(f"Permissões do diretório instance ajustadas para 755")
-            except OSError as e:
-                 logger.warning(f"Não foi possível ajustar permissões para {instance_path}: {e}")
-        else:
-             logger.info("Ajuste de permissões não aplicável no Windows.")
-
-    except OSError as e:
-        logger.error(f"Erro ao criar ou verificar o diretório instance '{instance_path}': {e}", exc_info=True)
-        # Decide se quer parar a aplicação ou continuar (pode falhar depois)
-        # raise # Descomente para parar a aplicação se a pasta não puder ser criada
-
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # Desativa rastreamento de modificações do SQLAlchemy
-
-    # --- Inicialização das Extensões com a App ---
+    # Inicializa extensões
     db.init_app(app)
     login_manager.init_app(app)
-    # CORREÇÃO: Inicializar CSRFProtect com a app
+    # --- CORREÇÃO CSRF: Inicializar CSRFProtect ---
     csrf.init_app(app)
+    # ---------------------------------------------
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = "Por favor, faça login para acessar esta página."
+    login_manager.login_message_category = "warning"
 
-    # --- Contexto da Aplicação ---
     with app.app_context():
-        # Importar todos os modelos ANTES de create_all()
-        logger.info("Importando modelos...")
+        # Garante diretório instance
+        ensure_instance_directory(app)
         try:
-            from app.models.user import User
-            from app.models.ponto import Ponto, Afastamento, Atividade
-            from app.models.feriado import Feriado
-            logger.info("Modelos importados com sucesso.")
-        except ImportError as e:
-            logger.error(f"Erro ao importar modelos: {e}", exc_info=True)
+            # Cria tabelas se não existirem
+            # Nota: A migração de colunas agora está no script init_db_production.py
+            # Se precisar que a migração ocorra a cada inicialização,
+            # a lógica de migrate_db() precisaria estar aqui.
+            db.create_all()
+            app.logger.info("db.create_all() executado (tabelas criadas se não existiam).")
+            # migrate_db(app) # Descomente se a migração for necessária em cada inicialização
+        except Exception as e:
+            app.logger.error(f"Erro durante a inicialização do banco de dados (create_all): {e}", exc_info=True)
             raise
 
-        # Cria as tabelas do banco de dados, se não existirem
-        logger.info("Executando db.create_all()...")
-        try:
-            db.create_all()
-            logger.info("db.create_all() executado (tabelas criadas se não existiam).")
-        except Exception as e:
-            logger.error(f"Erro durante a inicialização do banco de dados (create_all): {e}", exc_info=True)
-            raise e
+    # Processador de contexto para datetime
+    @app.context_processor
+    def inject_now():
+        return {'datetime': datetime}
 
-        # --- Registro dos Blueprints ---
-        logger.info("Registrando blueprints...")
-        try:
-            from app.controllers.main import main as main_blueprint
-            app.register_blueprint(main_blueprint)
+    # Importar e registrar blueprints
+    from app.controllers.auth import auth as auth_blueprint
+    app.register_blueprint(auth_blueprint)
+    from app.controllers.main import main as main_blueprint
+    app.register_blueprint(main_blueprint)
+    from app.controllers.admin import admin as admin_blueprint
+    app.register_blueprint(admin_blueprint)
 
-            from app.controllers.auth import auth as auth_blueprint
-            app.register_blueprint(auth_blueprint, url_prefix='/auth')
-
-            from app.controllers.admin import admin as admin_blueprint
-            app.register_blueprint(admin_blueprint, url_prefix='/admin')
-            logger.info("Blueprints registrados com sucesso.")
-        except Exception as e:
-             logger.error(f"Erro ao registrar blueprints: {e}", exc_info=True)
-             raise
-
-        # --- Context Processors ---
-        # Disponibiliza 'datetime' para todos os templates
-        @app.context_processor
-        def inject_datetime():
-            return {'datetime': datetime}
-
-        # A inicialização do CSRFProtect geralmente já disponibiliza csrf_token()
-        # Se ainda não funcionar, podemos injetá-lo explicitamente:
-        # @app.context_processor
-        # def inject_csrf():
-        #     from flask_wtf.csrf import generate_csrf
-        #     return {'csrf_token': generate_csrf}
-
-        # --- Configuração de Logging Adicional (Opcional) ---
-        if not app.debug and not app.testing:
-            log_dir = os.path.join(app.instance_path, 'logs') # Salva logs na pasta instance
-            if not os.path.exists(log_dir):
-                try: # Adiciona try-except para criação de pasta de log
-                    os.makedirs(log_dir, exist_ok=True)
-                except OSError as e:
-                     logger.error(f"Não foi possível criar diretório de log {log_dir}: {e}")
-                     log_dir = None # Impede tentativa de criar handler se pasta falhou
-
-            if log_dir: # Só configura handler se a pasta existir/foi criada
-                log_file = os.path.join(log_dir, 'ponto_eletronico.log')
-                try:
-                    file_handler = RotatingFileHandler(log_file, maxBytes=10240, backupCount=10)
-                    file_handler.setFormatter(logging.Formatter(
-                        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-                    file_handler.setLevel(logging.INFO)
-                    # Remove handlers padrão se existirem para evitar duplicação
-                    for handler in app.logger.handlers[:]:
-                        app.logger.removeHandler(handler)
-                    app.logger.addHandler(file_handler)
-                    app.logger.setLevel(logging.INFO)
-                    app.logger.info('Aplicação Ponto Eletrônico iniciada (Logging para arquivo configurado)')
-                except Exception as e:
-                     app.logger.error(f"Falha ao configurar logging para arquivo em {log_file}: {e}")
-            else:
-                app.logger.warning("Logging para arquivo desabilitado devido a erro na criação do diretório de logs.")
-
-        else:
-             app.logger.info('Aplicação Ponto Eletrônico iniciada (Modo Debug/Testing)')
-
-
-        logger.info("Criação da aplicação Flask concluída.")
-        return app
-
-# --- Carregador de Usuário para Flask-Login ---
-@login_manager.user_loader
-def load_user(user_id):
-    """
-    Função callback usada pelo Flask-Login para carregar um usuário
-    a partir do ID armazenado na sessão.
-    """
-    # Importa User aqui para evitar dependência circular na inicialização
+    # Importar modelos
     from app.models.user import User
-    try:
-        # O user_id vem como string da sessão, converte para int
-        return User.query.get(int(user_id))
-    except Exception as e:
-        logger.error(f"Erro ao carregar usuário {user_id}: {e}")
-        return None
 
-# --- Verificação de Permissão de Administrador ---
-# Decorator personalizado para verificar se o usuário é administrador
-from functools import wraps
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash('Acesso restrito a administradores.', 'warning')
-            # Redireciona para o dashboard ou outra página apropriada
-            return redirect(url_for('main.dashboard'))
-        return f(*args, **kwargs)
-    return decorated_function
+    # Configura o user_loader
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return User.query.get(int(user_id))
+        except (ValueError, TypeError) as e:
+             app.logger.error(f"Erro ao carregar usuário - ID inválido '{user_id}': {e}")
+             return None
+        except Exception as e:
+            app.logger.error(f"Erro inesperado ao carregar usuário {user_id}: {e}", exc_info=True)
+            return None
+
+    app.logger.info("Aplicação criada e configurada com sucesso.")
+    return app

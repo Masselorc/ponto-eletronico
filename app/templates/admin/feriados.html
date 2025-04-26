@@ -1,84 +1,78 @@
 {% extends 'base.html' %}
 
+{% block title %}Feriados{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Gerenciar Feriados</h1>
-        <a href="{{ url_for('admin.novo_feriado') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Novo Feriado
-        </a>
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+            <h1>Gerenciamento de Feriados</h1>
+            <p class="lead text-muted">Cadastre e gerencie os feriados do calendário</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+             {# Formulário para seleção do ano #}
+            <form method="GET" action="{{ url_for('admin.listar_feriados') }}" class="d-inline-block me-2 mb-2 mb-md-0">
+                <div class="input-group input-group-sm">
+                    <label class="input-group-text" for="anoSelect">Ano:</label>
+                    <select name="ano" id="anoSelect" class="form-select" onchange="this.form.submit()">
+                        {# Garante que anos_disponiveis existe antes de iterar #}
+                        {% for ano_opt in anos_disponiveis or range(ano_selecionado-5, ano_selecionado+6) %}
+                            <option value="{{ ano_opt }}" {% if ano_opt == ano_selecionado %}selected{% endif %}>{{ ano_opt }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+            <a href="{{ url_for('admin.novo_feriado') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-calendar-plus me-1"></i>Novo Feriado
+            </a>
+        </div>
     </div>
 
-    {% if feriados %}
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead class="table-dark">
-                <tr>
-                    <th scope="col">Data</th>
-                    <th scope="col">Descrição</th>
-                    <th scope="col" class="text-end">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for feriado in feriados %}
-                <tr>
-                    <td>{{ feriado.data.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ feriado.descricao }}</td>
-                    <td class="text-end text-nowrap">
-                        <a href="{{ url_for('admin.editar_feriado', feriado_id=feriado.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Editar">
-                            <i class="bi bi-pencil-fill"></i>
-                        </a>
-                        {# Formulário para exclusão com método POST e CSRF #}
-                        <form action="{{ url_for('admin.excluir_feriado', feriado_id=feriado.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir este feriado?');">
-                            {# CORREÇÃO Item 4: Usar form.hidden_tag() ou input hidden para CSRF #}
-                            {# Se um form WTForms fosse passado para cá, usaríamos form.hidden_tag() #}
-                            {# Como não temos form aqui, usamos o input hidden manualmente #}
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                <i class="bi bi-trash-fill"></i>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>Lista de Feriados de {{ ano_selecionado }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 25%;">Data</th>
+                            <th>Descrição</th>
+                            <th style="width: 15%;" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for feriado in feriados %}
+                        <tr>
+                            <td>{{ feriado.data.strftime('%d/%m/%Y') }} ({{ feriado.data.strftime('%A') | replace('Monday', 'Segunda') | replace('Tuesday', 'Terça') | replace('Wednesday', 'Quarta') | replace('Thursday', 'Quinta') | replace('Friday', 'Sexta') | replace('Saturday', 'Sábado') | replace('Sunday', 'Domingo') }})</td>
+                            <td>{{ feriado.descricao }}</td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin.editar_feriado', feriado_id=feriado.id) }}" class="btn btn-outline-primary" title="Editar Feriado">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {# --- CORREÇÃO: Usar delete_form.hidden_tag() --- #}
+                                    <form method="POST" action="{{ url_for('admin.excluir_feriado', feriado_id=feriado.id) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir o feriado \'{{ feriado.descricao|escape }}\' de {{ feriado.data.strftime('%d/%m/%Y') }}?');">
+                                        {# Renderiza o campo CSRF oculto do formulário passado pelo controller #}
+                                        {{ delete_form.hidden_tag() }}
+                                        <button type="submit" class="btn btn-outline-danger" title="Excluir Feriado">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                     {# ----------------------------------------------- #}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted p-4">Nenhum feriado cadastrado para {{ ano_selecionado }}.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-
-    {% if pagination %}
-    <nav aria-label="Paginação de feriados">
-        <ul class="pagination justify-content-center">
-            {# Link para a página anterior #}
-            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('admin.listar_feriados', page=pagination.prev_num) if pagination.has_prev else '#' }}" aria-label="Anterior">
-                    <span aria-hidden="true">&laquo;</span>
-                </a>
-            </li>
-            {# Links para as páginas individuais #}
-            {% for page_num in pagination.iter_pages() %}
-                {% if page_num %}
-                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                        <a class="page-link" href="{{ url_for('admin.listar_feriados', page=page_num) }}">{{ page_num }}</a>
-                    </li>
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                {% endif %}
-            {% endfor %}
-            {# Link para a próxima página #}
-            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('admin.listar_feriados', page=pagination.next_num) if pagination.has_next else '#' }}" aria-label="Próxima">
-                    <span aria-hidden="true">&raquo;</span>
-                </a>
-            </li>
-        </ul>
-    </nav>
-    {% endif %}
-
-    {% else %}
-    <div class="alert alert-info" role="alert">
-        Nenhum feriado cadastrado ainda.
-    </div>
-    {% endif %}
 </div>
 {% endblock %}
-
