@@ -170,8 +170,8 @@
                                                 <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td> {# Colspan 7 #}
                                                 <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
-                                                    {# ... botões e modal de exclusão ... #}
-                                                    <div class="btn-group btn-group-sm">
+                                                    {# ... botões e modal de exclusão mantidos ... #}
+                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
@@ -203,12 +203,12 @@
                                                     {% if atividades %}<i class="fas fa-list-check text-success" title="Ver Atividades"></i>{% else %}-{% endif %}
                                                 </td>
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
-                                                    <div class="btn-group btn-group-sm">
+                                                    {# ... botões e modal de exclusão mantidos ... #}
+                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
                                                     </div>
-                                                    {# ... (modal mantido) ... #}
                                                     <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
                                                 </td>
                                             {% endif %}
