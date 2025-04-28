@@ -9,31 +9,34 @@ import logging
 import shutil
 from datetime import datetime
 import calendar
+# --- Adicionar Flask-Migrate ---
+from flask_migrate import Migrate
+# -----------------------------
 
-# Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
 
-# Definir extensões globalmente, mas sem inicializar
 db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
+# --- Inicializar Migrate ---
+migrate = Migrate()
+# -------------------------
 
 def ensure_instance_directory(app):
     """Garante que o diretório instance exista."""
-    # (Código da função inalterado)
     try:
         instance_path = app.instance_path
-        # app.logger.info(f"Verificando diretório instance: {instance_path}") # Removido log excessivo
         if not os.path.exists(instance_path):
             os.makedirs(instance_path, exist_ok=True)
             app.logger.info(f"Diretório instance criado: {instance_path}")
 
-        render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', app.instance_path)
-        if os.environ.get('RENDER'):
-            # app.logger.info(f"Ambiente Render detectado. Verificando disco persistente em: {render_disk_mount_path}") # Removido log excessivo
-            if not os.path.exists(render_disk_mount_path):
-                os.makedirs(render_disk_mount_path, exist_ok=True)
-                app.logger.info(f"Diretório no disco persistente criado: {render_disk_mount_path}")
+        # --- Garante que o mountPath do disco exista ---
+        render_disk_mount_path = app.config.get('RENDER_DISK_MOUNT_PATH', instance_path) # Pega do config
+        if not os.path.exists(render_disk_mount_path):
+             os.makedirs(render_disk_mount_path, exist_ok=True)
+             app.logger.info(f"Diretório no disco persistente criado: {render_disk_mount_path}")
+        # ---------------------------------------------
+
     except Exception as e:
         app.logger.error(f"Erro ao verificar/criar diretório instance: {e}", exc_info=True)
 
@@ -44,8 +47,8 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'uma-chave-secreta-muito-forte-e-dificil-de-adivinhar-padrao')
     app.config['WTF_CSRF_ENABLED'] = True
 
-    # Configuração de logging
-    log_level = logging.INFO # Usar INFO por padrão em produção
+    # Configuração de logging (mantida)
+    log_level = logging.INFO
     if os.environ.get('FLASK_DEBUG') == '1':
         log_level = logging.DEBUG
     for handler in app.logger.handlers[:]: app.logger.removeHandler(handler)
@@ -56,23 +59,29 @@ def create_app():
     app.logger.setLevel(log_level)
     if log_level != logging.DEBUG: logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-    # Configuração do banco de dados
-    render_disk_mount_path = os.environ.get('RENDER_DISK_MOUNT_PATH', app.instance_path)
+    # --- Configuração do Banco de Dados (MODIFICADA) ---
+    # Define o caminho absoluto para o disco persistente
+    render_disk_mount_path = '/opt/render/project/src/instance' # Caminho fixo do render.yaml
+    app.config['RENDER_DISK_MOUNT_PATH'] = render_disk_mount_path # Guarda para ensure_instance_directory
     db_name = 'ponto_eletronico.db'
-    default_db_path = os.path.join(render_disk_mount_path, db_name)
-    db_uri = os.getenv('DATABASE_URL')
-    if not db_uri:
-        db_uri = f'sqlite:///{default_db_path}'
-        app.logger.info(f"Usando banco de dados SQLite em: {db_uri}")
-    else:
-         if db_uri.startswith("postgres://"): db_uri = db_uri.replace("postgres://", "postgresql://", 1)
-         app.logger.info(f"Usando DATABASE_URL: {db_uri}")
+    db_path = os.path.join(render_disk_mount_path, db_name)
+    db_uri = f'sqlite:///{db_path}' # Usa SEMPRE o caminho absoluto
+
+    app.logger.info(f"Usando banco de dados SQLite em: {db_uri}") # Log para confirmar
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ECHO'] = False
+    app.config['SQLALCHEMY_ECHO'] = False # Manter False em produção
+    # ---------------------------------------------------
+
+    # --- Garante diretório ANTES de inicializar DB ---
+    ensure_instance_directory(app)
+    # -----------------------------------------------
 
     # Inicializar extensões com o app
     db.init_app(app)
+    # --- Inicializar Migrate ---
+    migrate.init_app(app, db)
+    # -------------------------
     login_manager.init_app(app)
     csrf.init_app(app)
 
@@ -86,37 +95,33 @@ def create_app():
     from app.models.feriado import Feriado
     from app.models.relatorio_completo import RelatorioMensalCompleto
 
-    # Configura o user_loader ANTES de registrar blueprints
+    # Configura o user_loader (mantido)
     @login_manager.user_loader
     def load_user(user_id):
-        # A importação do User já foi feita acima
         try:
+            # Tenta converter para int e buscar o usuário
             return User.query.get(int(user_id))
         except (ValueError, TypeError) as e:
+             # Loga o erro se o ID não for um inteiro válido
              app.logger.error(f"Erro ao carregar usuário - ID inválido '{user_id}': {e}")
              return None
         except Exception as e:
+            # Loga qualquer outro erro inesperado durante a busca
             app.logger.error(f"Erro inesperado ao carregar usuário {user_id}: {e}", exc_info=True)
             return None
 
-    # Processador de contexto para datetime
+
+    # Processador de contexto para datetime (mantido)
     @app.context_processor
     def inject_now():
         return {'datetime': datetime}
 
     # Registrar blueprints DENTRO do contexto da aplicação
     with app.app_context():
-        # Garante diretório instance antes de criar tabelas
-        ensure_instance_directory(app)
-        try:
-            # Cria tabelas se não existirem
-            db.create_all()
-            app.logger.info("db.create_all() chamado.")
-        except Exception as e:
-            app.logger.error(f"Erro durante db.create_all(): {e}", exc_info=True)
-            # Considerar se deve levantar a exceção ou apenas logar
+        # db.create_all() não é mais necessário aqui se usar Flask-Migrate
+        # A migração inicial criará as tabelas.
 
-        # Importar e registrar blueprints AQUI, dentro do contexto e após db.create_all
+        # Importar e registrar blueprints AQUI
         from app.controllers.auth import auth as auth_blueprint
         app.register_blueprint(auth_blueprint)
         from app.controllers.main import main as main_blueprint
