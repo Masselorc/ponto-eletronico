@@ -57,34 +57,28 @@
     .assinatura-nome { text-align: center; font-weight: bold; margin-top: 5px; margin-bottom: 5px; font-size: 11pt; }
     .data-assinatura { text-align: center; color: #555; font-size: 10pt; margin-bottom: 0; }
 
-    /* --- ESTILOS DE IMPRESSÃO REFINADOS --- */
+    /* --- ESTILOS DE IMPRESSÃO REFINADOS v2 --- */
     @media print {
         @page {
             size: A4 portrait;
-            margin: 0.8cm; /* Margens ainda menores */
-             /* Rodapé pode ser mantido ou removido se preferir mais espaço */
-             @bottom-center {
-                content: "Página " counter(page) " de " counter(pages);
-                font-size: 7pt; /* Menor ainda */
-                color: #888;
-            }
-             @bottom-left {
-                content: "Sistema de Ponto Eletrônico - SENAPPEN";
-                font-size: 7pt;
-                color: #888;
-             }
+            margin: 0.5cm !important; /* Margens MÍNIMAS */
+             /* Rodapé opcional */
+             @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 7pt; color: #999; }
+             @bottom-left { content: "Sistema de Ponto Eletrônico - SENAPPEN"; font-size: 7pt; color: #999; }
         }
         html, body {
-            margin: 0 !important; /* Remove margens do html/body */
+            margin: 0 !important;
             padding: 0 !important;
-            background-color: #fff !important; /* Garante fundo branco */
-            font-size: 8.5pt !important; /* Reduz tamanho base */
-            color: #000 !important; /* Garante texto preto */
+            width: 100% !important; /* Garante largura total */
+            height: auto !important; /* Permite altura automática */
+            background-color: #fff !important;
+            font-size: 8pt !important; /* Fonte ainda menor */
+            color: #000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
         .relatorio-container {
-            width: 100% !important; /* Garante 100% da largura de impressão */
+            width: 100% !important;
             max-width: none !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -94,37 +88,54 @@
         .no-print { display: none !important; }
         .card-relatorio {
             border: 1px solid #ccc !important;
-            page-break-inside: avoid !important;
-            margin-bottom: 8px !important; /* Espaço menor */
+            page-break-inside: avoid !important; /* Tenta manter seções juntas */
+            margin-bottom: 5px !important; /* Espaço mínimo */
+            box-shadow: none !important; /* Remove sombra na impressão */
+            border-radius: 0 !important; /* Remove cantos arredondados */
         }
         .card-header-relatorio {
             background-color: #f1f3f5 !important;
-            padding: 4px 8px !important; /* Padding menor */
+            padding: 3px 6px !important;
             font-size: 10pt !important;
+            border-bottom: 1px solid #ccc !important;
         }
-        .card-body-relatorio { padding: 6px 8px !important; }
-        .identificacao-section td { font-size: 8.5pt !important; padding: 1px 0 !important;}
-        .identificacao-section td.label { width: 120px !important;} /* Largura menor */
+        .card-body-relatorio { padding: 5px 8px !important; }
+        .identificacao-section td { font-size: 8pt !important; padding: 1px 0 !important;}
+        .identificacao-section td.label { width: 110px !important;} /* Largura menor */
 
+        table { width: 100% !important; table-layout: fixed; } /* Força largura e layout fixo */
         table, th, td {
-            border: 1px solid #ccc !important;
-            font-size: 7.5pt !important; /* Fonte bem pequena para tabelas */
-            padding: 2px 3px !important; /* Padding mínimo */
+            border: 1px solid #bbb !important;
+            font-size: 7.5pt !important;
+            padding: 2px 3px !important;
             word-wrap: break-word !important;
+            overflow-wrap: break-word; /* Garante quebra de palavras longas */
         }
         th {
             background-color: #e9ecef !important;
             font-weight: bold !important;
         }
-        /* Cor alternada pode ser removida se causar problemas ou parecer ruim */
+        /* Remove cor alternada para simplificar */
         /* tr:nth-child(even) td { background-color: #f8f9fa !important; } */
         .registros-section td.detalhes-celula {
             background-color: #fdfdfd !important;
-            font-size: 7pt !important; /* Ainda menor */
+            font-size: 7pt !important;
             padding: 3px 5px !important;
             border-top: 1px dashed #ccc !important;
         }
-        .registros-section td.detalhes-celula p { margin: 0 0 2px 8px !important; } /* Menos indentação */
+        .registros-section td.detalhes-celula p { margin: 0 0 2px 8px !important; }
+
+        /* --- CORREÇÃO: Permitir quebra de tabela --- */
+        .registros-section table,
+        .registros-section tbody,
+        .registros-section tr,
+        .registros-section td {
+             page-break-inside: auto !important; /* Permite quebra dentro da tabela e linhas */
+        }
+        thead {
+            display: table-header-group; /* Garante repetição do cabeçalho */
+        }
+        /* ------------------------------------------- */
 
         .saldo-negativo { color: #c00 !important; }
         .assinatura { margin-top: 15px !important; font-size: 8pt !important;}
