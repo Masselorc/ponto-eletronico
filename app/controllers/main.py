@@ -9,7 +9,7 @@ import tempfile
 import pandas as pd
 from datetime import datetime, date, timedelta, time
 
-# --- CORREÇÃO: Definir o Blueprint 'main' PRIMEIRO ---
+# --- CORREÇÃO IMPORTANTE: Definir o Blueprint 'main' ANTES das importações da app ---
 main = Blueprint('main', __name__)
 logger = logging.getLogger(__name__)
 # --- FIM DA CORREÇÃO ---
@@ -769,4 +769,3 @@ def registrar_atividade(ponto_id):
         form=form,
         title="Registrar/Editar Atividade"
     )
-
