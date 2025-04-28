@@ -39,6 +39,19 @@
 
     /* Alinhamento vertical */
     .table.align-middle th, .table.align-middle td { vertical-align: middle; }
+
+    /* --- CORREÇÃO: Estilo para o cabeçalho da tabela --- */
+    .table > thead > tr > th {
+        background-color: #f8f9fa; /* Cor de fundo similar a table-light */
+        border-bottom-width: 2px; /* Borda inferior mais pronunciada */
+        border-top: 1px solid #dee2e6; /* Borda superior */
+        border-left: 1px solid #dee2e6; /* Borda esquerda */
+        border-right: 1px solid #dee2e6; /* Borda direita */
+        padding-top: 0.75rem; /* Ajuste de padding se necessário */
+        padding-bottom: 0.75rem;
+    }
+    /* --- FIM DA CORREÇÃO --- */
+
 </style>
 {% endblock %}
 
@@ -105,20 +118,21 @@
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover table-sm mb-0 align-middle">
-                            <thead class="table-light">
+                            {# --- CORREÇÃO: Removida classe table-light do thead --- #}
+                            <thead>
+                            {# ------------------------------------------------------ #}
                                 <tr>
-                                    {# --- CORREÇÃO DE ALINHAMENTO --- #}
-                                    <th class="text-nowrap ps-3">Data</th> {# Mantido à esquerda (padrão) #}
-                                    <th>Dia</th> {# Mantido à esquerda (padrão) #}
-                                    <th class="text-center">Entrada</th> {# Centralizado #}
-                                    <th class="text-center text-nowrap">Início Almoço</th> {# Centralizado #}
-                                    <th class="text-center text-nowrap">Fim Almoço</th> {# Centralizado #}
-                                    <th class="text-center">Saída</th> {# Centralizado #}
-                                    <th class="text-center text-nowrap">Horas Trab.</th> {# Centralizado #}
-                                    <th class="text-center">Status</th> {# Centralizado #}
-                                    <th class="text-center">Atividades</th> {# Centralizado #}
-                                    <th class="text-center pe-3">Ações</th> {# Centralizado #}
-                                    {# --- FIM DA CORREÇÃO --- #}
+                                    {# Mantido alinhamento de texto centralizado nos THs relevantes #}
+                                    <th class="text-nowrap ps-3">Data</th>
+                                    <th>Dia</th>
+                                    <th class="text-center">Entrada</th>
+                                    <th class="text-center text-nowrap">Início Almoço</th>
+                                    <th class="text-center text-nowrap">Fim Almoço</th>
+                                    <th class="text-center">Saída</th>
+                                    <th class="text-center text-nowrap">Horas Trab.</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">Atividades</th>
+                                    <th class="text-center pe-3">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -131,7 +145,6 @@
                                     {% set is_feriado = data_atual in feriados_datas %}
                                     {% set is_fim_semana = dia_semana_idx >= 5 %}
                                     {% set atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
-                                    {# Verifica se há detalhes para exibir (atividades, observações ou resultados) #}
                                     {% set tem_detalhes = (registro and (registro.observacoes or atividades or registro.resultados_produtos)) %}
 
                                     {% set tr_class = [] %}
@@ -159,26 +172,23 @@
                                         </td>
                                         <td>{{ dia_semana }}</td>
 
-                                        {# --- Lógica reestruturada para colspan e alinhamento --- #}
+                                        {# --- Lógica de exibição das células (mantida) --- #}
                                         {% if is_feriado %}
-                                            {# Colspan 6 (Entrada -> Horas Trab.) #}
                                             <td colspan="6" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
-                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td> {# Status #}
-                                            <td class="text-center">-</td> {# Atividades #}
-                                            <td class="text-center">-</td> {# Ações #}
+                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center">-</td>
                                         {% elif is_fim_semana %}
-                                            {# Colspan 6 (Entrada -> Horas Trab.) #}
                                             <td colspan="6" class="text-center fst-italic">Fim de Semana</td>
-                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td> {# Status #}
-                                            <td class="text-center">-</td> {# Atividades #}
-                                            <td class="text-center">-</td> {# Ações #}
+                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center">-</td>
                                         {% elif registro %}
                                             {% if registro.afastamento %}
-                                                {# Colspan 6 (Entrada -> Horas Trab.) #}
                                                 <td colspan="6" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
-                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
-                                                <td class="text-center">-</td> {# Atividades #}
-                                                <td class="text-center text-nowrap pe-3"> {# Ações #}
+                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
+                                                <td class="text-center">-</td>
+                                                <td class="text-center text-nowrap pe-3">
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
@@ -210,7 +220,7 @@
                                                  <td class="text-center">
                                                     {% if atividades %}<i class="fas fa-list-check text-success" title="Ver Atividades"></i>{% else %}-{% endif %}
                                                 </td>
-                                                <td class="text-center text-nowrap pe-3"> {# Ações #}
+                                                <td class="text-center text-nowrap pe-3">
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
@@ -220,25 +230,21 @@
                                                 </td>
                                             {% endif %}
                                         {% else %} {# Dia útil sem registro #}
-                                            {# --- CORREÇÃO Colspan: 6 colunas (Entrada -> Horas Trab) --- #}
                                             <td colspan="6" class="text-center fst-italic">Sem Registro</td>
-                                            {# --------------------------------------------------------- #}
-                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td> {# Status #}
-                                            <td class="text-center">-</td> {# Atividades #}
-                                            <td class="text-center text-nowrap pe-3"> {# Ações #}
+                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center text-nowrap pe-3">
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
                                                     <a href="{{ url_for('main.registrar_afastamento', data=data_atual.isoformat()) }}" class="btn btn-outline-info" title="Registrar Afastamento"><i class="fas fa-user-clock"></i></a>
                                                 </div>
                                             </td>
                                         {% endif %}
-                                        {# --- FIM DA CORREÇÃO ESTRUTURAL E COLSPAN --- #}
                                     </tr>
-                                    {# --- Linha de Detalhes Expansível --- #}
+                                    {# --- Linha de Detalhes Expansível (mantida) --- #}
                                     {% if tem_detalhes %}
                                     <tr id="detalhes-{{ dia_num }}" class="collapse">
-                                        <td colspan="10" class="detalhes-row"> {# Colspan 10 para ocupar toda a largura #}
-                                            {# Ordem: Atividades, Resultados, Observações #}
+                                        <td colspan="10" class="detalhes-row">
                                             {% if atividades %}
                                                 <h6><i class="fas fa-tasks text-muted me-1"></i> Atividades:</h6>
                                                 <ul class="list-unstyled ps-3">
@@ -263,7 +269,6 @@
                                         </td>
                                     </tr>
                                     {% endif %}
-                                    {# ------------------------------------ #}
                                 {% endfor %}
                             </tbody>
                         </table>
