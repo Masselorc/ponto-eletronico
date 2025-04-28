@@ -2,22 +2,22 @@
 # Importações básicas e de bibliotecas padrão
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
-import calendar
+# Removido: import calendar (usado em _get_relatorio_mensal_data)
 import logging
 import os
-import tempfile
-import pandas as pd
+# Removido: import tempfile (não usado aqui)
+# Removido: import pandas as pd (não usado aqui)
 from datetime import datetime, date, timedelta, time
-from sqlalchemy import desc, extract, func, case
-from calendar import monthrange
+# Removido: from sqlalchemy import desc, extract, func, case (usado em _get_relatorio_mensal_data)
+# Removido: from calendar import monthrange (usado em _get_relatorio_mensal_data)
 from io import BytesIO # Para exportação Excel/PDF
 
-# --- Definição do Blueprint 'main' DEVE ESTAR AQUI ---
+# --- Definição do Blueprint 'main' ---
 main = Blueprint('main', __name__)
 logger = logging.getLogger(__name__)
 # --- FIM DA DEFINIÇÃO ---
 
-# Importações de módulos da aplicação (DEPOIS DA DEFINIÇÃO DO BLUEPRINT)
+# Importações de módulos da aplicação
 from app import db, csrf
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
@@ -27,165 +27,18 @@ from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastame
 from app.forms.relatorio import RelatorioCompletoForm
 # Importa funções de exportação
 from app.utils.export import generate_pdf, generate_excel
-
-# Função auxiliar para calcular horas (mantida)
-def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
-    """Calcula as horas trabalhadas em um dia, considerando o almoço."""
-    if not entrada or not saida:
-        return None
-
-    try:
-        dt_entrada = datetime.combine(data_ref, entrada)
-        dt_saida = datetime.combine(data_ref, saida)
-
-        # Se a saída for no dia seguinte (ex: virou meia-noite)
-        if dt_saida < dt_entrada:
-            dt_saida += timedelta(days=1)
-
-        total_seconds = (dt_saida - dt_entrada).total_seconds()
-
-        if saida_almoco and retorno_almoco:
-            dt_saida_almoco = datetime.combine(data_ref, saida_almoco)
-            dt_retorno_almoco = datetime.combine(data_ref, retorno_almoco)
-
-            # Se o retorno do almoço for no dia seguinte
-            if dt_retorno_almoco < dt_saida_almoco:
-                dt_retorno_almoco += timedelta(days=1)
-
-            # Verifica se o intervalo de almoço está dentro do período de trabalho
-            if dt_saida_almoco >= dt_entrada and dt_retorno_almoco <= dt_saida:
-                almoco_seconds = (dt_retorno_almoco - dt_saida_almoco).total_seconds()
-                # Garante que o almoço não seja negativo e tenha pelo menos 1 hora (3600s)
-                if almoco_seconds >= 3600:
-                     total_seconds -= almoco_seconds
-                else:
-                     # Se o almoço for menor que 1h, não desconta ou loga um aviso
-                     logger.warning(f"Intervalo de almoço inválido ou menor que 1h para {data_ref}. Não descontado.")
-            else:
-                 logger.warning(f"Intervalo de almoço fora do período de trabalho para {data_ref}. Não descontado.")
-
-
-        # Retorna horas com duas casas decimais
-        return round(total_seconds / 3600, 2)
-
-    except (TypeError, ValueError) as e:
-        logger.error(f"Erro ao calcular horas para {data_ref} com horários: E={entrada}, S={saida}, SA={saida_almoco}, RA={retorno_almoco}. Erro: {e}")
-        return None # Retorna None em caso de erro no cálculo
-
-# Função auxiliar refatorada para buscar dados do relatório mensal
-def _get_relatorio_mensal_data(user_id, mes, ano, order_desc=True):
-    """Busca e calcula dados para o relatório mensal."""
-    usuario = User.query.get_or_404(user_id)
-    try:
-        primeiro_dia = date(ano, mes, 1)
-        ultimo_dia = date(ano, mes, monthrange(ano, mes)[1])
-    except ValueError:
-        logger.error(f"Data inválida fornecida: Mês={mes}, Ano={ano}")
-        raise ValueError("Mês ou ano inválido.")
-
-    # Busca registros de ponto
-    query_ponto = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data <= ultimo_dia
-    )
-    if order_desc:
-        query_ponto = query_ponto.order_by(Ponto.data.desc())
-    else:
-        query_ponto = query_ponto.order_by(Ponto.data.asc())
-    registros = query_ponto.all()
-
-    # Busca feriados
-    feriados = Feriado.query.filter(
-        extract('year', Feriado.data) == ano,
-        extract('month', Feriado.data) == mes
-    ).all()
-    feriados_dict = {f.data: f.descricao for f in feriados}
-    feriados_datas = set(feriados_dict.keys())
-
-    # Busca atividades (otimizado)
-    ponto_ids = [r.id for r in registros]
-    atividades = Atividade.query.filter(Atividade.ponto_id.in_(ponto_ids)).all()
-    atividades_por_ponto = {}
-    for atv in atividades:
-        if atv.ponto_id not in atividades_por_ponto:
-            atividades_por_ponto[atv.ponto_id] = []
-        atividades_por_ponto[atv.ponto_id].append(atv.descricao)
-
-    # Dicionário de registros para acesso rápido
-    registros_por_data = {r.data: r for r in registros}
-
-    # Cálculo de estatísticas
-    dias_uteis_potenciais = 0
-    dias_afastamento = 0
-    dias_trabalhados = 0
-    horas_trabalhadas = 0.0
-
-    for dia_num in range(1, ultimo_dia.day + 1):
-        data_atual = date(ano, mes, dia_num)
-        # Considera dia útil se não for fim de semana E não for feriado
-        if data_atual.weekday() < 5 and data_atual not in feriados_datas:
-            dias_uteis_potenciais += 1
-            registro_dia = registros_por_data.get(data_atual)
-            # Conta como afastamento se for dia útil E tiver registro marcado como afastamento
-            if registro_dia and registro_dia.afastamento:
-                dias_afastamento += 1
-
-    # Calcula dias e horas trabalhadas (apenas em dias que deveriam ser úteis)
-    for r_data, r_obj in registros_por_data.items():
-        # Só conta se NÃO for afastamento E tiver horas calculadas
-        if not r_obj.afastamento and r_obj.horas_trabalhadas is not None:
-             # E se o dia do registro era um dia útil potencial
-             if r_data.weekday() < 5 and r_data not in feriados_datas:
-                 dias_trabalhados += 1
-                 horas_trabalhadas += r_obj.horas_trabalhadas
-
-    # Carga horária devida = (Dias úteis potenciais - dias de afastamento nesses dias úteis) * 8h
-    carga_horaria_devida = (dias_uteis_potenciais - dias_afastamento) * 8.0
-    saldo_horas = horas_trabalhadas - carga_horaria_devida
-    media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
-
-    nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-    nome_mes = nomes_meses[mes]
-
-    # Navegação entre meses
-    mes_anterior, ano_anterior = (12, ano - 1) if mes == 1 else (mes - 1, ano)
-    proximo_mes, proximo_ano = (1, ano + 1) if mes == 12 else (mes + 1, ano)
-
-    return {
-        'usuario': usuario,
-        'registros': registros,
-        'registros_por_data': registros_por_data,
-        'mes_atual': mes,
-        'ano_atual': ano,
-        'nome_mes': nome_mes,
-        'dias_uteis': dias_uteis_potenciais,
-        'dias_trabalhados': dias_trabalhados,
-        'dias_afastamento': dias_afastamento,
-        'horas_trabalhadas': horas_trabalhadas,
-        'carga_horaria_devida': carga_horaria_devida,
-        'saldo_horas': saldo_horas,
-        'media_diaria': media_diaria,
-        'feriados_dict': feriados_dict,
-        'feriados_datas': feriados_datas,
-        'atividades_por_ponto': atividades_por_ponto,
-        'ultimo_dia': ultimo_dia,
-        'mes_anterior': mes_anterior,
-        'ano_anterior': ano_anterior,
-        'proximo_mes': proximo_mes,
-        'proximo_ano': proximo_ano,
-        'date_obj': date # Passa o construtor date para o template
-    }
+# --- Importa funções auxiliares do novo módulo ---
+from app.utils.helpers import calcular_horas, _get_relatorio_mensal_data
+# -------------------------------------------------
 
 # --- ROTA RAIZ ---
 @main.route('/')
 @login_required
 def index():
     """Redireciona para o dashboard."""
-    # Esta função simplesmente redireciona para a rota 'dashboard' do blueprint 'main'
     return redirect(url_for('main.dashboard'))
 
-# --- ROTA DASHBOARD (ADICIONADA) ---
+# --- ROTA DASHBOARD ---
 @main.route('/dashboard')
 @login_required
 def dashboard():
@@ -202,8 +55,9 @@ def dashboard():
         mes = request.args.get('mes', default=hoje.month, type=int)
         ano = request.args.get('ano', default=hoje.year, type=int)
 
-        # Usa a função auxiliar para buscar os dados
+        # --- Usa a função auxiliar importada ---
         dados_relatorio = _get_relatorio_mensal_data(user_id_para_visualizar, mes, ano)
+        # ---------------------------------------
 
         # Lista de usuários para o seletor do admin
         usuarios_para_seletor = None
@@ -252,10 +106,12 @@ def registrar_ponto():
             return render_template('main/registrar_ponto.html', form=form, title="Registrar Ponto")
 
         try:
+            # --- Usa a função auxiliar importada ---
             horas_calc = calcular_horas(
                 data_selecionada, form.entrada.data, form.saida.data,
                 form.saida_almoco.data, form.retorno_almoco.data
             )
+            # ---------------------------------------
             novo_registro = Ponto(
                 user_id=current_user.id,
                 data=data_selecionada,
@@ -337,7 +193,9 @@ def registrar_multiplo_ponto():
                 retorno_almoco_t = time.fromisoformat(retornos_almoco[i]) if retornos_almoco[i] else None
                 saida_t = time.fromisoformat(saidas[i]) if saidas[i] else None
 
+                # --- Usa a função auxiliar importada ---
                 horas_calc = calcular_horas(data_obj, entrada_t, saida_t, saida_almoco_t, retorno_almoco_t)
+                # ---------------------------------------
 
                 novo_registro = Ponto(
                     user_id=current_user.id, data=data_obj,
@@ -353,7 +211,7 @@ def registrar_multiplo_ponto():
                 db.session.flush() # Para obter o ID
 
                 # Adiciona atividade se existir
-                if novo_registro.atividades_texto:
+                if hasattr(novo_registro, 'atividades_texto') and novo_registro.atividades_texto:
                     nova_atividade = Atividade(ponto_id=novo_registro.id, descricao=novo_registro.atividades_texto)
                     db.session.add(nova_atividade)
                     delattr(novo_registro, 'atividades_texto') # Remove atributo temporário
@@ -520,10 +378,12 @@ def editar_ponto(ponto_id):
                 registro.saida_almoco = form.saida_almoco.data
                 registro.retorno_almoco = form.retorno_almoco.data
                 registro.saida = form.saida.data
+                # --- Usa a função auxiliar importada ---
                 registro.horas_trabalhadas = calcular_horas(
                     data_selecionada, form.entrada.data, form.saida.data,
                     form.saida_almoco.data, form.retorno_almoco.data
                 )
+                # ---------------------------------------
                 # Atualiza ou cria atividade
                 descricao_atividade = form.atividades.data.strip() if form.atividades.data else None
                 if descricao_atividade:
@@ -637,8 +497,9 @@ def calendario():
             mes = hoje.month
         # Adicione validação de ano se necessário (ex: range razoável)
 
-        # Usa a função auxiliar para buscar os dados
+        # --- Usa a função auxiliar importada ---
         dados_relatorio = _get_relatorio_mensal_data(user_id_para_visualizar, mes, ano)
+        # ---------------------------------------
 
         # Lista de usuários para o seletor do admin
         usuarios_para_seletor = None
@@ -720,8 +581,9 @@ def relatorio_mensal():
             flash("Mês inválido.", 'warning')
             mes = hoje.month
 
-        # Usa a função auxiliar para buscar os dados
+        # --- Usa a função auxiliar importada ---
         dados_relatorio = _get_relatorio_mensal_data(user_id_para_visualizar, mes, ano, order_desc=False) # Ordena por data ascendente
+        # ---------------------------------------
 
         # Lista de usuários para o seletor do admin
         usuarios_para_seletor = None
@@ -857,8 +719,9 @@ def visualizar_relatorio_completo():
             flash("Relatório completo ainda não foi salvo para este período.", 'warning')
             return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
 
-        # Busca os dados base do relatório mensal
+        # --- Usa a função auxiliar importada ---
         dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
+        # ---------------------------------------
 
         # Cria o contexto completo para o template
         contexto_completo = {
@@ -906,7 +769,9 @@ def relatorio_mensal_pdf():
         relatorio_salvo = RelatorioMensalCompleto.query.filter_by(user_id=user_id, ano=ano, mes=mes).first()
         contexto_completo = None
         if relatorio_salvo:
+             # --- Usa a função auxiliar importada ---
              dados_base = _get_relatorio_mensal_data(user_id, mes, ano)
+             # ---------------------------------------
              contexto_completo = {
                  **dados_base,
                  'autoavaliacao_data': relatorio_salvo.autoavaliacao,
@@ -992,7 +857,7 @@ def perfil():
     # A variável current_user já contém o usuário logado
     return render_template('main/perfil.html', usuario=current_user, title="Meu Perfil")
 
-# --- NOVA ROTA: Gerar HTML SEI ---
+# --- ROTA Gerar HTML SEI ---
 @main.route('/relatorio-sei-html')
 @login_required
 def gerar_html_sei():
@@ -1021,8 +886,9 @@ def gerar_html_sei():
             flash("É necessário salvar o Relatório Completo antes de gerar o HTML para o SEI.", 'warning')
             return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
 
-        # Busca os dados base do relatório mensal
+        # --- Usa a função auxiliar importada ---
         dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
+        # ---------------------------------------
 
         # Cria o contexto completo para o template HTML SEI
         contexto_completo = {
