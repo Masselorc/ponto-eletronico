@@ -166,7 +166,6 @@ def registrar_ponto():
     # Se for um GET, verifica se uma data foi passada na URL para preencher o form
     if request.method == 'GET':
         data_query = request.args.get('data')
-        # --- CORREÇÃO DA SINTAXE ---
         if data_query:
             try:
                 # Tenta converter a data da URL e preencher o campo do formulário
@@ -174,7 +173,6 @@ def registrar_ponto():
             except ValueError:
                 # Se a data na URL for inválida, mostra um aviso
                 flash('Data na URL inválida.', 'warning')
-        # --- FIM DA CORREÇÃO ---
 
     # Se o formulário for enviado (POST) e for válido
     if form.validate_on_submit():
@@ -543,20 +541,45 @@ def relatorio_mensal_excel():
 
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
-# Rota para gerar PDF completo com autoavaliação (POST) (mantida)
+# Rota para gerar PDF completo com autoavaliação (POST)
 @main.route('/gerar-relatorio-completo/pdf', methods=['POST'])
 @login_required
 def gerar_relatorio_completo_pdf():
     """Gera e envia o relatório PDF completo incluindo a autoavaliação."""
     form = RelatorioCompletoForm()
 
-    # Valida o formulário de autoavaliação
+    # Valida o formulário de autoavaliação (inclui CSRF)
     if form.validate_on_submit():
         try:
-            # Obtém dados do formulário
-            user_id = int(form.user_id.data)
-            mes = int(form.mes.data)
-            ano = int(form.ano.data)
+            # --- CORREÇÃO: Validar e converter com fallback ---
+            user_id_str = form.user_id.data
+            mes_str = form.mes.data
+            ano_str = form.ano.data
+
+            # Verifica se algum dos campos ocultos está vazio
+            if not user_id_str or not mes_str or not ano_str:
+                logger.error(f"Dados ausentes no formulário de PDF completo: user_id='{user_id_str}', mes='{mes_str}', ano='{ano_str}'")
+                flash("Erro ao processar dados do formulário (ID, mês ou ano ausente). Tente novamente.", 'danger')
+                # Tenta redirecionar para a página correta, mesmo com erro
+                user_id_fb = current_user.id
+                mes_fb = date.today().month
+                ano_fb = date.today().year
+                try:
+                    # Tenta usar os dados do form mesmo que inválidos para o redirect
+                    user_id_fb = int(user_id_str) if user_id_str else current_user.id
+                    mes_fb = int(mes_str) if mes_str else date.today().month
+                    ano_fb = int(ano_str) if ano_str else date.today().year
+                except ValueError:
+                    pass # Mantém os fallbacks se a conversão falhar
+                return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
+
+            # Tenta a conversão para int APÓS garantir que não são vazios
+            user_id = int(user_id_str)
+            mes = int(mes_str)
+            ano = int(ano_str)
+            # --- FIM DA CORREÇÃO ---
+
+            # Obtém os dados dos campos de texto da autoavaliação
             autoavaliacao_data = form.autoavaliacao.data
             dificuldades_data = form.dificuldades.data
             sugestoes_data = form.sugestoes.data
@@ -586,6 +609,7 @@ def gerar_relatorio_completo_pdf():
                     usuario_alvo = dados_relatorio_base['usuario']
                     nome_mes_str = dados_relatorio_base['nome_mes'].lower()
                     download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                    # Envia o arquivo PDF completo para o usuário
                     return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
                 else:
                     logger.error(f"Arquivo PDF completo não encontrado: {pdf_abs_path}")
@@ -593,31 +617,48 @@ def gerar_relatorio_completo_pdf():
             else:
                 flash('Erro ao gerar o relatório completo em PDF.', 'danger')
         except ValueError as ve:
-            # Erro se usuário não for encontrado em _get_relatorio_mensal_data
-            flash(f"Erro ao buscar dados para o relatório: {ve}", 'danger')
+            # Captura o erro específico de conversão int() ou erro do _get_relatorio_mensal_data
+            logger.error(f"ValueError ao gerar PDF completo: {ve}", exc_info=True) # Log com traceback
+            flash(f"Erro ao processar dados do relatório: {ve}. Verifique os valores.", 'danger') # Mensagem mais informativa para o usuário
         except Exception as e:
-            logger.error(f"Erro ao gerar PDF completo: {e}", exc_info=True)
+            # Captura qualquer outro erro inesperado
+            logger.error(f"Erro inesperado ao gerar PDF completo: {e}", exc_info=True)
             flash('Ocorreu um erro inesperado ao gerar o PDF completo.', 'danger')
     else:
-        # Se a validação do formulário de autoavaliação falhar
-        user_id = form.user_id.data or current_user.id
-        mes = form.mes.data or date.today().month
-        ano = form.ano.data or date.today().year
+        # Se a validação do formulário de autoavaliação falhar (CSRF ou outros validadores)
+        user_id_fb = form.user_id.data or current_user.id
+        mes_fb = form.mes.data or date.today().month
+        ano_fb = form.ano.data or date.today().year
         # Mostra os erros de validação para o usuário
         for field, errors in form.errors.items():
             for error in errors:
-                # Tenta obter o label do campo para uma mensagem mais amigável
                 label = getattr(getattr(form, field, None), 'label', None)
                 field_name = label.text if label else field
                 flash(f"Erro no campo '{field_name}': {error}", 'danger')
+        # Tenta converter IDs para o redirect, com fallback
+        try: user_id_fb = int(user_id_fb) if user_id_fb else current_user.id
+        except ValueError: user_id_fb = current_user.id
+        try: mes_fb = int(mes_fb) if mes_fb else date.today().month
+        except ValueError: mes_fb = date.today().month
+        try: ano_fb = int(ano_fb) if ano_fb else date.today().year
+        except ValueError: ano_fb = date.today().year
         # Redireciona de volta para a página do relatório
-        return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
+        return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
 
-    # Fallback: redireciona para o relatório se algo der errado antes do redirect
+    # Fallback redirect em caso de erro não tratado ou fluxo inesperado
     user_id_fallback = form.user_id.data or current_user.id
     mes_fallback = form.mes.data or date.today().month
     ano_fallback = form.ano.data or date.today().year
+    # Tenta converter para int para o redirect, mas não quebra se falhar
+    try: user_id_fallback = int(user_id_fallback) if user_id_fallback else current_user.id
+    except ValueError: user_id_fallback = current_user.id
+    try: mes_fallback = int(mes_fallback) if mes_fallback else date.today().month
+    except ValueError: mes_fallback = date.today().month
+    try: ano_fallback = int(ano_fallback) if ano_fallback else date.today().year
+    except ValueError: ano_fallback = date.today().year
+
     return redirect(url_for('main.relatorio_mensal', user_id=user_id_fallback, mes=mes_fallback, ano=ano_fallback))
+
 
 # Rotas visualizar_ponto, excluir_ponto, perfil, registrar_multiplo_ponto, registrar_atividade (mantidas)
 @main.route('/visualizar-ponto/<int:ponto_id>')
