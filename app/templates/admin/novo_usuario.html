@@ -19,129 +19,124 @@
 
     <div class="row mt-4">
         <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">Cadastrar Novo Usuário</h5>
+            <div class="card shadow-sm"> {# Adicionado shadow #}
+                <div class="card-header bg-success text-white"> {# Mudado para bg-success #}
+                    <h5 class="card-title mb-0"><i class="fas fa-user-plus me-2"></i>Cadastrar Novo Usuário</h5>
                 </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('admin.novo_usuario') }}">
+                <div class="card-body p-4"> {# Adicionado padding #}
+                    <form method="POST" action="{{ url_for('admin.novo_usuario') }}" novalidate>
                         {{ form.csrf_token }}
-                        
-                        <div class="mb-3">
-                            <label for="name" class="form-label">Nome</label>
-                            {{ form.name(class="form-control", id="name", placeholder="Nome completo") }}
-                            {% if form.name.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.name.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="Nome completo do usuário") }}
+                                {% if form.name.errors %}
+                                    <div class="invalid-feedback">{% for error in form.name.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.email.label(class="form-label") }}
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="email@exemplo.com") }}
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">{% for error in form.email.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            {{ form.email(class="form-control", id="email", placeholder="email@exemplo.com") }}
-                            {% if form.email.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.email.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.matricula.label(class="form-label") }}
+                                {{ form.matricula(class="form-control" + (" is-invalid" if form.matricula.errors else ""), placeholder="Matrícula funcional") }}
+                                {% if form.matricula.errors %}
+                                    <div class="invalid-feedback">{% for error in form.matricula.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                             <div class="col-md-6">
+                                {{ form.vinculo.label(class="form-label") }}
+                                {{ form.vinculo(class="form-control" + (" is-invalid" if form.vinculo.errors else ""), placeholder="Ex: Mobilizado, PPF, etc.") }}
+                                {% if form.vinculo.errors %}
+                                    <div class="invalid-feedback">{% for error in form.vinculo.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="matricula" class="form-label">Matrícula</label>
-                            {{ form.matricula(class="form-control", id="matricula", placeholder="Número de matrícula") }}
-                            {% if form.matricula.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.matricula.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+
+                        {# --- NOVOS CAMPOS ADICIONADOS --- #}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.unidade_setor.label(class="form-label") }}
+                                {{ form.unidade_setor(class="form-control" + (" is-invalid" if form.unidade_setor.errors else ""), placeholder="Ex: COGEC/DITEC") }}
+                                {% if form.unidade_setor.errors %}
+                                    <div class="invalid-feedback">{% for error in form.unidade_setor.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.chefia_imediata.label(class="form-label") }}
+                                {{ form.chefia_imediata(class="form-control" + (" is-invalid" if form.chefia_imediata.errors else ""), placeholder="Nome do(a) chefe imediato(a)") }}
+                                {% if form.chefia_imediata.errors %}
+                                    <div class="invalid-feedback">{% for error in form.chefia_imediata.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="vinculo" class="form-label">Vínculo</label>
-                            {{ form.vinculo(class="form-control", id="vinculo") }}
-                            {% if form.vinculo.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.vinculo.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                        {# --------------------------------- #}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form.password.label(class="form-label") }}
+                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Mínimo 6 caracteres") }}
+                                {% if form.password.errors %}
+                                    <div class="invalid-feedback">{% for error in form.password.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.confirm_password.label(class="form-label") }}
+                                {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else ""), placeholder="Repita a senha") }}
+                                {% if form.confirm_password.errors %}
+                                    <div class="invalid-feedback">{% for error in form.confirm_password.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Senha</label>
-                            {{ form.password(class="form-control", id="password") }}
-                            {% if form.password.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.password.errors %}
-                                        {{ error }}
-                                    {% endfor %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch"> {# Usando form-switch #}
+                                    {{ form.is_admin(class="form-check-input", id="is_admin", role="switch") }}
+                                    {{ form.is_admin.label(class="form-check-label", for="is_admin") }}
+                                    {% if form.is_admin.errors %}
+                                        <div class="text-danger small mt-1">{% for error in form.is_admin.errors %}{{ error }}{% endfor %}</div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="confirm_password" class="form-label">Confirmar Senha</label>
-                            {{ form.confirm_password(class="form-control", id="confirm_password") }}
-                            {% if form.confirm_password.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.confirm_password.errors %}
-                                        {{ error }}
-                                    {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch"> {# Usando form-switch #}
+                                    {{ form.is_active(class="form-check-input", id="is_active", role="switch") }}
+                                    {{ form.is_active.label(class="form-check-label", for="is_active") }}
+                                    {% if form.is_active.errors %}
+                                         <div class="text-danger small mt-1">{% for error in form.is_active.errors %}{{ error }}{% endfor %}</div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3 form-check">
-                            {{ form.is_admin(class="form-check-input", id="is_admin") }}
-                            <label class="form-check-label" for="is_admin">Administrador</label>
-                            {% if form.is_admin.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.is_admin.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3 form-check">
-                            {{ form.is_active(class="form-check-input", id="is_active") }}
-                            <label class="form-check-label" for="is_active">Ativo</label>
-                            {% if form.is_active.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.is_active.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-secondary me-md-2">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">Salvar</button>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-outline-secondary me-md-2">Cancelar</a>
+                            {{ form.submit(class="btn btn-success") }} {# Botão de submit do form #}
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title">Informações</h5>
+            <div class="card border-info"> {# Borda colorida #}
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-info-circle me-2"></i>Informações</h5>
                 </div>
                 <div class="card-body">
-                    <p>Preencha todos os campos obrigatórios para cadastrar um novo usuário no sistema.</p>
-                    <p>A senha deve ter no mínimo 6 caracteres.</p>
-                    <p>Usuários administradores têm acesso a todas as funcionalidades do sistema.</p>
-                    <p>Usuários inativos não podem fazer login no sistema.</p>
+                    <p class="small">Preencha todos os campos para cadastrar um novo usuário no sistema.</p>
+                    <p class="small">A senha deve ter no mínimo 6 caracteres.</p>
+                    <p class="small">Marque "Administrador" para conceder permissões de gerenciamento.</p>
+                    <p class="small">Marque "Ativo" para permitir que o usuário faça login.</p>
                 </div>
             </div>
         </div>

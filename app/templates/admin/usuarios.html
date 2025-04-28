@@ -6,72 +6,106 @@
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h1>Usuários</h1>
-            <p class="lead">Gerenciamento de usuários do sistema</p>
+            <h1><i class="fas fa-users me-2"></i>Usuários</h1> {# Adicionado ícone #}
+            <p class="lead text-muted">Gerenciamento de usuários do sistema</p> {# Usando text-muted #}
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('admin.novo_usuario') }}" class="btn btn-success">
-                <i class="fas fa-plus"></i> Novo Usuário
+            <a href="{{ url_for('admin.novo_usuario') }}" class="btn btn-success me-2"> {# Adicionado espaçamento #}
+                <i class="fas fa-user-plus"></i> Novo Usuário
             </a>
-            <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"> {# Mudado para outline #}
                 <i class="fas fa-arrow-left"></i> Voltar
             </a>
         </div>
     </div>
 
-    <div class="card">
+    <div class="card shadow-sm"> {# Adicionado shadow #}
         <div class="card-header bg-primary text-white">
-            <h2 class="h5 mb-0">Lista de Usuários</h2>
+            <h2 class="h5 mb-0"><i class="fas fa-list me-2"></i>Lista de Usuários</h2>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0"> {# Removido padding para tabela ocupar espaço #}
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
+                <table class="table table-striped table-hover mb-0"> {# Removido margin-bottom #}
+                    <thead class="table-light"> {# Usando table-light para cabeçalho #}
                         <tr>
-                            <th>Nome</th>
+                            <th class="ps-3">Nome</th> {# Adicionado padding start #}
                             <th>Email</th>
                             <th>Matrícula</th>
                             <th>Vínculo</th>
-                            <th>Admin</th>
-                            <th>Ativo</th>
-                            <th>Ações</th>
+                            {# --- NOVAS COLUNAS --- #}
+                            <th>Unidade/Setor</th>
+                            <th>Chefia Imediata</th>
+                            {# ------------------- #}
+                            <th class="text-center">Admin</th> {# Centralizado #}
+                            <th class="text-center">Ativo</th> {# Centralizado #}
+                            <th class="text-center pe-3">Ações</th> {# Centralizado e padding end #}
                         </tr>
                     </thead>
                     <tbody>
                         {% for usuario in usuarios %}
                         <tr>
-                            <td>{{ usuario.name }}</td>
+                            <td class="ps-3">{{ usuario.name }}</td>
                             <td>{{ usuario.email }}</td>
                             <td>{{ usuario.matricula }}</td>
                             <td>{{ usuario.vinculo }}</td>
-                            <td>
+                            {# --- NOVAS COLUNAS --- #}
+                            <td>{{ usuario.unidade_setor or '-' }}</td> {# Adicionado fallback #}
+                            <td>{{ usuario.chefia_imediata or '-' }}</td> {# Adicionado fallback #}
+                            {# ------------------- #}
+                            <td class="text-center">
                                 {% if usuario.is_admin %}
-                                <span class="badge bg-success">Sim</span>
+                                <span class="badge bg-info text-dark">Sim</span> {# Cor diferente para Admin #}
                                 {% else %}
                                 <span class="badge bg-secondary">Não</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if usuario.is_active %}
                                 <span class="badge bg-success">Sim</span>
                                 {% else %}
                                 <span class="badge bg-danger">Não</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="btn-group">
-                                    <a href="{{ url_for('admin.visualizar_usuario', usuario_id=usuario.id) }}" class="btn btn-sm btn-info">
+                            <td class="text-center text-nowrap pe-3"> {# text-nowrap para botões não quebrarem #}
+                                <div class="btn-group btn-group-sm"> {# Grupo de botões menores #}
+                                    <a href="{{ url_for('admin.visualizar_usuario', usuario_id=usuario.id) }}" class="btn btn-outline-info" title="Visualizar"> {# Usando outline #}
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-sm btn-warning">
+                                    <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-outline-warning" title="Editar"> {# Usando outline #}
                                         <i class="fas fa-edit"></i>
                                     </a>
+                                     {# Botão de exclusão pode usar modal ou um form direto #}
+                                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ usuario.id }}" title="Excluir">
+                                         <i class="fas fa-trash"></i>
+                                     </button>
+                                </div>
+                                {# Modal de Exclusão para cada usuário #}
+                                <div class="modal fade" id="deleteUserModal{{ usuario.id }}" tabindex="-1" aria-labelledby="deleteUserModalLabel{{ usuario.id }}" aria-hidden="true">
+                                  <div class="modal-dialog">
+                                    <div class="modal-content">
+                                      <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title" id="deleteUserModalLabel{{ usuario.id }}"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                      </div>
+                                      <div class="modal-body">
+                                        Tem certeza que deseja excluir o usuário <strong>{{ usuario.name }}</strong>? Esta ação não pode ser desfeita.
+                                      </div>
+                                      <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="POST" style="display: inline;">
+                                          {{ delete_form.hidden_tag() }} {# Usa o form passado para CSRF #}
+                                          <button type="submit" class="btn btn-danger">Excluir</button>
+                                        </form>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center">Nenhum usuário cadastrado.</td>
+                            {# Ajustado colspan para incluir novas colunas #}
+                            <td colspan="10" class="text-center text-muted p-4">Nenhum usuário cadastrado.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

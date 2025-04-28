@@ -1,20 +1,28 @@
+# -*- coding: utf-8 -*-
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, DateField, TextAreaField, SelectField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, DateField, TextAreaField, SelectField, HiddenField # Adicionado HiddenField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError
 from app.models.user import User # Import User para validações customizadas
 from datetime import date
 
 # Validador customizado para email único (exceto o próprio usuário na edição)
 def unique_email(form, field):
-    user_id = form.user_id.data if hasattr(form, 'user_id') else None
-    user = User.query.filter(User.email == field.data, User.id != user_id).first()
+    # Acessa o user_id do campo oculto, se existir no formulário
+    user_id = form.user_id.data if hasattr(form, 'user_id') and form.user_id.data else None
+    query = User.query.filter(User.email == field.data)
+    if user_id:
+        query = query.filter(User.id != int(user_id)) # Converte user_id para int
+    user = query.first()
     if user:
         raise ValidationError('Este email já está em uso por outro usuário.')
 
 # Validador customizado para matrícula única (exceto o próprio usuário na edição)
 def unique_matricula(form, field):
-    user_id = form.user_id.data if hasattr(form, 'user_id') else None
-    user = User.query.filter(User.matricula == field.data, User.id != user_id).first()
+    user_id = form.user_id.data if hasattr(form, 'user_id') and form.user_id.data else None
+    query = User.query.filter(User.matricula == field.data)
+    if user_id:
+        query = query.filter(User.id != int(user_id)) # Converte user_id para int
+    user = query.first()
     if user:
         raise ValidationError('Esta matrícula já está em uso por outro usuário.')
 
@@ -24,6 +32,10 @@ class NovoUsuarioForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email(), unique_email])
     matricula = StringField('Matrícula', validators=[DataRequired(), Length(min=3, max=20), unique_matricula])
     vinculo = StringField('Vínculo', validators=[DataRequired(), Length(max=50)])
+    # --- NOVOS CAMPOS ADICIONADOS ---
+    unidade_setor = StringField('Unidade/Setor (DIRPP)', validators=[DataRequired(), Length(max=150)])
+    chefia_imediata = StringField('Chefia Imediata', validators=[DataRequired(), Length(max=100)])
+    # ---------------------------------
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmar Senha', validators=[DataRequired(), EqualTo('password', message='As senhas devem ser iguais.')])
     is_admin = BooleanField('Administrador')
@@ -32,11 +44,18 @@ class NovoUsuarioForm(FlaskForm):
 
 class EditarUsuarioForm(FlaskForm):
     """Formulário para editar usuário (Admin)."""
-    user_id = StringField('UserID', render_kw={'hidden': True}) # Campo oculto para validação unique
+    # Campo oculto para armazenar o ID do usuário sendo editado
+    # Necessário para as validações unique_email e unique_matricula
+    user_id = HiddenField('User ID')
+
     name = StringField('Nome Completo', validators=[DataRequired(), Length(min=3, max=100)])
     email = StringField('Email', validators=[DataRequired(), Email(), unique_email])
     matricula = StringField('Matrícula', validators=[DataRequired(), Length(min=3, max=20), unique_matricula])
     vinculo = StringField('Vínculo', validators=[DataRequired(), Length(max=50)])
+    # --- NOVOS CAMPOS ADICIONADOS ---
+    unidade_setor = StringField('Unidade/Setor (DIRPP)', validators=[DataRequired(), Length(max=150)])
+    chefia_imediata = StringField('Chefia Imediata', validators=[DataRequired(), Length(max=100)])
+    # ---------------------------------
     password = PasswordField('Nova Senha (deixe em branco para não alterar)', validators=[Optional(), Length(min=6)])
     confirm_password = PasswordField('Confirmar Nova Senha', validators=[EqualTo('password', message='As senhas devem ser iguais.')])
     is_admin = BooleanField('Administrador')
@@ -60,4 +79,3 @@ class DeleteForm(FlaskForm):
     """Formulário vazio usado apenas para gerar o token CSRF
        em botões/links de exclusão."""
     pass
-

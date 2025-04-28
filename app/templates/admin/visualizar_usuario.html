@@ -6,21 +6,21 @@
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h1>{{ usuario.name }}</h1>
-            <p class="lead">{{ usuario.email }}</p>
+            <h1><i class="fas fa-user-circle text-primary me-2"></i>{{ usuario.name }}</h1> {# Adicionado ícone #}
+            <p class="lead text-muted">{{ usuario.email }}</p> {# Usando text-muted #}
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-secondary">
+            <a href="{{ url_for('admin.listar_usuarios') }}" class="btn btn-outline-secondary"> {# Mudado para outline #}
                 <i class="fas fa-arrow-left"></i> Voltar para Usuários
             </a>
         </div>
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-md-6 mb-4 mb-md-0"> {# Adicionado espaçamento inferior em mobile #}
+            <div class="card shadow-sm h-100"> {# Adicionado shadow e h-100 #}
                 <div class="card-header bg-primary text-white">
-                    <h2 class="h5 mb-0">Informações do Usuário</h2>
+                    <h2 class="h5 mb-0"><i class="fas fa-info-circle me-2"></i>Informações do Usuário</h2>
                 </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
@@ -28,56 +28,79 @@
                         <li class="list-group-item"><strong>Email:</strong> {{ usuario.email }}</li>
                         <li class="list-group-item"><strong>Matrícula:</strong> {{ usuario.matricula }}</li>
                         <li class="list-group-item"><strong>Vínculo:</strong> {{ usuario.vinculo }}</li>
-                        <li class="list-group-item"><strong>Cargo:</strong> {{ usuario.cargo }}</li>
-                        <li class="list-group-item"><strong>UF:</strong> {{ usuario.uf }}</li>
-                        <li class="list-group-item"><strong>Telefone:</strong> {{ usuario.telefone }}</li>
+                        <li class="list-group-item"><strong>Cargo:</strong> {{ usuario.cargo or 'N/A' }}</li> {# Adicionado fallback #}
+                        <li class="list-group-item"><strong>UF:</strong> {{ usuario.uf or 'N/A' }}</li> {# Adicionado fallback #}
+                        <li class="list-group-item"><strong>Telefone:</strong> {{ usuario.telefone or 'N/A' }}</li> {# Adicionado fallback #}
+                        {# --- NOVOS CAMPOS ADICIONADOS --- #}
+                        <li class="list-group-item"><strong>Unidade/Setor (DIRPP):</strong> {{ usuario.unidade_setor or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Chefia Imediata:</strong> {{ usuario.chefia_imediata or 'N/A' }}</li>
+                        {# --------------------------------- #}
                         <li class="list-group-item"><strong>Administrador:</strong> {{ 'Sim' if usuario.is_admin else 'Não' }}</li>
-                        <li class="list-group-item"><strong>Ativo:</strong> {{ 'Sim' if usuario.is_active else 'Não' }}</li>
-                        <li class="list-group-item"><strong>Data Cadastro:</strong> {{ usuario.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') if usuario.data_cadastro else 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Ativo:</strong>
+                            {% if usuario.is_active %}
+                                <span class="badge bg-success">Sim</span>
+                            {% else %}
+                                <span class="badge bg-danger">Não</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item"><strong>Data Cadastro:</strong> {{ usuario.data_cadastro.strftime('%d/%m/%Y %H:%M') if usuario.data_cadastro else 'N/A' }}</li> {# Formato de hora ajustado #}
                         <li class="list-group-item">
                             <strong>Foto:</strong><br>
                             {% if usuario.foto_path %}
-                                <img src="{{ url_for('static', filename=usuario.foto_path) }}" alt="Foto de {{ usuario.name }}" class="img-thumbnail mt-2" style="max-width: 150px; max-height: 150px;">
+                                {# Adicionado fallback para imagem padrão se a foto não carregar #}
+                                <img src="{{ url_for('static', filename=usuario.foto_path) }}"
+                                     alt="Foto de {{ usuario.name }}"
+                                     class="img-thumbnail mt-2"
+                                     style="max-width: 150px; max-height: 150px; object-fit: cover;"
+                                     onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_avatar.png') }}'; this.alt='Foto padrão';">
                             {% else %}
                                 <span class="text-muted">Sem foto</span>
+                                {# <img src="{{ url_for('static', filename='images/default_avatar.png') }}" alt="Foto padrão" class="img-thumbnail mt-2" style="max-width: 150px; max-height: 150px; object-fit: cover;"> #}
                             {% endif %}
                         </li>
                     </ul>
                 </div>
-                <div class="card-footer">
-                    <div class="btn-group">
-                        <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-primary">
-                            <i class="fas fa-edit"></i> Editar
+                <div class="card-footer bg-light"> {# Adicionado bg-light #}
+                    <div class="d-flex justify-content-between"> {# Usando flexbox para alinhar botões #}
+                        <a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-warning"> {# Mudado para warning #}
+                            <i class="fas fa-edit"></i> Editar Usuário
                         </a>
+                         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                             <i class="fas fa-trash"></i> Excluir Usuário
+                         </button>
                     </div>
-                     <button type="button" class="btn btn-danger float-end" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                         <i class="fas fa-trash"></i> Excluir Usuário
-                     </button>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card">
+            <div class="card shadow-sm h-100"> {# Adicionado shadow e h-100 #}
                 <div class="card-header bg-info text-white">
-                    <h2 class="h5 mb-0">Últimos Registros de Ponto</h2>
+                    <h2 class="h5 mb-0"><i class="fas fa-history me-2"></i>Últimos Registros de Ponto (Máx. 10)</h2>
                 </div>
                 <div class="card-body">
                     {% if registros %}
                     <ul class="list-group list-group-flush">
                         {% for registro in registros %}
                         <li class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-1"> {# Ajustado margin #}
                                 <div>
                                     <strong>{{ registro.data.strftime('%d/%m/%Y') }}</strong>
-                                    {% if registro.afastamento %}<span class="badge bg-secondary">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</span>
-                                    {% else %}<span class="badge bg-success">Trabalho</span>{% endif %}
+                                    {% if registro.afastamento %}
+                                        <span class="badge bg-secondary ms-1">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success ms-1">Trabalho</span>
+                                    {% endif %}
                                 </div>
                                 <div>
                                     {% if not registro.afastamento and registro.horas_trabalhadas is not none %}
                                     <span class="badge {% if registro.horas_trabalhadas >= 8 %}bg-success{% elif registro.horas_trabalhadas >= 6 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
                                         {{ "%.2f"|format(registro.horas_trabalhadas) }} h
                                     </span>
-                                    {% elif not registro.afastamento %}<span class="badge bg-secondary">Pendente</span>{% endif %}
+                                    {% elif not registro.afastamento %}
+                                        <span class="badge bg-secondary">Pendente</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted">-</span> {# Para afastamentos #}
+                                    {% endif %}
                                 </div>
                             </div>
                              {% if not registro.afastamento %}
@@ -88,36 +111,41 @@
                                  S: {{ registro.saida.strftime('%H:%M') if registro.saida else '--:--' }}
                              </small>
                              {% endif %}
-                             {% if registro.observacoes %}<small class="d-block text-muted fst-italic">Obs: {{ registro.observacoes }}</small>{% endif %}
+                             {% if registro.observacoes %}<small class="d-block text-muted fst-italic" title="Observações">Obs: {{ registro.observacoes|truncate(50) }}</small>{% endif %} {# Truncado para não ficar muito longo #}
+                             {# Link para visualizar detalhes do ponto específico #}
+                             <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="stretched-link" title="Ver detalhes do registro"></a>
                         </li>
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="alert alert-light text-center">Nenhum registro de ponto encontrado para este usuário.</div>
+                    <div class="alert alert-light text-center mt-3">Nenhum registro de ponto encontrado para este usuário.</div>
                     {% endif %}
                 </div>
-                <div class="card-footer">
-                    <a href="{{ url_for('main.calendario', user_id=usuario.id) }}" class="btn btn-info">
-                        <i class="fas fa-calendar-alt"></i> Ver Calendário Completo
+                <div class="card-footer bg-light text-center"> {# Adicionado bg-light e centralizado #}
+                    <a href="{{ url_for('main.calendario', user_id=usuario.id) }}" class="btn btn-info btn-sm"> {# Botão menor #}
+                        <i class="fas fa-calendar-alt"></i> Ver Calendário Completo do Usuário
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card mt-4">
+    {# Seção de Relatórios (mantida como estava) #}
+    <div class="card mt-4 shadow-sm">
         <div class="card-header bg-secondary text-white">
-            <h2 class="h5 mb-0">Relatórios do Usuário</h2>
+            <h2 class="h5 mb-0"><i class="fas fa-file-alt me-2"></i>Relatórios do Usuário</h2>
         </div>
         <div class="card-body">
             <div class="row text-center">
                 <div class="col-md-4 mb-3 mb-md-0">
                     <div class="card h-100">
-                        <div class="card-body">
-                            <i class="fas fa-chart-line fa-2x text-primary mb-2"></i>
-                            <h5 class="card-title">Relatório Mensal</h5>
-                            <p class="card-text small">Visualize o relatório mensal de ponto do usuário.</p>
-                            <a href="{{ url_for('admin.relatorio_usuario', usuario_id=usuario.id) }}" class="btn btn-primary w-100">
+                        <div class="card-body d-flex flex-column justify-content-between"> {# Flexbox para alinhar botão #}
+                            <div>
+                                <i class="fas fa-chart-line fa-2x text-primary mb-2"></i>
+                                <h5 class="card-title">Relatório Mensal</h5>
+                                <p class="card-text small">Visualize o relatório mensal de ponto do usuário.</p>
+                            </div>
+                            <a href="{{ url_for('admin.relatorio_usuario', usuario_id=usuario.id) }}" class="btn btn-primary mt-auto"> {# mt-auto para empurrar para baixo #}
                                 <i class="fas fa-eye"></i> Visualizar
                             </a>
                         </div>
@@ -125,11 +153,13 @@
                 </div>
                 <div class="col-md-4 mb-3 mb-md-0">
                     <div class="card h-100">
-                        <div class="card-body">
-                             <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
-                            <h5 class="card-title">Exportar PDF</h5>
-                            <p class="card-text small">Exporte o relatório mensal em formato PDF.</p>
-                            <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id) }}" class="btn btn-danger w-100">
+                         <div class="card-body d-flex flex-column justify-content-between">
+                             <div>
+                                 <i class="fas fa-file-pdf fa-2x text-danger mb-2"></i>
+                                <h5 class="card-title">Exportar PDF</h5>
+                                <p class="card-text small">Exporte o relatório mensal em formato PDF.</p>
+                             </div>
+                            <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id) }}" class="btn btn-danger mt-auto">
                                 <i class="fas fa-download"></i> Exportar PDF
                             </a>
                         </div>
@@ -137,11 +167,13 @@
                 </div>
                 <div class="col-md-4">
                     <div class="card h-100">
-                        <div class="card-body">
-                            <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
-                            <h5 class="card-title">Exportar Excel</h5>
-                            <p class="card-text small">Exporte o relatório mensal em formato Excel.</p>
-                            <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id) }}" class="btn btn-success w-100">
+                         <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
+                                <h5 class="card-title">Exportar Excel</h5>
+                                <p class="card-text small">Exporte o relatório mensal em formato Excel.</p>
+                            </div>
+                            <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id) }}" class="btn btn-success mt-auto">
                                 <i class="fas fa-download"></i> Exportar Excel
                             </a>
                         </div>
@@ -152,12 +184,13 @@
     </div>
 </div>
 
+{# Modal de Exclusão (mantido) #}
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-header bg-danger text-white"> {# Header vermelho #}
+                <h5 class="modal-title" id="deleteModalLabel"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button> {# Botão de fechar branco #}
             </div>
             <div class="modal-body">
                 <p>Tem certeza que deseja excluir o usuário <strong>{{ usuario.name }}</strong>?</p>
@@ -166,12 +199,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                {# --- CORREÇÃO: Adicionado csrf_token() --- #}
                 <form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="POST" style="display: inline;">
-                     {{ csrf_token() }}
+                     {{ delete_form.hidden_tag() }} {# Usa o form passado para CSRF #}
                     <button type="submit" class="btn btn-danger">Excluir Definitivamente</button>
                 </form>
-                 {# ---------------------------------------- #}
             </div>
         </div>
     </div>
