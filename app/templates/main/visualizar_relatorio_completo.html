@@ -57,65 +57,132 @@
     .assinatura-nome { text-align: center; font-weight: bold; margin-top: 5px; margin-bottom: 5px; font-size: 11pt; }
     .data-assinatura { text-align: center; color: #555; font-size: 10pt; margin-bottom: 0; }
 
-    /* Estilos de Impressão (inalterados da versão anterior) */
+    /* --- ESTILOS DE IMPRESSÃO REFINADOS v3 --- */
     @media print {
         @page {
             size: A4 portrait;
-            margin: 0.8cm !important; /* Margens MÍNIMAS */
-             @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 7pt; color: #999; }
-             @bottom-left { content: "Sistema de Ponto Eletrônico - SENAPPEN"; font-size: 7pt; color: #999; }
+            margin: 0.5cm !important; /* Tenta forçar margens mínimas */
+            /* Rodapé opcional */
+            @bottom-center { content: "Página " counter(page) " de " counter(pages); font-size: 7pt; color: #999; }
+            @bottom-left { content: "Sistema de Ponto Eletrônico - SENAPPEN"; font-size: 7pt; color: #999; }
         }
+
         html, body {
-            margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important;
-            background-color: #fff !important; font-size: 8pt !important; color: #000 !important;
-            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            background-color: #fff !important;
+            font-size: 8pt !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            overflow: visible !important; /* Garante que nada fique escondido */
         }
-        .relatorio-container { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; }
+
+        .relatorio-container {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            height: auto !important; /* Garante altura automática */
+            overflow: visible !important;
+        }
+
         .no-print { display: none !important; }
-        .card-relatorio { border: 1px solid #ccc !important; page-break-inside: avoid !important; margin-bottom: 8px !important; box-shadow: none !important; border-radius: 0 !important; }
-        .card-header-relatorio { background-color: #f1f3f5 !important; padding: 3px 6px !important; font-size: 10pt !important; border-bottom: 1px solid #ccc !important; }
-        .card-body-relatorio { padding: 5px 8px !important; }
+
+        .card-relatorio {
+            border: 1px solid #ccc !important;
+            page-break-inside: avoid !important; /* Tenta manter seções juntas */
+            margin-bottom: 5px !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important; /* Permite conteúdo vazar se necessário */
+        }
+        .card-header-relatorio {
+            background-color: #f1f3f5 !important;
+            padding: 3px 6px !important;
+            font-size: 10pt !important;
+            border-bottom: 1px solid #ccc !important;
+        }
+        .card-body-relatorio {
+            padding: 5px 8px !important;
+            height: auto !important; /* Garante altura automática */
+            overflow: visible !important;
+        }
         .identificacao-section td { font-size: 8pt !important; padding: 1px 0 !important;}
         .identificacao-section td.label { width: 110px !important;}
-        table { width: 100% !important; table-layout: fixed; }
-        table, th, td { border: 1px solid #bbb !important; font-size: 7.5pt !important; padding: 2px 3px !important; word-wrap: break-word !important; overflow-wrap: break-word; }
-        th { background-color: #e9ecef !important; font-weight: bold !important; }
-        .registros-section td.detalhes-celula { background-color: #fdfdfd !important; font-size: 7pt !important; padding: 3px 5px !important; border-top: 1px dashed #ccc !important; }
+
+        table {
+            width: 100% !important;
+            table-layout: fixed;
+            page-break-inside: auto !important; /* Permite que a tabela quebre */
+        }
+        thead {
+            display: table-header-group !important; /* Repete cabeçalho */
+        }
+        tbody {
+             display: table-row-group !important;
+        }
+        tr {
+            page-break-inside: auto !important; /* Permite que linhas quebrem */
+            page-break-after: auto !important;
+        }
+        td {
+             page-break-inside: auto !important; /* Permite quebra dentro da célula se necessário */
+        }
+        table, th, td {
+            border: 1px solid #bbb !important;
+            font-size: 7.5pt !important;
+            padding: 2px 3px !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        th {
+            background-color: #e9ecef !important;
+            font-weight: bold !important;
+        }
+
+        .registros-section td.detalhes-celula {
+            background-color: #fdfdfd !important;
+            font-size: 7pt !important;
+            padding: 3px 5px !important;
+            border-top: 1px dashed #ccc !important;
+        }
         .registros-section td.detalhes-celula p { margin: 0 0 2px 8px !important; }
-        .registros-section table, .registros-section tbody, .registros-section tr, .registros-section td { page-break-inside: auto !important; }
-        thead { display: table-header-group; }
+
         .saldo-negativo { color: #c00 !important; }
         .assinatura { margin-top: 15px !important; font-size: 8pt !important;}
         .assinatura-nome { font-size: 9pt !important;}
         .data-assinatura { font-size: 8pt !important;}
         a { text-decoration: none !important; color: inherit !important; }
     }
+    /* --- FIM DOS ESTILOS DE IMPRESSÃO --- */
+
 </style>
 {% endblock %}
 
 {% block content %}
-{# Botões de Ação (Voltar, Imprimir, Gerar HTML SEI) - Fora do container principal para não imprimir #}
+{# Botões de Ação (Voltar e Imprimir) - Fora do container principal para não imprimir #}
 <div class="container mt-3 mb-3 no-print">
     <div class="d-flex justify-content-between">
         <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
-        {# --- CORREÇÃO: Adicionado grupo de botões à direita --- #}
         <div class="btn-group" role="group">
             <button onclick="window.print();" class="btn btn-primary">
                 <i class="fas fa-print me-1"></i> Imprimir / Salvar PDF
             </button>
-            {# --- NOVO BOTÃO: Gerar HTML SEI --- #}
-            <a href="{{ url_for('main.gerar_html_sei', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-success" target="_blank"> {# Abre em nova aba #}
+            <a href="{{ url_for('main.gerar_html_sei', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-success" target="_blank">
                 <i class="fas fa-code me-1"></i> Gerar Código HTML SEI
             </a>
-            {# --- FIM DO NOVO BOTÃO --- #}
         </div>
-         {# --- FIM DA CORREÇÃO --- #}
     </div>
 </div>
 
-{# Container Principal do Relatório (conteúdo inalterado) #}
+{# Container Principal do Relatório #}
 <div class="relatorio-container">
     {# 1. Cabeçalho Oficial #}
     <div class="cabecalho-oficial">
