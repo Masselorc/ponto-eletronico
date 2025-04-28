@@ -286,25 +286,20 @@
                     <h5 class="mb-0">Relatório Completo com Autoavaliação</h5>
                 </div>
                 <div class="card-body p-4">
-                    {# --- CORREÇÃO: Lógica Condicional --- #}
+                    {# --- CORREÇÃO: Lógica Condicional Atualizada --- #}
                     {% if relatorio_completo_salvo %}
-                        {# Se já existe um relatório salvo, mostra botão de exportar #}
+                        {# Se já existe um relatório salvo, mostra botões de exportar e editar #}
                         <p class="text-success"><i class="fas fa-check-circle me-1"></i> Relatório completo com autoavaliação já foi salvo para este mês.</p>
-                        <p>Você pode exportá-lo em PDF a qualquer momento.</p>
-                        <div class="d-grid">
+                        <p>Você pode exportá-lo em PDF ou editar as informações salvas.</p>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-center"> {# Centraliza botões em telas maiores #}
                             <a href="{{ url_for('main.exportar_relatorio_completo_pdf', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-danger">
                                 <i class="fas fa-file-pdf me-2"></i> Exportar Relatório Completo (PDF)
                             </a>
+                            {# Botão Editar que abre o collapse #}
+                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
+                                <i class="fas fa-edit me-1"></i> Editar Autoavaliação Salva
+                            </button>
                         </div>
-                         {# Opcional: Adicionar botão para editar o relatório salvo #}
-                         {#
-                         <div class="mt-3 text-center">
-                             <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
-                                 <i class="fas fa-edit me-1"></i> Editar Autoavaliação Salva
-                             </button>
-                         </div>
-                         #}
-
                     {% else %}
                         {# Se não existe, mostra o botão para adicionar/salvar #}
                         <p>Adicione sua autoavaliação para gerar o relatório completo em PDF.</p>
@@ -315,10 +310,10 @@
                         </div>
                     {% endif %}
 
-                    {# O formulário de autoavaliação continua dentro do collapse #}
-                    <div class="collapse mt-3 {% if relatorio_completo_salvo %}show{% endif %}" id="autoavaliacaoCollapse"> {# Adicionado 'show' se já salvo para permitir edição opcional #}
+                    {# Formulário de autoavaliação (agora começa fechado por padrão) #}
+                    {# --- CORREÇÃO: Removido 'show' da classe collapse --- #}
+                    <div class="collapse mt-3" id="autoavaliacaoCollapse">
                         {% if form_completo %}
-                            {# --- CORREÇÃO: Alterado action para a nova rota de salvar --- #}
                             <form method="POST" action="{{ url_for('main.salvar_relatorio_completo') }}" novalidate>
                                 {{ form_completo.hidden_tag() }} {# Token CSRF #}
                                 {{ form_completo.user_id() }} {# Mantém campos ocultos #}
@@ -351,7 +346,7 @@
                                 {# Campo Declaração (Checkbox) #}
                                 <div class="mb-3 form-check">
                                     {# Marca o checkbox se estiver salvo #}
-                                    {{ form_completo.declaracao(class="form-check-input" + (" is-invalid" if form_completo.declaracao.errors else ""), id="declaracaoCheck", checked=relatorio_completo_salvo.declaracao_marcada if relatorio_completo_salvo else false) }}
+                                    {{ form_completo.declaracao(class="form-check-input" + (" is-invalid" if form_completo.declaracao.errors else ""), id="declaracaoCheck", checked=(relatorio_completo_salvo.declaracao_marcada if relatorio_completo_salvo else false)) }}
                                     {{ form_completo.declaracao.label(class="form-check-label", for="declaracaoCheck") }}
                                     {% if form_completo.declaracao.errors %}<div class="invalid-feedback d-block">{% for e in form_completo.declaracao.errors %}{{e}}{% endfor %}</div>{% endif %}
                                 </div>
@@ -361,9 +356,8 @@
                                     <p><strong>DATA:</strong> {{ date_obj.today().strftime('%d/%m/%Y') }}</p>
                                 </div>
 
-                                {# Botão de Submit (agora para salvar) #}
+                                {# Botão de Submit (para salvar ou atualizar) #}
                                 <div class="d-grid">
-                                     {# --- CORREÇÃO: Usa o botão renomeado do form --- #}
                                      {{ form_completo.submit_salvar(class="btn btn-primary") }}
                                 </div>
                             </form>
@@ -371,7 +365,7 @@
                             <p class="text-danger">Erro: Formulário de autoavaliação não pôde ser carregado.</p>
                         {% endif %}
                     </div> {# Fim do collapse #}
-                     {# --- FIM DA LÓGICA CONDICIONAL --- #}
+                     {# --- FIM DA LÓGICA CONDICIONAL ATUALIZADA --- #}
                 </div> {# Fim do card-body #}
             </div> {# Fim do card #}
             {# --- Fim da Seção de Autoavaliação / Exportação --- #}
