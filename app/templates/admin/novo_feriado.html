@@ -10,23 +10,26 @@
             <p class="lead">Cadastre um novo feriado no sistema</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('admin.feriados') }}" class="btn btn-secondary">
+            {# --- CORREÇÃO: Alterado 'admin.feriados' para 'admin.listar_feriados' --- #}
+            <a href="{{ url_for('admin.listar_feriados') }}" class="btn btn-secondary">
+            {# --- FIM DA CORREÇÃO --- #}
                 <i class="fas fa-arrow-left"></i> Voltar para Feriados
             </a>
         </div>
     </div>
 
-    <div class="card">
+    <div class="card shadow-sm"> {# Adicionado shadow #}
         <div class="card-header bg-primary text-white">
-            <h2 class="h5 mb-0">Formulário de Cadastro</h2>
+            <h2 class="h5 mb-0"><i class="fas fa-calendar-plus me-2"></i>Formulário de Cadastro</h2>
         </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('admin.novo_feriado') }}">
+        <div class="card-body p-4"> {# Adicionado padding #}
+            <form method="POST" action="{{ url_for('admin.novo_feriado') }}" novalidate> {# Adicionado novalidate #}
                 {{ form.csrf_token }}
-                
+
                 <div class="mb-3">
-                    <label for="data" class="form-label">Data</label>
-                    {{ form.data(class="form-control", type="date") }}
+                    <label for="data" class="form-label">{{ form.data.label }}</label>
+                    {# Adicionado type="date" para melhor UX #}
+                    {{ form.data(class="form-control" + (" is-invalid" if form.data.errors else ""), type="date", id="data") }}
                     {% if form.data.errors %}
                     <div class="invalid-feedback d-block">
                         {% for error in form.data.errors %}
@@ -35,10 +38,10 @@
                     </div>
                     {% endif %}
                 </div>
-                
+
                 <div class="mb-3">
-                    <label for="descricao" class="form-label">Descrição</label>
-                    {{ form.descricao(class="form-control") }}
+                    <label for="descricao" class="form-label">{{ form.descricao.label }}</label>
+                    {{ form.descricao(class="form-control" + (" is-invalid" if form.descricao.errors else ""), id="descricao", placeholder="Nome do feriado") }}
                     {% if form.descricao.errors %}
                     <div class="invalid-feedback d-block">
                         {% for error in form.descricao.errors %}
@@ -47,11 +50,9 @@
                     </div>
                     {% endif %}
                 </div>
-                
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Salvar
-                    </button>
+
+                <div class="d-grid gap-2 mt-4"> {# Adicionado espaçamento #}
+                    {{ form.submit(class="btn btn-primary") }} {# Usa submit do form #}
                 </div>
             </form>
         </div>
