@@ -9,9 +9,8 @@ import tempfile
 import pandas as pd
 from datetime import datetime, date, timedelta, time
 from sqlalchemy import desc # Importado para ordenação
-# --- CORREÇÃO: Importar novo modelo ---
+# Importar novo modelo
 from app.models.relatorio_completo import RelatorioMensalCompleto
-# ------------------------------------
 
 # --- Definição do Blueprint 'main' ANTES das importações da app ---
 main = Blueprint('main', __name__)
@@ -435,18 +434,25 @@ def relatorio_mensal():
         # Cria uma instância do formulário de autoavaliação
         form_completo = RelatorioCompletoForm()
 
-        # Preenche dados dos campos ocultos no objeto form
-        form_completo.user_id.data = str(usuario_ctx.id)
-        form_completo.mes.data = str(mes_req)
-        form_completo.ano.data = str(ano_req)
-
-        # --- CORREÇÃO: Verifica se já existe um relatório completo salvo ---
+        # Verifica se já existe um relatório completo salvo
         relatorio_completo_salvo = RelatorioMensalCompleto.query.filter_by(
             user_id=usuario_ctx.id,
             ano=ano_req,
             mes=mes_req
         ).first()
-        # -----------------------------------------------------------------
+
+        # --- CORREÇÃO: Preencher form com dados salvos, se existirem ---
+        if relatorio_completo_salvo:
+            form_completo.autoavaliacao.data = relatorio_completo_salvo.autoavaliacao
+            form_completo.dificuldades.data = relatorio_completo_salvo.dificuldades
+            form_completo.sugestoes.data = relatorio_completo_salvo.sugestoes
+            form_completo.declaracao.data = relatorio_completo_salvo.declaracao_marcada
+        # --- FIM DA CORREÇÃO ---
+
+        # Preenche dados dos campos ocultos no objeto form (sempre)
+        form_completo.user_id.data = str(usuario_ctx.id)
+        form_completo.mes.data = str(mes_req)
+        form_completo.ano.data = str(ano_req)
 
         # Combina os dados do relatório com a lista de usuários e o form de autoavaliação
         contexto_template = {
@@ -562,7 +568,7 @@ def relatorio_mensal_excel():
 
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
-# --- CORREÇÃO: Renomeada a rota e alterada a lógica para SALVAR ---
+# Rota para SALVAR o relatório completo
 @main.route('/salvar-relatorio-completo', methods=['POST'])
 @login_required
 def salvar_relatorio_completo():
@@ -650,9 +656,8 @@ def salvar_relatorio_completo():
 
     # Redireciona de volta para a página do relatório em caso de erro de validação ou exceção
     return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
-# --- FIM DA ROTA DE SALVAR ---
 
-# --- NOVA ROTA: Exportar PDF Completo ---
+# Rota para EXPORTAR o PDF Completo
 @main.route('/exportar-relatorio-completo/pdf')
 @login_required
 def exportar_relatorio_completo_pdf():
@@ -725,8 +730,6 @@ def exportar_relatorio_completo_pdf():
     mes_fb = request.args.get('mes', default=date.today().month, type=int)
     ano_fb = request.args.get('ano', default=date.today().year, type=int)
     return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
-# --- FIM DA NOVA ROTA ---
-
 
 # Rotas visualizar_ponto, excluir_ponto, perfil, registrar_multiplo_ponto, registrar_atividade (mantidas)
 @main.route('/visualizar-ponto/<int:ponto_id>')
