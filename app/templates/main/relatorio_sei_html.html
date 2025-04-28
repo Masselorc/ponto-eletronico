@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Produtividade Mensal - {{ nome_mes }}/{{ ano_atual }} - {{ usuario.name }}</title>
+    <style>
+        /* Estilos MÍNIMOS para SEI - Foco em tabelas e estrutura */
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; }
+        p { margin: 5px 0; }
+        h1, h2, h3 { margin: 15px 0 5px 0; padding: 0; }
+        h1 { font-size: 12pt; text-align: center; font-weight: bold; text-transform: uppercase; }
+        h2 { font-size: 11pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 2px; margin-top: 20px; }
+        h3 { font-size: 10pt; font-weight: bold; margin-top: 10px; }
+        .cabecalho-sei { text-align: center; margin-bottom: 20px; font-size: 10pt; }
+        .cabecalho-sei p { margin: 1px 0; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 15px; font-size: 9pt; }
+        th, td { border: 1px solid #666; padding: 4px 5px; text-align: left; vertical-align: top; }
+        th { background-color: #e0e0e0; font-weight: bold; text-align: center; }
+        .identificacao-sei td:first-child { font-weight: bold; width: 120px; background-color: #f0f0f0; } /* Label em negrito e cinza */
+        .text-center { text-align: center; }
+        .detalhes-sei { font-size: 8.5pt; color: #333; }
+        .detalhes-sei strong { font-weight: bold; }
+        .assinatura-sei { margin-top: 30px; text-align: center; }
+        .assinatura-sei p { margin: 2px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="cabecalho-sei">
+        <p><strong>RELATÓRIO DE PRODUTIVIDADE MENSAL</strong></p>
+        <p>Diretoria de Políticas Penais – DIRPP</p>
+        <p>Secretaria Nacional de Políticas Penais – SENAPPEN</p>
+        <p>Ministério da Justiça e Segurança Pública</p>
+        <p><strong>Período:</strong> {{ nome_mes }} / {{ ano_atual }}</p>
+    </div>
+
+    <h2>IDENTIFICAÇÃO DO SERVIDOR(A)/COLABORADOR (A) EVENTUAL</h2>
+    {% if usuario %}
+    <table class="identificacao-sei">
+        <tr><td>Nome:</td><td>{{ usuario.name }}</td></tr>
+        <tr><td>Matrícula:</td><td>{{ usuario.matricula }}</td></tr>
+        <tr><td>Cargo:</td><td>{{ usuario.cargo or 'N/A' }}</td></tr>
+        <tr><td>Vínculo:</td><td>{{ usuario.vinculo or 'N/A' }}</td></tr>
+        <tr><td>Unidade/Setor:</td><td>{{ usuario.unidade_setor or 'N/A' }}</td></tr>
+        <tr><td>Chefia Imediata:</td><td>{{ usuario.chefia_imediata or 'N/A' }}</td></tr>
+        <tr><td>UF:</td><td>{{ usuario.uf or 'N/A' }}</td></tr>
+        <tr><td>Telefone:</td><td>{{ usuario.telefone or 'N/A' }}</td></tr>
+        <tr><td>Email:</td><td>{{ usuario.email }}</td></tr>
+    </table>
+    {% else %}
+    <p>Informações do usuário indisponíveis.</p>
+    {% endif %}
+
+    <h2>REGISTROS MENSAIS</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Dia</th>
+                <th>Entrada</th>
+                <th>Saída Almoço</th>
+                <th>Retorno Almoço</th>
+                <th>Saída</th>
+                <th>Horas Trab.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+            {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
+                {% set dia_semana_idx = data_atual.weekday() %}
+                {% set registro = registros_por_data.get(data_atual) %}
+                {% set is_feriado = data_atual in feriados_datas %}
+                {% set is_fim_semana = dia_semana_idx >= 5 %}
+                {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
+                {% set tem_detalhes = (lista_atividades or (registro and (registro.resultados_produtos or registro.observacoes))) %}
+
+                {% if registro or (not is_fim_semana) %}
+                    {# Linha Principal #}
+                    <tr>
+                        <td class="text-center">{{ data_atual.strftime('%d/%m/%Y') }}</td>
+                        <td class="text-center">{{ dias_semana[dia_semana_idx] }}</td>
+                        {% if is_feriado %}
+                            <td colspan="5" class="text-center"><em>{{ feriados_dict[data_atual] }} (Feriado)</em></td>
+                        {% elif is_fim_semana and not registro %}
+                            {# Omitido FDS sem registro #}
+                        {% elif registro %}
+                            {% if registro.afastamento %}
+                                <td colspan="5" class="text-center"><em>{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }} (Afast.)</em></td>
+                            {% else %} {# Dia trabalhado #}
+                                <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                <td class="text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                <td class="text-center">{% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}</td>
+                            {% endif %}
+                        {% else %} {# Dia útil sem registro #}
+                            <td colspan="5" class="text-center"><em>Sem Registro</em></td>
+                        {% endif %}
+                    </tr>
+                    {# Linha de Detalhes #}
+                    {% if tem_detalhes and registro %}
+                    <tr>
+                        <td colspan="7" class="detalhes-sei">
+                            {% if lista_atividades %}<strong>Atividades:</strong> {{ lista_atividades|join('; ') }}<br>{% endif %}
+                            {% if registro.resultados_produtos %}<strong>Resultados/Produtos:</strong> {{ registro.resultados_produtos }}<br>{% endif %}
+                            {% if registro.observacoes %}<strong>Observações:</strong> {{ registro.observacoes }}{% endif %}
+                        </td>
+                    </tr>
+                    {% elif registro and not tem_detalhes %} {# Linha vazia para manter padrão #}
+                     <tr><td colspan="7" style="border: none; height: 5px;"></td></tr>
+                    {% elif not registro and not is_fim_semana and not is_feriado %} {# Linha vazia para pendentes #}
+                     <tr><td colspan="7" style="border: none; height: 5px;"></td></tr>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>RESUMO DO MÊS</h2>
+    <table>
+        <thead>
+           <tr>
+               <th>Dias Úteis</th>
+               <th>Dias Trabalhados</th>
+               <th>Dias de Afastamento</th>
+               <th>Horas Trabalhadas</th>
+               <th>Carga Horária Devida</th>
+               <th>Saldo de Horas</th>
+           </tr>
+        </thead>
+        <tbody>
+           <tr>
+               <td class="text-center">{{ dias_uteis }}</td>
+               <td class="text-center">{{ dias_trabalhados }}</td>
+               <td class="text-center">{{ dias_afastamento }}</td>
+               <td class="text-center">{{ "%.2f"|format(horas_trabalhadas) }}h</td>
+               <td class="text-center">{{ "%.2f"|format(carga_horaria_devida) }}h</td>
+               <td class="text-center"><strong>{{ "%+.2f"|format(saldo_horas) }}h</strong></td>
+           </tr>
+        </tbody>
+   </table>
+
+    {% if autoavaliacao_data is defined %}
+    <h2>AUTOAVALIAÇÃO DO SERVIDOR(A)/COLABORADOR</h2>
+    <p>{{ autoavaliacao_data }}</p>
+    {% endif %}
+
+    {% if dificuldades_data is defined %}
+    <h2>DIFICULDADES OU NECESSIDADES OBSERVADAS</h2>
+    <p>{{ dificuldades_data }}</p>
+    {% endif %}
+
+    {% if sugestoes_data is defined %}
+    <h2>SUGESTÕES DE MELHORIA</h2>
+    <p>{{ sugestoes_data }}</p>
+    {% endif %}
+
+    {% if declaracao_marcada is defined %}
+    <h2>DECLARAÇÃO</h2>
+    <p>[ {% if declaracao_marcada %}X{% else %}&nbsp;{% endif %} ] Declaro que as informações acima refletem, com veracidade, as atividades desempenhadas por mim durante o período informado.</p>
+
+    <div class="assinatura-sei">
+        <p>_________________________________________________________</p>
+        <p>{{ usuario.name if usuario else 'Nome Indisponível' }}</p>
+        <p>Data: {{ data_geracao }}</p>
+    </div>
+    {% endif %}
+
+</body>
+</html>
+```
+
+**3. Nova Rota no Controlador (`app/controllers/main.py`)**
+
+Adicione esta rota ao controlador:
+
+
+```python
+# ... (outras importações e código) ...
+from app.models.relatorio_completo import RelatorioMensalCompleto # Certifique-se que está importado
+
+# ... (código das outras rotas) ...
+
+# --- NOVA ROTA: Gerar HTML SEI ---
+@main.route('/relatorio-sei-html')
+@login_required
+def gerar_html_sei():
+    """Gera uma página HTML simplificada do relatório completo para o SEI."""
+    try:
+        # Tenta obter user_id, mes e ano da URL
+        user_id = request.args.get('user_id', type=int)
+        mes = request.args.get('mes', type=int)
+        ano = request.args.get('ano', type=int)
+
+        if not user_id or not mes or not ano:
+            flash("Informações insuficientes para gerar o HTML (usuário, mês ou ano ausente).", 'warning')
+            return redirect(request.referrer or url_for('main.dashboard'))
+
+        # Verifica permissão
+        if user_id != current_user.id and not current_user.is_admin:
+            flash("Você não tem permissão para gerar este relatório.", 'danger')
+            return redirect(url_for('main.dashboard'))
+
+        # Busca o relatório completo salvo no banco
+        relatorio_salvo = RelatorioMensalCompleto.query.filter_by(
+            user_id=user_id, ano=ano, mes=mes
+        ).first()
+
+        if not relatorio_salvo:
+            flash("É necessário salvar o Relatório Completo antes de gerar o HTML para o SEI.", 'warning')
+            return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
+
+        # Busca os dados base do relatório mensal
+        dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
+
+        # Cria o contexto completo para o template HTML SEI
+        contexto_completo = {
+            **dados_relatorio_base,
+            'autoavaliacao_data': relatorio_salvo.autoavaliacao,
+            'dificuldades_data': relatorio_salvo.dificuldades,
+            'sugestoes_data': relatorio_salvo.sugestoes,
+            'declaracao_marcada': relatorio_salvo.declaracao_marcada,
+            'data_geracao': relatorio_salvo.updated_at.strftime('%d/%m/%Y'), # Apenas data para SEI
+        }
+
+        # Renderiza o novo template HTML SEI
+        return render_template('main/relatorio_sei_html.html', **contexto_completo)
+
+    except ValueError as ve:
+        logger.error(f"ValueError ao gerar HTML SEI: {ve}", exc_info=True)
+        flash(f"Erro ao processar dados para gerar HTML: {ve}.", 'danger')
+    except Exception as e:
+        logger.error(f"Erro inesperado ao gerar HTML SEI: {e}", exc_info=True)
+        flash('Ocorreu um erro inesperado ao gerar o HTML para o SEI.', 'danger')
+
+    # Redireciona de volta para a página do relatório mensal em caso de erro
+    user_id_fb = request.args.get('user_id', default=current_user.id, type=int)
+    mes_fb = request.args.get('mes', default=date.today().month, type=int)
+    ano_fb = request.args.get('ano', default=date.today().year, type=int)
+    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
+# --- FIM DA NOVA ROTA ---
+
+# ... (restante do código do controller) ...
