@@ -65,20 +65,18 @@
                 <p class="lead text-muted">Visualizando relatório de: {{ usuario.name }}</p>
             {% endif %}
 
-            {# Navegação e Exportação Padrão #}
+            {# --- CORREÇÃO: Removido o grupo de botões de exportação padrão --- #}
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                {# Grupo de botões de navegação (mantido) #}
                 <div class="btn-group" role="group">
-                    {# --- Passando 'usuario.id' para navegação --- #}
                     <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-chevron-left"></i> Ant.</a>
                     <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id) }}" class="btn btn-outline-secondary btn-sm">Atual</a>
                     <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary btn-sm">Próx. <i class="fas fa-chevron-right"></i></a>
                 </div>
-                <div class="btn-group" role="group">
-                     {# --- Passando 'usuario.id' para exportação --- #}
-                    <a href="{{ url_for('main.relatorio_mensal_pdf', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-danger btn-sm"><i class="fas fa-file-pdf"></i> PDF Padrão</a>
-                    <a href="{{ url_for('main.relatorio_mensal_excel', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-success btn-sm"><i class="fas fa-file-excel"></i> Excel</a>
-                </div>
+                {# O grupo de botões de exportação PDF/Excel foi removido daqui #}
             </div>
+            {# --- FIM DA CORREÇÃO --- #}
+
 
             {# Seletor de Usuário para Admin #}
             {% if current_user.is_admin and usuarios %}
@@ -286,7 +284,7 @@
                     <h5 class="mb-0">Relatório Completo com Autoavaliação</h5>
                 </div>
                 <div class="card-body p-4">
-                    {# --- CORREÇÃO: Lógica Condicional Atualizada --- #}
+                    {# --- Lógica Condicional Atualizada --- #}
                     {% if relatorio_completo_salvo %}
                         {# Se já existe um relatório salvo, mostra botões de exportar e editar #}
                         <p class="text-success"><i class="fas fa-check-circle me-1"></i> Relatório completo com autoavaliação já foi salvo para este mês.</p>
@@ -311,7 +309,6 @@
                     {% endif %}
 
                     {# Formulário de autoavaliação (agora começa fechado por padrão) #}
-                    {# --- CORREÇÃO: Removido 'show' da classe collapse --- #}
                     <div class="collapse mt-3" id="autoavaliacaoCollapse">
                         {% if form_completo %}
                             <form method="POST" action="{{ url_for('main.salvar_relatorio_completo') }}" novalidate>
@@ -325,28 +322,28 @@
                                     <label for="{{ form_completo.autoavaliacao.id }}" class="form-label fw-bold">{{ form_completo.autoavaliacao.label.text }}</label>
                                     <p class="form-text text-muted mt-0 mb-2">{{ form_completo.autoavaliacao.description }}</p>
                                     {# Preenche com dados salvos se existirem (para edição) #}
-                                    {{ form_completo.autoavaliacao(class="form-control" + (" is-invalid" if form_completo.autoavaliacao.errors else ""), value=relatorio_completo_salvo.autoavaliacao if relatorio_completo_salvo else '') }}
+                                    {{ form_completo.autoavaliacao(class="form-control" + (" is-invalid" if form_completo.autoavaliacao.errors else "")) }}
                                     {% if form_completo.autoavaliacao.errors %}<div class="invalid-feedback">{% for e in form_completo.autoavaliacao.errors %}{{e}}{% endfor %}</div>{% endif %}
                                 </div>
 
                                 {# Campo Dificuldades #}
                                 <div class="mb-3">
                                     {{ form_completo.dificuldades.label(class="form-label fw-bold") }}
-                                    {{ form_completo.dificuldades(class="form-control" + (" is-invalid" if form_completo.dificuldades.errors else ""), value=relatorio_completo_salvo.dificuldades if relatorio_completo_salvo else '') }}
+                                    {{ form_completo.dificuldades(class="form-control" + (" is-invalid" if form_completo.dificuldades.errors else "")) }}
                                     {% if form_completo.dificuldades.errors %}<div class="invalid-feedback">{% for e in form_completo.dificuldades.errors %}{{e}}{% endfor %}</div>{% endif %}
                                 </div>
 
                                 {# Campo Sugestões #}
                                 <div class="mb-3">
                                     {{ form_completo.sugestoes.label(class="form-label fw-bold") }}
-                                    {{ form_completo.sugestoes(class="form-control" + (" is-invalid" if form_completo.sugestoes.errors else ""), value=relatorio_completo_salvo.sugestoes if relatorio_completo_salvo else '') }}
+                                    {{ form_completo.sugestoes(class="form-control" + (" is-invalid" if form_completo.sugestoes.errors else "")) }}
                                     {% if form_completo.sugestoes.errors %}<div class="invalid-feedback">{% for e in form_completo.sugestoes.errors %}{{e}}{% endfor %}</div>{% endif %}
                                 </div>
 
                                 {# Campo Declaração (Checkbox) #}
                                 <div class="mb-3 form-check">
                                     {# Marca o checkbox se estiver salvo #}
-                                    {{ form_completo.declaracao(class="form-check-input" + (" is-invalid" if form_completo.declaracao.errors else ""), id="declaracaoCheck", checked=(relatorio_completo_salvo.declaracao_marcada if relatorio_completo_salvo else false)) }}
+                                    {{ form_completo.declaracao(class="form-check-input" + (" is-invalid" if form_completo.declaracao.errors else ""), id="declaracaoCheck") }}
                                     {{ form_completo.declaracao.label(class="form-check-label", for="declaracaoCheck") }}
                                     {% if form_completo.declaracao.errors %}<div class="invalid-feedback d-block">{% for e in form_completo.declaracao.errors %}{{e}}{% endfor %}</div>{% endif %}
                                 </div>
@@ -365,7 +362,6 @@
                             <p class="text-danger">Erro: Formulário de autoavaliação não pôde ser carregado.</p>
                         {% endif %}
                     </div> {# Fim do collapse #}
-                     {# --- FIM DA LÓGICA CONDICIONAL ATUALIZADA --- #}
                 </div> {# Fim do card-body #}
             </div> {# Fim do card #}
             {# --- Fim da Seção de Autoavaliação / Exportação --- #}
