@@ -40,14 +40,14 @@
     /* Alinhamento vertical */
     .table.align-middle th, .table.align-middle td { vertical-align: middle; }
 
-    /* Estilo para o cabeçalho da tabela (mantido da correção anterior) */
+    /* Estilo para o cabeçalho da tabela */
     .table > thead > tr > th {
         background-color: #f8f9fa; /* Cor de fundo similar a table-light */
         border-bottom-width: 2px; /* Borda inferior mais pronunciada */
         border-top: 1px solid #dee2e6; /* Borda superior */
         border-left: 1px solid #dee2e6; /* Borda esquerda */
         border-right: 1px solid #dee2e6; /* Borda direita */
-        padding-top: 0.75rem; /* Ajuste de padding se necessário */
+        padding-top: 0.75rem;
         padding-bottom: 0.75rem;
     }
 </style>
@@ -140,7 +140,6 @@
                                     {% set registro = registros_por_data.get(data_atual) %}
                                     {% set is_feriado = data_atual in feriados_datas %}
                                     {% set is_fim_semana = dia_semana_idx >= 5 %}
-                                    {# --- CORREÇÃO: Acessa a lista de atividades corretamente --- #}
                                     {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
                                     {% set tem_detalhes = (registro and (registro.observacoes or lista_atividades or registro.resultados_produtos)) %}
 
@@ -169,20 +168,26 @@
                                         </td>
                                         <td>{{ dia_semana }}</td>
 
-                                        {# --- Lógica reestruturada para colspan e alinhamento --- #}
+                                        {# --- CORREÇÃO: Lógica de colspan e células faltantes --- #}
                                         {% if is_feriado %}
-                                            <td colspan="6" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                            {# Colspan 5 (Entrada -> Horas Trab.) #}
+                                            <td colspan="5" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                            {# Células restantes #}
                                             <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
                                             <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center pe-3">-</td> {# Ações #}
                                         {% elif is_fim_semana %}
-                                            <td colspan="6" class="text-center fst-italic">Fim de Semana</td>
+                                            {# Colspan 5 (Entrada -> Horas Trab.) #}
+                                            <td colspan="5" class="text-center fst-italic">Fim de Semana</td>
+                                            {# Células restantes #}
                                             <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
                                             <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center pe-3">-</td> {# Ações #}
                                         {% elif registro %}
                                             {% if registro.afastamento %}
-                                                <td colspan="6" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                                {# Colspan 5 (Entrada -> Horas Trab.) #}
+                                                <td colspan="5" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                                 {# Células restantes #}
                                                 <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
                                                 <td class="text-center">-</td> {# Atividades #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
@@ -196,38 +201,34 @@
                                                 </td>
                                             {% else %} {# Dia trabalhado #}
                                                 <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
-                                                {# --- CORREÇÃO: Colspan para "Sem registro de almoço" --- #}
+                                                {# Colspan para "Sem registro de almoço" #}
                                                 {% if registro.saida_almoco and registro.retorno_almoco %}
                                                     <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') }}</td>
                                                     <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') }}</td>
                                                 {% elif registro.saida_almoco or registro.retorno_almoco %}
-                                                     {# Caso tenha só um dos registros de almoço (incomum, mas tratado) #}
                                                      <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
                                                      <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
                                                 {% else %}
-                                                     {# Mescla as duas colunas de almoço #}
                                                      <td colspan="2" class="text-center text-muted small fst-italic">Sem registro de almoço</td>
                                                 {% endif %}
-                                                {# --- FIM DA CORREÇÃO --- #}
                                                 <td class="text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
                                                 <td class="text-center fw-bold">
                                                     {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
                                                 </td>
+                                                {# Células restantes #}
                                                 <td class="text-center">
                                                     {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}<span class="badge bg-success">OK</span>
                                                     {% elif registro.horas_trabalhadas is not none %}<span class="badge bg-warning text-dark">Parcial</span>
                                                     {% else %}<span class="badge bg-secondary">Pendente</span>
                                                     {% endif %}
                                                 </td>
-                                                 {# --- CORREÇÃO: Exibição da coluna Atividades --- #}
                                                  <td class="text-center">
-                                                    {% if lista_atividades %} {# Verifica se a lista não está vazia #}
+                                                    {% if lista_atividades %}
                                                         <i class="fas fa-list-check text-success" title="Ver Atividades nos Detalhes"></i>
                                                     {% else %}
-                                                        - {# Mostra hífen se não houver atividades #}
+                                                        -
                                                     {% endif %}
                                                 </td>
-                                                 {# --- FIM DA CORREÇÃO --- #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
@@ -239,9 +240,9 @@
                                                 </td>
                                             {% endif %}
                                         {% else %} {# Dia útil sem registro #}
-                                            {# --- CORREÇÃO: Colspan ajustado para 6 (Entrada -> Horas Trab) --- #}
-                                            <td colspan="6" class="text-center fst-italic">Sem Registro</td>
-                                            {# --------------------------------------------------------- #}
+                                            {# Colspan 5 (Entrada -> Horas Trab) #}
+                                            <td colspan="5" class="text-center fst-italic">Sem Registro</td>
+                                            {# Células restantes #}
                                             <td class="text-center"><span class="badge bg-danger">Pendente</span></td>
                                             <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center text-nowrap pe-3"> {# Ações #}
@@ -251,21 +252,16 @@
                                                 </div>
                                             </td>
                                         {% endif %}
+                                        {# --- FIM DA CORREÇÃO --- #}
                                     </tr>
                                     {# --- Linha de Detalhes Expansível --- #}
                                     {% if tem_detalhes %}
                                     <tr id="detalhes-{{ dia_num }}" class="collapse">
-                                        {# --- CORREÇÃO: Colspan 10 para cobrir todas as colunas --- #}
-                                        <td colspan="10" class="detalhes-row">
-                                        {# ------------------------------------------------------- #}
-                                            {# --- CORREÇÃO: Usa lista_atividades --- #}
+                                        <td colspan="10" class="detalhes-row"> {# Colspan 10 para cobrir todas as colunas #}
                                             {% if lista_atividades %}
-                                            {# ------------------------------------ #}
                                                 <h6><i class="fas fa-tasks text-muted me-1"></i> Atividades:</h6>
                                                 <ul class="list-unstyled ps-3">
-                                                {# --- CORREÇÃO: Itera sobre lista_atividades --- #}
                                                 {% for atv in lista_atividades %}
-                                                {# -------------------------------------------- #}
                                                     <li><small>{{ atv }}</small></li>
                                                 {% endfor %}
                                                 </ul>
