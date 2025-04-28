@@ -4,12 +4,12 @@
 
 {% block extra_css %}
 <style>
-    /* Estilos específicos para a visualização e impressão do relatório */
+    /* Estilos gerais da página (inalterados) */
     body {
-        background-color: #f8f9fa; /* Fundo levemente cinza para a página */
+        background-color: #f8f9fa;
     }
     .relatorio-container {
-        max-width: 900px; /* Largura máxima para melhor leitura */
+        max-width: 900px;
         margin: 20px auto;
         background-color: #fff;
         padding: 30px;
@@ -22,114 +22,34 @@
         border-bottom: 1px solid #ccc;
         padding-bottom: 15px;
     }
-    .cabecalho-oficial p {
-        margin: 3px 0;
-        font-size: 11pt; /* Tamanho um pouco maior para web */
-        color: #444;
-    }
-    .cabecalho-oficial p:first-child {
-        font-size: 14pt;
-        font-weight: bold;
-        color: #000;
-        margin-bottom: 8px;
-    }
-    .cabecalho-oficial .periodo {
-        font-weight: bold;
-        margin-top: 10px;
-        font-size: 12pt;
-    }
-    .card-relatorio { /* Substitui .card para web */
-        border: 1px solid #e0e0e0;
-        margin-bottom: 20px;
-    }
-    .card-header-relatorio { /* Substitui .card-header */
-        background-color: #f1f3f5; /* Cinza bem claro */
-        color: #343a40;
-        padding: 10px 15px;
-        border-bottom: 1px solid #e0e0e0;
-        font-weight: bold;
-        font-size: 13pt; /* Título de seção maior */
-    }
-    .card-body-relatorio { /* Substitui .card-body */
-        padding: 15px;
-    }
-    .card-body-relatorio p {
-        margin-bottom: 8px;
-        line-height: 1.5;
-         text-align: justify;
-    }
+    .cabecalho-oficial p { margin: 3px 0; font-size: 11pt; color: #444; }
+    .cabecalho-oficial p:first-child { font-size: 14pt; font-weight: bold; color: #000; margin-bottom: 8px; }
+    .cabecalho-oficial .periodo { font-weight: bold; margin-top: 10px; font-size: 12pt; }
+    .card-relatorio { border: 1px solid #e0e0e0; margin-bottom: 20px; }
+    .card-header-relatorio { background-color: #f1f3f5; color: #343a40; padding: 10px 15px; border-bottom: 1px solid #e0e0e0; font-weight: bold; font-size: 13pt; }
+    .card-body-relatorio { padding: 15px; }
+    .card-body-relatorio p { margin-bottom: 8px; line-height: 1.5; text-align: justify; }
     .identificacao-section table { width: 100%; }
     .identificacao-section td { padding: 4px 0; border: none; font-size: 10pt; }
     .identificacao-section td.label { font-weight: bold; width: 160px; color: #555; vertical-align: top;}
-
-    /* Tabelas */
-    .resumo-section table, .registros-section table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 15px 0;
-        font-size: 9.5pt; /* Tamanho base para tabelas */
-    }
+    .resumo-section table, .registros-section table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 9.5pt; }
     .resumo-section th, .resumo-section td,
-    .registros-section th, .registros-section td {
-        border: 1px solid #ccc;
-        padding: 6px 8px;
-        text-align: left;
-        vertical-align: middle; /* Alinha verticalmente ao meio por padrão */
-    }
-     .registros-section td.detalhes-celula {
-         vertical-align: top; /* Detalhes alinhados ao topo */
-         background-color: #fdfdfd; /* Fundo ligeiramente diferente para detalhes */
-         font-size: 9pt; /* Fonte menor para detalhes */
-         padding: 8px 12px;
-         border-top: 1px dashed #ddd; /* Linha tracejada separadora */
-     }
-    .registros-section td.detalhes-celula strong {
-        font-weight: bold;
-        color: #555;
-        display: block; /* Faz o label ocupar uma linha */
-        margin-bottom: 2px;
-    }
-     .registros-section td.detalhes-celula p {
-         margin: 0 0 5px 15px; /* Indentação para o texto */
-         line-height: 1.3;
-     }
-
-    .resumo-section th, .registros-section th {
-        background-color: #e9ecef; /* Cinza claro */
-        font-weight: bold;
-        text-align: center;
-    }
-    .resumo-section td, .registros-section > tbody > tr > td { /* Aplica a TRs diretas do tbody */
-        background-color: #fff;
-    }
-     .registros-section > tbody > tr:nth-child(4n-1) > td, /* Aplica a cada 2ª linha de dados (considerando a de detalhes) */
-     .registros-section > tbody > tr:nth-child(4n) > td {
-         background-color: #f8f9fa; /* Fundo alternado sutil */
-    }
-
-    /* Larguras e alinhamentos da tabela de registros */
+    .registros-section th, .registros-section td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: middle; }
+    .registros-section td.detalhes-celula { vertical-align: top; background-color: #fdfdfd; font-size: 9pt; padding: 8px 12px; border-top: 1px dashed #ddd; }
+    .registros-section td.detalhes-celula strong { font-weight: bold; color: #555; display: block; margin-bottom: 2px; }
+    .registros-section td.detalhes-celula p { margin: 0 0 5px 15px; line-height: 1.3; }
+    .resumo-section th, .registros-section th { background-color: #e9ecef; font-weight: bold; text-align: center; }
+    .resumo-section td, .registros-section > tbody > tr > td { background-color: #fff; }
+    .registros-section > tbody > tr:nth-child(4n-1) > td,
+    .registros-section > tbody > tr:nth-child(4n) > td { background-color: #f8f9fa; }
     .registros-section .col-data { width: 85px; text-align: center; }
     .registros-section .col-dia { width: 40px; text-align: center; }
-    .registros-section .col-hora { width: 65px; text-align: center; } /* Aumentei um pouco */
-    /* Coluna Status removida */
-
-    /* Estilos de Status (para células que indicam feriado/afastamento) */
-    .status-feriado, .status-fds, .status-afastamento, .status-pendente {
-        font-style: italic;
-        color: #6c757d;
-        text-align: center;
-    }
+    .registros-section .col-hora { width: 65px; text-align: center; }
+    .status-feriado, .status-fds, .status-afastamento, .status-pendente { font-style: italic; color: #6c757d; text-align: center; }
     .saldo-horas { font-weight: bold; }
-    .saldo-negativo { color: #dc3545; } /* Vermelho Bootstrap */
-
-    /* Autoavaliação e Declaração */
+    .saldo-negativo { color: #dc3545; }
     .autoavaliacao-section .card-header-relatorio { font-size: 12pt; }
-    .declaracao-box {
-        border: 1px solid #e0e0e0;
-        padding: 15px;
-        margin-top: 20px;
-        background-color: #f8f9fa;
-    }
+    .declaracao-box { border: 1px solid #e0e0e0; padding: 15px; margin-top: 20px; background-color: #f8f9fa; }
     .declaracao-box .card-header-relatorio { font-size: 12pt; }
     .declaracao-box .card-body-relatorio p { margin-bottom: 10px; }
     .checkbox-simulado { font-family: ZapfDingbats, sans-serif; font-size: 12pt; margin-right: 5px; }
@@ -137,39 +57,85 @@
     .assinatura-nome { text-align: center; font-weight: bold; margin-top: 5px; margin-bottom: 5px; font-size: 11pt; }
     .data-assinatura { text-align: center; color: #555; font-size: 10pt; margin-bottom: 0; }
 
-    /* Estilos específicos para impressão */
+    /* --- ESTILOS DE IMPRESSÃO AJUSTADOS --- */
     @media print {
+        @page {
+            size: A4 portrait;
+            margin: 1cm 1cm 1.5cm 1cm; /* Margens reduzidas (top, right, bottom, left) */
+             /* Rodapé pode ser removido se não desejado ou ajustado */
+             @bottom-center {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 8pt;
+                color: #6c757d;
+            }
+             @bottom-left {
+                content: "Sistema de Ponto Eletrônico - SENAPPEN";
+                font-size: 8pt;
+                color: #6c757d;
+             }
+        }
         body {
-            background-color: #fff; /* Fundo branco para impressão */
-            font-size: 9pt; /* Fonte menor para impressão */
+            background-color: #fff;
+            font-size: 9pt; /* Tamanho base para impressão */
+            color: #000; /* Garante texto preto */
+            -webkit-print-color-adjust: exact; /* Tenta forçar cores no Chrome/Safari */
+            print-color-adjust: exact; /* Tenta forçar cores em outros navegadores */
         }
         .relatorio-container {
-            width: 100%;
-            max-width: 100%;
+            width: 100%; /* Ocupa toda a largura da área de impressão */
+            max-width: none;
             margin: 0;
             padding: 0;
             border: none;
             box-shadow: none;
         }
-        .no-print { display: none !important; } /* Esconde botões e navbar */
-        .card-relatorio { border: 1px solid #ccc; page-break-inside: avoid; margin-bottom: 15px;}
-        .card-header-relatorio { background-color: #f1f3f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 5px 10px; font-size: 11pt;}
-        .card-body-relatorio { padding: 10px; }
-        table, th, td { border: 1px solid #ccc !important; font-size: 8.5pt; padding: 4px 5px;} /* Borda e fonte menores */
-        th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        tr:nth-child(even) td { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .registros-section td.detalhes-celula { background-color: #fdfdfd !important; font-size: 8pt; padding: 5px 8px; border-top: 1px dashed #ccc !important;}
-        a { text-decoration: none; color: inherit; } /* Remove sublinhado de links */
-        .saldo-negativo { color: #dc3545 !important; } /* Garante cor */
-        .assinatura { margin-top: 25px; }
+        .no-print { display: none !important; }
+        .card-relatorio {
+            border: 1px solid #ccc;
+            page-break-inside: avoid; /* Tenta evitar quebrar */
+            margin-bottom: 10px; /* Espaço menor entre seções na impressão */
+        }
+        .card-header-relatorio {
+            background-color: #f1f3f5 !important; /* Força cor de fundo */
+            padding: 5px 10px; /* Padding menor */
+            font-size: 11pt;
+        }
+        .card-body-relatorio { padding: 8px 10px; } /* Padding menor */
+        .identificacao-section td { font-size: 9pt; padding: 2px 0;} /* Fonte menor na identificação */
+        .identificacao-section td.label { width: 130px;} /* Largura menor para label */
+
+        table, th, td {
+            border: 1px solid #bbb !important; /* Borda um pouco mais visível */
+            font-size: 8pt; /* Fonte menor nas tabelas */
+            padding: 3px 4px; /* Padding bem reduzido */
+            word-wrap: break-word; /* Garante quebra de palavra */
+        }
+        th {
+            background-color: #e9ecef !important; /* Força cor */
+            font-weight: bold; /* Garante negrito */
+        }
+        tr:nth-child(even) td { background-color: #f8f9fa !important; } /* Força cor */
+        .registros-section td.detalhes-celula {
+            background-color: #fdfdfd !important;
+            font-size: 7.5pt; /* Ainda menor para detalhes */
+            padding: 4px 6px;
+            border-top: 1px dashed #ccc !important;
+        }
+        .registros-section td.detalhes-celula p { margin: 0 0 3px 10px; }
+
+        .saldo-negativo { color: #c00 !important; } /* Garante cor vermelha */
+        .assinatura { margin-top: 20px; font-size: 9pt;}
+        .assinatura-nome { font-size: 10pt;}
+        .data-assinatura { font-size: 9pt;}
+        a { text-decoration: none; color: inherit; }
     }
+    /* --- FIM DOS ESTILOS DE IMPRESSÃO --- */
 
 </style>
 {% endblock %}
 
 {% block content %}
 {# Botões de Ação (Voltar e Imprimir) - Fora do container principal para não imprimir #}
-{# --- CORREÇÃO: Adicionada classe no-print --- #}
 <div class="container mt-3 mb-3 no-print">
     <div class="d-flex justify-content-between">
         <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-secondary">
@@ -274,7 +240,7 @@
                                     <td colspan="5" class="status-pendente">Sem Registro</td>
                                 {% endif %}
                             </tr>
-                            {# --- CORREÇÃO: Linha Adicional para Detalhes --- #}
+                            {# Linha Adicional para Detalhes #}
                             {% if tem_detalhes and registro %} {# Só mostra se tem detalhes E um registro associado #}
                             <tr>
                                 {# Colspan ajustado para 7 colunas (Data, Dia, 4 Horas, Horas Trab) #}
@@ -293,12 +259,11 @@
                                     {% endif %}
                                 </td>
                             </tr>
-                            {% elif registro and not tem_detalhes %} {# Linha vazia se não tem detalhes mas tem registro (para manter o padrão visual) #}
+                            {% elif registro and not tem_detalhes %} {# Linha vazia se não tem detalhes mas tem registro #}
                              <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
                             {% elif not registro and not is_fim_semana and not is_feriado %} {# Linha vazia para dias pendentes #}
                              <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
                             {% endif %}
-                            {# --- FIM DA CORREÇÃO --- #}
                         {% endif %} {# Fim do if para exibir linha principal #}
                     {% endfor %}
                 </tbody>
@@ -306,7 +271,7 @@
         </div>
     </div>
 
-    {# --- CORREÇÃO: Resumo do Mês movido para cá --- #}
+    {# Resumo do Mês #}
     <div class="card-relatorio resumo-section">
         <div class="card-header-relatorio">
             RESUMO DO MÊS
@@ -338,8 +303,6 @@
             </table>
         </div>
     </div>
-    {# --- FIM DA CORREÇÃO --- #}
-
 
     {# 4. Autoavaliação e Declaração #}
     {% if autoavaliacao_data is defined %} {# Verifica se veio do contexto completo #}
