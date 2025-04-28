@@ -10,7 +10,8 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    {# --- CORREÇÃO: Adicionada classe no-print à navbar --- #}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm no-print">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
                 <i class="fas fa-clock me-2"></i> Sistema de Ponto
@@ -21,7 +22,6 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {# ... outros itens de menu ... #}
                      <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
                             <i class="fas fa-tachometer-alt me-1"></i> Dashboard
@@ -55,9 +55,7 @@
                         <ul class="dropdown-menu" aria-labelledby="adminDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('admin.listar_usuarios') }}"><i class="fas fa-users me-2"></i> Usuários</a></li>
                             <li>
-                                {# --- FOCO DA CORREÇÃO --- #}
-                                <a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}"> {# Alterado de admin.feriados para admin.listar_feriados #}
-                                {# ----------------------- #}
+                                <a class="dropdown-item" href="{{ url_for('admin.listar_feriados') }}">
                                     <i class="fas fa-calendar-day me-2"></i> Feriados
                                 </a>
                             </li>
@@ -67,7 +65,6 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
-                    {# ... dropdown do usuário ... #}
                      <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {% if current_user.foto_path %}
@@ -96,14 +93,14 @@
             {% endif %}
         </div>
     </nav>
+    {# --- FIM DA CORREÇÃO --- #}
 
     <div class="container mt-3">
-        {# ... flash messages ... #}
          {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {% set alert_class = 'alert-' + category if category in ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'] else 'alert-secondary' %}
-                    <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                    {# --- CORREÇÃO: Adicionada classe no-print aos alertas --- #}
+                    <div class="alert {{ 'alert-' + category if category in ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'] else 'alert-secondary' }} alert-dismissible fade show no-print" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -116,7 +113,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    {# --- CORREÇÃO: Adicionada classe no-print ao footer --- #}
+    <footer class="footer mt-auto py-3 bg-light no-print">
         <div class="container text-center">
             <span class="text-muted">Sistema de Ponto Eletrônico &copy; {{ datetime.utcnow().year }}</span>
         </div>

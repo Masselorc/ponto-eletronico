@@ -62,6 +62,7 @@
     .identificacao-section td { padding: 4px 0; border: none; font-size: 10pt; }
     .identificacao-section td.label { font-weight: bold; width: 160px; color: #555; vertical-align: top;}
 
+    /* Tabelas */
     .resumo-section table, .registros-section table {
         width: 100%;
         border-collapse: collapse;
@@ -73,32 +74,50 @@
         border: 1px solid #ccc;
         padding: 6px 8px;
         text-align: left;
-        vertical-align: top;
+        vertical-align: middle; /* Alinha verticalmente ao meio por padrão */
     }
+     .registros-section td.detalhes-celula {
+         vertical-align: top; /* Detalhes alinhados ao topo */
+         background-color: #fdfdfd; /* Fundo ligeiramente diferente para detalhes */
+         font-size: 9pt; /* Fonte menor para detalhes */
+         padding: 8px 12px;
+         border-top: 1px dashed #ddd; /* Linha tracejada separadora */
+     }
+    .registros-section td.detalhes-celula strong {
+        font-weight: bold;
+        color: #555;
+        display: block; /* Faz o label ocupar uma linha */
+        margin-bottom: 2px;
+    }
+     .registros-section td.detalhes-celula p {
+         margin: 0 0 5px 15px; /* Indentação para o texto */
+         line-height: 1.3;
+     }
+
     .resumo-section th, .registros-section th {
         background-color: #e9ecef; /* Cinza claro */
         font-weight: bold;
         text-align: center;
     }
-    .resumo-section td, .registros-section td {
+    .resumo-section td, .registros-section > tbody > tr > td { /* Aplica a TRs diretas do tbody */
         background-color: #fff;
     }
-     .registros-section tr:nth-child(even) td {
+     .registros-section > tbody > tr:nth-child(4n-1) > td, /* Aplica a cada 2ª linha de dados (considerando a de detalhes) */
+     .registros-section > tbody > tr:nth-child(4n) > td {
          background-color: #f8f9fa; /* Fundo alternado sutil */
     }
 
     /* Larguras e alinhamentos da tabela de registros */
     .registros-section .col-data { width: 85px; text-align: center; }
     .registros-section .col-dia { width: 40px; text-align: center; }
-    .registros-section .col-hora { width: 60px; text-align: center; }
-    .registros-section .col-status { width: 70px; text-align: center; }
-    .registros-section .col-detalhes { text-align: left; }
-    .registros-section .col-detalhes strong { font-weight: bold; color: #555; }
+    .registros-section .col-hora { width: 65px; text-align: center; } /* Aumentei um pouco */
+    /* Coluna Status removida */
 
-    /* Estilos de Status */
+    /* Estilos de Status (para células que indicam feriado/afastamento) */
     .status-feriado, .status-fds, .status-afastamento, .status-pendente {
         font-style: italic;
         color: #6c757d;
+        text-align: center;
     }
     .saldo-horas { font-weight: bold; }
     .saldo-negativo { color: #dc3545; } /* Vermelho Bootstrap */
@@ -133,12 +152,16 @@
             box-shadow: none;
         }
         .no-print { display: none !important; } /* Esconde botões e navbar */
-        .card-relatorio { border: 1px solid #ccc; page-break-inside: avoid; }
-        .card-header-relatorio { background-color: #f1f3f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } /* Força cor de fundo */
-        table, th, td { border: 1px solid #ccc !important; }
-         tr:nth-child(even) td { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .card-relatorio { border: 1px solid #ccc; page-break-inside: avoid; margin-bottom: 15px;}
+        .card-header-relatorio { background-color: #f1f3f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 5px 10px; font-size: 11pt;}
+        .card-body-relatorio { padding: 10px; }
+        table, th, td { border: 1px solid #ccc !important; font-size: 8.5pt; padding: 4px 5px;} /* Borda e fonte menores */
+        th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        tr:nth-child(even) td { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .registros-section td.detalhes-celula { background-color: #fdfdfd !important; font-size: 8pt; padding: 5px 8px; border-top: 1px dashed #ccc !important;}
         a { text-decoration: none; color: inherit; } /* Remove sublinhado de links */
         .saldo-negativo { color: #dc3545 !important; } /* Garante cor */
+        .assinatura { margin-top: 25px; }
     }
 
 </style>
@@ -146,6 +169,7 @@
 
 {% block content %}
 {# Botões de Ação (Voltar e Imprimir) - Fora do container principal para não imprimir #}
+{# --- CORREÇÃO: Adicionada classe no-print --- #}
 <div class="container mt-3 mb-3 no-print">
     <div class="d-flex justify-content-between">
         <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-secondary">
@@ -192,7 +216,97 @@
         </div>
     </div>
 
-    {# Resumo do Mês #}
+    {# 3. Registros Detalhados do Mês #}
+    <div class="card-relatorio registros-section">
+        <div class="card-header-relatorio">
+            REGISTROS MENSAIS
+        </div>
+        <div class="card-body-relatorio">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-data">Data</th>
+                        <th class="col-dia">Dia</th>
+                        <th class="col-hora">Entrada</th>
+                        <th class="col-hora">Saída Almoço</th>
+                        <th class="col-hora">Retorno Almoço</th>
+                        <th class="col-hora">Saída</th>
+                        <th class="col-hora">Horas Trab.</th>
+                        {# Coluna Status Removida #}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+                    {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                        {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
+                        {% set dia_semana_idx = data_atual.weekday() %}
+                        {% set registro = registros_por_data.get(data_atual) %}
+                        {% set is_feriado = data_atual in feriados_datas %}
+                        {% set is_fim_semana = dia_semana_idx >= 5 %}
+                        {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
+                        {# Verifica se existe algum detalhe para mostrar na linha extra #}
+                        {% set tem_detalhes = (lista_atividades or (registro and (registro.resultados_produtos or registro.observacoes))) %}
+
+                        {# Só exibe linha principal se for dia útil, feriado ou tiver registro #}
+                        {% if registro or (not is_fim_semana) %}
+                            {# Linha Principal com Horários #}
+                            <tr>
+                                <td class="col-data">{{ data_atual.strftime('%d/%m/%Y') }}</td>
+                                <td class="col-dia">{{ dias_semana[dia_semana_idx] }}</td>
+
+                                {% if is_feriado %}
+                                    <td colspan="5" class="status-feriado">{{ feriados_dict[data_atual] }} (Feriado)</td>
+                                {% elif is_fim_semana and not registro %}
+                                    {# Oculta FDS sem registro #}
+                                {% elif registro %}
+                                    {% if registro.afastamento %}
+                                        <td colspan="5" class="status-afastamento">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }} (Afast.)</td>
+                                    {% else %} {# Dia trabalhado #}
+                                        <td class="col-hora text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                        <td class="col-hora text-center">
+                                            {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
+                                        </td>
+                                    {% endif %}
+                                {% else %} {# Dia útil sem registro #}
+                                    <td colspan="5" class="status-pendente">Sem Registro</td>
+                                {% endif %}
+                            </tr>
+                            {# --- CORREÇÃO: Linha Adicional para Detalhes --- #}
+                            {% if tem_detalhes and registro %} {# Só mostra se tem detalhes E um registro associado #}
+                            <tr>
+                                {# Colspan ajustado para 7 colunas (Data, Dia, 4 Horas, Horas Trab) #}
+                                <td colspan="7" class="detalhes-celula">
+                                    {% if lista_atividades %}
+                                        <strong>Atividades:</strong>
+                                        <p>{{ lista_atividades|join('; ') }}</p>
+                                    {% endif %}
+                                    {% if registro.resultados_produtos %}
+                                        <strong>Resultados/Produtos:</strong>
+                                        <p>{{ registro.resultados_produtos }}</p>
+                                    {% endif %}
+                                    {% if registro.observacoes %}
+                                        <strong>Observações:</strong>
+                                        <p>{{ registro.observacoes }}</p>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% elif registro and not tem_detalhes %} {# Linha vazia se não tem detalhes mas tem registro (para manter o padrão visual) #}
+                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
+                            {% elif not registro and not is_fim_semana and not is_feriado %} {# Linha vazia para dias pendentes #}
+                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
+                            {% endif %}
+                            {# --- FIM DA CORREÇÃO --- #}
+                        {% endif %} {# Fim do if para exibir linha principal #}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# --- CORREÇÃO: Resumo do Mês movido para cá --- #}
     <div class="card-relatorio resumo-section">
         <div class="card-header-relatorio">
             RESUMO DO MÊS
@@ -224,87 +338,8 @@
             </table>
         </div>
     </div>
+    {# --- FIM DA CORREÇÃO --- #}
 
-    {# 3. Registros Detalhados do Mês #}
-    <div class="card-relatorio registros-section">
-        <div class="card-header-relatorio">
-            REGISTROS MENSAIS
-        </div>
-        <div class="card-body-relatorio">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="col-data">Data</th>
-                        <th class="col-dia">Dia</th>
-                        <th class="col-hora">Entrada</th>
-                        <th class="col-hora">Saída Almoço</th>
-                        <th class="col-hora">Retorno Almoço</th>
-                        <th class="col-hora">Saída</th>
-                        <th class="col-hora">Horas Trab.</th>
-                        <th class="col-status">Status</th>
-                        <th class="col-detalhes">Atividades / Resultados / Observações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
-                    {% for dia_num in range(1, ultimo_dia.day + 1) %}
-                        {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
-                        {% set dia_semana_idx = data_atual.weekday() %}
-                        {% set registro = registros_por_data.get(data_atual) %}
-                        {% set is_feriado = data_atual in feriados_datas %}
-                        {% set is_fim_semana = dia_semana_idx >= 5 %}
-                        {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
-
-                        {# Só exibe linha se for dia útil, feriado ou tiver registro #}
-                        {% if registro or (not is_fim_semana) %}
-                            <tr>
-                                <td class="col-data">{{ data_atual.strftime('%d/%m/%Y') }}</td>
-                                <td class="col-dia">{{ dias_semana[dia_semana_idx] }}</td>
-
-                                {% if is_feriado %}
-                                    <td colspan="6" class="text-center status-feriado">{{ feriados_dict[data_atual] }}</td>
-                                    <td class="col-status text-center status-feriado">Feriado</td>
-                                    <td class="col-detalhes">-</td>
-                                {% elif is_fim_semana and not registro %}
-                                    {# Oculta FDS sem registro #}
-                                {% elif registro %}
-                                    {% if registro.afastamento %}
-                                        <td colspan="6" class="text-center status-afastamento">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
-                                        <td class="col-status text-center status-afastamento">Afast.</td>
-                                        <td class="col-detalhes">{{ registro.observacoes or '-' }}</td>
-                                    {% else %} {# Dia trabalhado #}
-                                        <td class="col-hora text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
-                                        <td class="col-hora text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
-                                        <td class="col-hora text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
-                                        <td class="col-hora text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
-                                        <td class="col-hora text-center">
-                                            {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
-                                        </td>
-                                        <td class="col-status text-center">
-                                            {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}OK
-                                            {% elif registro.horas_trabalhadas is not none %}Parcial
-                                            {% else %}Pendente
-                                            {% endif %}
-                                        </td>
-                                        <td class="col-detalhes">
-                                            {% if lista_atividades %}<strong>Atividades:</strong> {{ lista_atividades|join('; ') }}<br>{% endif %}
-                                            {% if registro.resultados_produtos %}<strong>Resultados/Produtos:</strong> {{ registro.resultados_produtos }}<br>{% endif %}
-                                            {% if registro.observacoes %}<strong>Observações:</strong> {{ registro.observacoes }}{% endif %}
-                                            {% if not lista_atividades and not registro.resultados_produtos and not registro.observacoes %}-{% endif %}
-                                        </td>
-                                    {% endif %}
-                                {% else %} {# Dia útil sem registro #}
-                                    <td colspan="6" class="text-center status-pendente">Sem Registro</td>
-                                    <td class="col-status text-center status-pendente">Pendente</td>
-                                    <td class="col-detalhes">-</td>
-                                {% endif %}
-                            </tr>
-                        {% endif %} {# Fim do if para exibir linha #}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
 
     {# 4. Autoavaliação e Declaração #}
     {% if autoavaliacao_data is defined %} {# Verifica se veio do contexto completo #}
