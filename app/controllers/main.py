@@ -8,13 +8,12 @@ import os
 import tempfile
 import pandas as pd
 from datetime import datetime, date, timedelta, time
-# --- Importar desc do SQLAlchemy ---
-from sqlalchemy import desc
-# -----------------------------------
+from sqlalchemy import desc # Importado para ordenação
 
-# Definição do Blueprint 'main' ANTES das importações da app
+# --- Definição do Blueprint 'main' ANTES das importações da app ---
 main = Blueprint('main', __name__)
 logger = logging.getLogger(__name__)
+# --- FIM DA CORREÇÃO ANTERIOR (ImportError) ---
 
 # Importações de módulos da aplicação
 from app.models.user import User
@@ -25,52 +24,25 @@ from app.forms.relatorio import RelatorioCompletoForm
 from app import db
 
 # --- Função Auxiliar Refatorada para buscar dados do relatório ---
-# --- CORREÇÃO: Adicionado order_desc e retorno de primeiro/ultimo_dia ---
 def _get_relatorio_mensal_data(user_id, mes, ano, order_desc=False):
     """Busca e calcula os dados necessários para o relatório mensal."""
     usuario = User.query.get(user_id)
-    if not usuario:
-        raise ValueError(f"Usuário com ID {user_id} não encontrado.")
-
-    if not (1 <= mes <= 12):
-        raise ValueError("Mês inválido.")
-
-    primeiro_dia = date(ano, mes, 1)
-    num_dias_mes = calendar.monthrange(ano, mes)[1]
-    ultimo_dia = date(ano, mes, num_dias_mes)
-
-    # Define a ordenação da query
+    if not usuario: raise ValueError(f"Usuário com ID {user_id} não encontrado.")
+    if not (1 <= mes <= 12): raise ValueError("Mês inválido.")
+    primeiro_dia = date(ano, mes, 1); num_dias_mes = calendar.monthrange(ano, mes)[1]; ultimo_dia = date(ano, mes, num_dias_mes)
     order_column = Ponto.data.desc() if order_desc else Ponto.data.asc()
-
-    # Busca registros com a ordenação correta
-    registros = Ponto.query.filter(
-        Ponto.user_id == user_id,
-        Ponto.data >= primeiro_dia,
-        Ponto.data <= ultimo_dia
-    ).order_by(order_column).all() # Aplica a ordenação
-
-    feriados = Feriado.query.filter(
-        Feriado.data >= primeiro_dia,
-        Feriado.data <= ultimo_dia
-    ).all()
-    feriados_dict = {f.data: f.descricao for f in feriados}
-    feriados_datas = set(feriados_dict.keys())
-
-    registros_por_data = {r.data: r for r in registros}
-    ponto_ids = [r.id for r in registros]
-    atividades = Atividade.query.filter(Atividade.ponto_id.in_(ponto_ids)).all()
-    atividades_por_ponto = {}
+    registros = Ponto.query.filter(Ponto.user_id == user_id, Ponto.data >= primeiro_dia, Ponto.data <= ultimo_dia).order_by(order_column).all()
+    feriados = Feriado.query.filter(Feriado.data >= primeiro_dia, Feriado.data <= ultimo_dia).all()
+    feriados_dict = {f.data: f.descricao for f in feriados}; feriados_datas = set(feriados_dict.keys())
+    registros_por_data = {r.data: r for r in registros}; ponto_ids = [r.id for r in registros]; atividades = Atividade.query.filter(Atividade.ponto_id.in_(ponto_ids)).all(); atividades_por_ponto = {}
     for atv in atividades:
-        if atv.ponto_id not in atividades_por_ponto:
-            atividades_por_ponto[atv.ponto_id] = []
+        if atv.ponto_id not in atividades_por_ponto: atividades_por_ponto[atv.ponto_id] = []
         atividades_por_ponto[atv.ponto_id].append(atv.descricao)
-
     dias_uteis_potenciais = 0; dias_afastamento = 0; dias_trabalhados = 0; horas_trabalhadas = 0.0
     for dia_num in range(1, ultimo_dia.day + 1):
         data_atual = date(ano, mes, dia_num)
         if data_atual.weekday() < 5 and data_atual not in feriados_datas:
-            dias_uteis_potenciais += 1
-            registro_dia = registros_por_data.get(data_atual)
+            dias_uteis_potenciais += 1; registro_dia = registros_por_data.get(data_atual)
             if registro_dia and registro_dia.afastamento: dias_afastamento += 1
     for r_data, r_obj in registros_por_data.items():
         if not r_obj.afastamento and r_obj.horas_trabalhadas is not None:
@@ -78,30 +50,7 @@ def _get_relatorio_mensal_data(user_id, mes, ano, order_desc=False):
     carga_horaria_devida = (dias_uteis_potenciais - dias_afastamento) * 8.0; saldo_horas = horas_trabalhadas - carga_horaria_devida; media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
     nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']; nome_mes = nomes_meses[mes]
     mes_anterior, ano_anterior = (12, ano - 1) if mes == 1 else (mes - 1, ano); proximo_mes, proximo_ano = (1, ano + 1) if mes == 12 else (mes + 1, ano)
-
-    # --- CORREÇÃO: Inclui primeiro_dia e ultimo_dia no retorno ---
-    return {
-        'usuario': usuario,
-        'registros': registros, # Já ordenado corretamente
-        'registros_por_data': registros_por_data,
-        'primeiro_dia': primeiro_dia, # Adicionado
-        'ultimo_dia': ultimo_dia,     # Adicionado
-        'mes_atual': mes, 'ano_atual': ano, 'nome_mes': nome_mes,
-        'mes_anterior': mes_anterior, 'ano_anterior': ano_anterior,
-        'proximo_mes': proximo_mes, 'proximo_ano': proximo_ano,
-        'dias_uteis': dias_uteis_potenciais,
-        'dias_trabalhados': dias_trabalhados,
-        'dias_afastamento': dias_afastamento,
-        'horas_trabalhadas': horas_trabalhadas,
-        'carga_horaria_devida': carga_horaria_devida,
-        'saldo_horas': saldo_horas,
-        'media_diaria': media_diaria,
-        'feriados_dict': feriados_dict, 'feriados_datas': feriados_datas,
-        'atividades_por_ponto': atividades_por_ponto,
-        'date_obj': date
-    }
-    # --- FIM DA CORREÇÃO ---
-# --- Fim da Função Auxiliar ---
+    return {'usuario': usuario, 'registros': registros, 'registros_por_data': registros_por_data, 'primeiro_dia': primeiro_dia, 'ultimo_dia': ultimo_dia, 'mes_atual': mes, 'ano_atual': ano, 'nome_mes': nome_mes, 'mes_anterior': mes_anterior, 'ano_anterior': ano_anterior, 'proximo_mes': proximo_mes, 'proximo_ano': proximo_ano, 'dias_uteis': dias_uteis_potenciais, 'dias_trabalhados': dias_trabalhados, 'dias_afastamento': dias_afastamento, 'horas_trabalhadas': horas_trabalhadas, 'carga_horaria_devida': carga_horaria_devida, 'saldo_horas': saldo_horas, 'media_diaria': media_diaria, 'feriados_dict': feriados_dict, 'feriados_datas': feriados_datas, 'atividades_por_ponto': atividades_por_ponto, 'date_obj': date}
 
 # Função calcular_horas (mantida)
 def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
@@ -135,60 +84,37 @@ def get_usuario_contexto():
 def index():
     return redirect(url_for('main.dashboard'))
 
-# Rota dashboard (simplificada)
+# Rota dashboard (mantida)
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    """Exibe o dashboard com o resumo mensal e registros recentes."""
+    # ... (código mantido) ...
     try:
         usuario_ctx, usuarios_admin = get_usuario_contexto()
-        hoje = date.today()
-        mes_req = request.args.get('mes', default=hoje.month, type=int)
-        ano_req = request.args.get('ano', default=hoje.year, type=int)
-
-        if not (1 <= mes_req <= 12):
-            mes_req = hoje.month
-            flash('Mês inválido.', 'warning')
-
-        # --- CORREÇÃO: Chama a função auxiliar UMA VEZ e usa os dados retornados ---
-        # Pede ordenação descendente para o dashboard
+        hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
+        if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=True)
-
-        # Passa os dados diretamente para o template
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin}
         return render_template('main/dashboard.html', **contexto_template)
-        # --- FIM DA CORREÇÃO ---
+    except ValueError as ve: flash(str(ve), 'danger'); return redirect(url_for('main.dashboard'))
+    except Exception as e: logger.error(f"Erro dashboard: {e}", exc_info=True); flash('Erro ao carregar dashboard.', 'danger'); return redirect(url_for('main.index'))
 
-    except ValueError as ve:
-        flash(str(ve), 'danger')
-        return redirect(url_for('main.dashboard')) # Redireciona para o próprio dashboard em caso de erro de data/usuário
-    except Exception as e:
-        # Log do erro
-        logger.error(f"Erro ao carregar dashboard: {e}", exc_info=True)
-        flash('Erro ao carregar o dashboard. Tente novamente.', 'danger')
-        # Tenta renderizar com valores padrão ou redireciona para uma página de erro segura
-        hoje = date.today()
-        return render_template(
-            'main/dashboard.html',
-            registros=[], mes_atual=hoje.month, ano_atual=hoje.year, nome_mes="Mês Atual",
-            dias_uteis=0, dias_trabalhados=0, dias_afastamento=0, horas_trabalhadas=0,
-            carga_horaria_devida=0, saldo_horas=0, media_diaria=0,
-            usuario=current_user, usuarios=None, # Usa current_user como fallback
-            mes_anterior=hoje.month-1 if hoje.month>1 else 12, ano_anterior=hoje.year if hoje.month>1 else hoje.year-1,
-            proximo_mes=hoje.month+1 if hoje.month<12 else 1, proximo_ano=hoje.year if hoje.month<12 else hoje.year+1
-        )
-
-# Rota registrar_ponto (mantida)
+# Rota registrar_ponto
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
 @login_required
 def registrar_ponto():
-    # ... (código mantido) ...
+    """Registra um novo ponto para um dia específico."""
     form = RegistroPontoForm()
     if request.method == 'GET':
         data_query = request.args.get('data')
+        # --- CORREÇÃO DA SINTAXE APLICADA ---
         if data_query:
-            try: form.data.data = date.fromisoformat(data_query)
-            except ValueError: flash('Data na URL inválida.', 'warning')
+            try:
+                form.data.data = date.fromisoformat(data_query)
+            except ValueError:
+                flash('Data na URL inválida.', 'warning')
+        # --- FIM DA CORREÇÃO ---
+
     if form.validate_on_submit():
         try:
             data_selecionada = form.data.data
@@ -254,12 +180,12 @@ def registrar_ferias():
 @main.route('/calendario')
 @login_required
 def calendario():
-    # ... (código mantido, usa _get_relatorio_mensal_data internamente se refatorado) ...
+    # ... (código mantido) ...
     try:
         usuario_ctx, usuarios_admin = get_usuario_contexto()
         hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
         if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
-        dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req) # Pega dados base
+        dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req)
         cal = calendar.Calendar(firstweekday=6); semanas_mes = cal.monthdayscalendar(ano_req, mes_req); calendario_data = []
         for semana in semanas_mes:
             semana_data = []
@@ -272,18 +198,14 @@ def calendario():
         return render_template('main/calendario.html', **contexto_template)
     except Exception as e: logger.error(f"Erro calendário: {e}", exc_info=True); flash('Erro ao carregar calendário.', 'danger'); return redirect(url_for('main.dashboard'))
 
-
-# Rota para o Relatório Mensal detalhado (GET)
+# Rota para o Relatório Mensal detalhado (GET) (mantida)
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
-    """Exibe o relatório mensal detalhado e o formulário de autoavaliação."""
+    # ... (código mantido) ...
     try:
         usuario_ctx, usuarios_admin = get_usuario_contexto()
-        hoje = date.today()
-        mes_req = request.args.get('mes', default=hoje.month, type=int)
-        ano_req = request.args.get('ano', default=hoje.year, type=int)
-        # Pede ordenação ascendente para o relatório
+        hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=False)
         form_completo = RelatorioCompletoForm()
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin, 'form_completo': form_completo}
@@ -303,8 +225,7 @@ def relatorio_mensal_pdf():
         else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
     hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
     try:
-        from app.utils.export import generate_pdf
-        pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano) # Chama sem contexto completo
+        from app.utils.export import generate_pdf; pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
         if pdf_rel_path:
             pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
             if os.path.exists(pdf_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
@@ -312,7 +233,6 @@ def relatorio_mensal_pdf():
         else: flash('Erro ao gerar o relatório em PDF.', 'danger')
     except Exception as e: logger.error(f"Erro ao gerar/enviar PDF: {e}", exc_info=True); flash('Ocorreu um erro inesperado ao gerar o PDF.', 'danger')
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
-
 
 # Rota para exportar o relatório mensal em Excel (mantida)
 @main.route('/relatorio-mensal/excel')
@@ -344,10 +264,10 @@ def gerar_relatorio_completo_pdf():
         try:
             user_id = int(form.user_id.data); mes = int(form.mes.data); ano = int(form.ano.data)
             autoavaliacao_data = form.autoavaliacao.data; dificuldades_data = form.dificuldades.data; sugestoes_data = form.sugestoes.data; declaracao_marcada = form.declaracao.data
-            dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano) # Pega dados base
+            dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
             contexto_completo = {**dados_relatorio_base, 'autoavaliacao_data': autoavaliacao_data, 'dificuldades_data': dificuldades_data, 'sugestoes_data': sugestoes_data, 'declaracao_marcada': declaracao_marcada, 'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S'), 'titulo': f'Relatório de Ponto e Autoavaliação - {dados_relatorio_base["nome_mes"]}/{ano}'}
             from app.utils.export import generate_pdf
-            pdf_rel_path = generate_pdf(user_id, mes, ano, context_completo=contexto_completo) # Passa contexto completo
+            pdf_rel_path = generate_pdf(user_id, mes, ano, context_completo=contexto_completo)
             if pdf_rel_path:
                 pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
                 if os.path.exists(pdf_abs_path): usuario_alvo = dados_relatorio_base['usuario']; nome_mes_str = dados_relatorio_base['nome_mes'].lower(); download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
