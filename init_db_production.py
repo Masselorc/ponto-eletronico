@@ -12,7 +12,7 @@ from app.models.user import User
 from app.models.ponto import Ponto, Atividade
 from app.models.feriado import Feriado
 import calendar
-import logging # Adicionado para logging
+import logging
 
 # Configuração básica de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,6 +28,10 @@ ADMIN_DEFAULT_UF = 'DF'
 ADMIN_DEFAULT_TELEFONE = '(61) 99999-9999'
 ADMIN_DEFAULT_VINCULO = 'SENAPPEN - Administração'
 ADMIN_DEFAULT_FOTO = 'default.png'
+# --- NOVOS PADRÕES (se necessário, mas como são obrigatórios, não terão padrão real) ---
+ADMIN_DEFAULT_UNIDADE_SETOR = 'GAB/DIRPP' # Exemplo
+ADMIN_DEFAULT_CHEFIA = 'Nome Chefe Exemplo' # Exemplo
+# ------------------------------------------------------------------------------------
 FERIADOS_2025 = [
     {'data': date(2025, 1, 1), 'descricao': 'Confraternização Universal'},
     {'data': date(2025, 2, 17), 'descricao': 'Carnaval'},
@@ -48,37 +52,35 @@ def ensure_column_exists(app, table_name, column_name, column_definition):
     with app.app_context():
         try:
             logger.info(f"  - Verificando coluna '{column_name}' na tabela '{table_name}'...")
-            # Usa db.engine.connect() que gerencia a conexão
             with db.engine.connect() as connection:
-                # Verifica se a tabela existe
                 result_table = connection.execute(db.text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"))
                 if not result_table.fetchone():
                     logger.info(f"  - Tabela '{table_name}' não encontrada. Será criada por db.create_all().")
-                    return # Sai se a tabela não existe ainda
+                    return
 
-                # Verifica se a coluna existe
                 result_columns = connection.execute(db.text(f"PRAGMA table_info({table_name})"))
                 columns = [column[1] for column in result_columns.fetchall()]
 
                 if column_name not in columns:
                     logger.info(f"  - Coluna '{column_name}' não encontrada. Adicionando...")
                     try:
-                        # Executa ALTER TABLE diretamente. SQLAlchemy gerencia a transação para DDL.
-                        connection.execute(db.text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"))
-                        # Para DDL em SQLite com SQLAlchemy, o commit é geralmente implícito ou gerenciado pelo contexto da conexão.
-                        # Se necessário (dependendo da configuração/dialeto), um commit explícito pode ser tentado:
-                        # connection.commit() # Descomente se o ALTER não estiver persistindo
+                        # Usar TEXT para strings em SQLite via ALTER TABLE
+                        # Adicionar DEFAULT '' para contornar limitação do SQLite com NOT NULL em ALTER TABLE
+                        sql_command = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+                        logger.info(f"  - Executando SQL: {sql_command}")
+                        connection.execute(db.text(sql_command))
+                        # Commit pode ser necessário dependendo do modo de transação do SQLAlchemy/DBAPI
+                        connection.commit()
                         logger.info(f"  - Coluna '{column_name}' adicionada com sucesso!")
                     except Exception as alter_err:
-                        logger.error(f"  - ERRO ao executar ALTER TABLE para '{column_name}': {alter_err}")
-                        # Não é necessário rollback explícito aqui, pois não iniciamos a transação manualmente.
-                        raise # Re-levanta o erro para ser capturado externamente
+                        logger.error(f"  - ERRO ao executar ALTER TABLE para '{column_name}': {alter_err}", exc_info=True)
+                        # connection.rollback() # Rollback se o commit falhar ou se necessário
+                        raise
                 else:
                     logger.info(f"  - Coluna '{column_name}' já existe.")
         except Exception as e:
-            # Captura qualquer outro erro durante o processo
             logger.error(f"  - ERRO ao verificar/adicionar coluna '{column_name}' na tabela '{table_name}': {e}", exc_info=True)
-            raise # Re-levanta o erro
+            raise
 
 def init_production_db():
     """Inicializa o banco de dados em ambiente de produção."""
@@ -92,19 +94,23 @@ def init_production_db():
             try:
                 print("[2/6] Garantindo que todas as tabelas existam (db.create_all)...")
                 logger.info("[2/6] Garantindo que todas as tabelas existam (db.create_all)...")
-                db.create_all() # Cria tabelas baseadas nos modelos
+                db.create_all()
                 print("[2/6] db.create_all() concluído.")
                 logger.info("[2/6] db.create_all() concluído.")
 
                 print("[3/6] Verificando/Adicionando colunas de migração necessárias...")
                 logger.info("[3/6] Verificando/Adicionando colunas de migração necessárias...")
-                # Chama a função para garantir que cada coluna necessária exista
+                # Definições para SQLite com NOT NULL e DEFAULT
                 ensure_column_exists(app, 'users', 'is_active_db', 'BOOLEAN NOT NULL DEFAULT 1')
                 ensure_column_exists(app, 'pontos', 'afastamento', 'BOOLEAN DEFAULT 0')
                 ensure_column_exists(app, 'pontos', 'tipo_afastamento', 'VARCHAR(100)')
                 ensure_column_exists(app, 'pontos', 'observacoes', 'TEXT')
                 ensure_column_exists(app, 'pontos', 'resultados_produtos', 'TEXT')
                 ensure_column_exists(app, 'atividades', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+                # --- ADICIONANDO NOVAS COLUNAS ---
+                ensure_column_exists(app, 'users', 'unidade_setor', "TEXT NOT NULL DEFAULT ''")
+                ensure_column_exists(app, 'users', 'chefia_imediata', "TEXT NOT NULL DEFAULT ''")
+                # ---------------------------------
                 print("[3/6] Verificação/Adição de colunas concluída.")
                 logger.info("[3/6] Verificação/Adição de colunas concluída.")
 
@@ -114,16 +120,21 @@ def init_production_db():
                 if not admin:
                     print("[5/6] Criando usuário administrador e dados iniciais...")
                     logger.info("[5/6] Criando usuário administrador e dados iniciais...")
-                    # Cria o usuário admin com dados padrão ou de variáveis de ambiente
-                    admin = User(name=os.getenv('ADMIN_NAME', ADMIN_DEFAULT_NAME),
-                                 email=os.getenv('ADMIN_EMAIL', ADMIN_DEFAULT_EMAIL),
-                                 matricula=os.getenv('ADMIN_MATRICULA', ADMIN_DEFAULT_MATRICULA),
-                                 cargo=os.getenv('ADMIN_CARGO', ADMIN_DEFAULT_CARGO),
-                                 uf=os.getenv('ADMIN_UF', ADMIN_DEFAULT_UF),
-                                 telefone=os.getenv('ADMIN_TELEFONE', ADMIN_DEFAULT_TELEFONE),
-                                 vinculo=os.getenv('ADMIN_VINCULO', ADMIN_DEFAULT_VINCULO),
-                                 foto_path=os.getenv('ADMIN_FOTO_PATH', ADMIN_DEFAULT_FOTO),
-                                 is_admin=True, is_active_db=True)
+                    admin = User(
+                        name=os.getenv('ADMIN_NAME', ADMIN_DEFAULT_NAME),
+                        email=os.getenv('ADMIN_EMAIL', ADMIN_DEFAULT_EMAIL),
+                        matricula=os.getenv('ADMIN_MATRICULA', ADMIN_DEFAULT_MATRICULA),
+                        cargo=os.getenv('ADMIN_CARGO', ADMIN_DEFAULT_CARGO),
+                        uf=os.getenv('ADMIN_UF', ADMIN_DEFAULT_UF),
+                        telefone=os.getenv('ADMIN_TELEFONE', ADMIN_DEFAULT_TELEFONE),
+                        vinculo=os.getenv('ADMIN_VINCULO', ADMIN_DEFAULT_VINCULO),
+                        foto_path=os.getenv('ADMIN_FOTO_PATH', ADMIN_DEFAULT_FOTO),
+                        # --- DADOS PARA NOVOS CAMPOS DO ADMIN ---
+                        unidade_setor=os.getenv('ADMIN_UNIDADE_SETOR', ADMIN_DEFAULT_UNIDADE_SETOR),
+                        chefia_imediata=os.getenv('ADMIN_CHEFIA', ADMIN_DEFAULT_CHEFIA),
+                        # --------------------------------------
+                        is_admin=True, is_active_db=True
+                    )
                     print("  - Definindo senha do administrador...")
                     logger.info("  - Definindo senha do administrador...")
                     admin.set_password(os.getenv('ADMIN_PASSWORD', ADMIN_DEFAULT_PASSWORD))
@@ -133,10 +144,15 @@ def init_production_db():
                     logger.info("  - Criando usuário de demonstração...")
                     user_demo_exists = User.query.filter_by(email='demo@example.com').first()
                     if not user_demo_exists:
-                        user = User(name='Usuário Demonstração', email='demo@example.com', matricula='DEMO001',
-                                    cargo='Analista', uf='DF', telefone='(61) 88888-8888',
-                                    vinculo='SENAPPEN - Demonstração', foto_path='default.png',
-                                    is_admin=False, is_active_db=True)
+                        user = User(
+                            name='Usuário Demonstração', email='demo@example.com', matricula='DEMO001',
+                            cargo='Analista', uf='DF', telefone='(61) 88888-8888',
+                            vinculo='SENAPPEN - Demonstração', foto_path='default.png',
+                            # --- DADOS PARA NOVOS CAMPOS DO DEMO ---
+                            unidade_setor='Setor Demo', chefia_imediata='Chefe Demo',
+                            # -------------------------------------
+                            is_admin=False, is_active_db=True
+                        )
                         user.set_password('demo123')
                         db.session.add(user)
                         print("  - Usuário de demonstração criado.")
@@ -188,26 +204,22 @@ def init_production_db():
                 logger.info("INICIALIZAÇÃO CONCLUÍDA COM SUCESSO")
                 return True
             except Exception as e:
-                # Em caso de erro durante a inicialização dentro do contexto da app
-                db.session.rollback() # Garante rollback
+                db.session.rollback()
                 print("\n" + "!"*80); print(f"ERRO AO INICIALIZAR O BANCO DE DADOS: {e}"); print("!"*80)
                 print("\nDetalhes do erro:"); print(traceback.format_exc())
                 logger.error(f"ERRO AO INICIALIZAR O BANCO DE DADOS: {e}", exc_info=True)
-                raise # Re-levanta o erro para falhar o build
+                raise
     except Exception as e:
-        # Em caso de erro crítico antes mesmo de entrar no contexto da app
         print("\n" + "!"*80); print(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO DO BANCO DE DADOS: {e}"); print("!"*80)
         print("\nDetalhes do erro:"); print(traceback.format_exc())
         logger.critical(f"ERRO CRÍTICO DURANTE A INICIALIZAÇÃO DO BANCO DE DADOS: {e}", exc_info=True)
-        raise # Re-levanta o erro para falhar o build
+        raise
 
 if __name__ == '__main__':
     try:
         success = init_production_db()
-        # Sai com código 0 se sucesso, 1 se falha (para o processo de build)
         sys.exit(0 if success else 1)
     except Exception as e:
-        # Captura qualquer exceção não tratada e sai com código de erro
         print(f"\nERRO FATAL DURANTE A EXECUÇÃO DO SCRIPT: {e}")
         logger.critical(f"ERRO FATAL DURANTE A EXECUÇÃO DO SCRIPT: {e}", exc_info=True)
         sys.exit(1)
