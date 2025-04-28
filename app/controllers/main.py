@@ -2,14 +2,9 @@
 # Importações básicas e de bibliotecas padrão
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
-# Removido: import calendar (usado em _get_relatorio_mensal_data)
 import logging
 import os
-# Removido: import tempfile (não usado aqui)
-# Removido: import pandas as pd (não usado aqui)
 from datetime import datetime, date, timedelta, time
-# Removido: from sqlalchemy import desc, extract, func, case (usado em _get_relatorio_mensal_data)
-# Removido: from calendar import monthrange (usado em _get_relatorio_mensal_data)
 from io import BytesIO # Para exportação Excel/PDF
 
 # --- Definição do Blueprint 'main' ---
@@ -857,25 +852,22 @@ def perfil():
     # A variável current_user já contém o usuário logado
     return render_template('main/perfil.html', usuario=current_user, title="Meu Perfil")
 
-# --- ROTA Gerar HTML SEI ---
-@main.route('/relatorio-sei-html')
+# --- ROTA Gerar HTML SEI (MODIFICADA PARA RETORNAR JSON) ---
+@main.route('/gerar-html-sei') # Mantém o nome da rota
 @login_required
 def gerar_html_sei():
-    """Gera uma página HTML simplificada do relatório completo para o SEI."""
+    """Gera e retorna o código HTML simplificado do relatório completo como JSON."""
     try:
-        # Tenta obter user_id, mes e ano da URL
         user_id = request.args.get('user_id', type=int)
         mes = request.args.get('mes', type=int)
         ano = request.args.get('ano', type=int)
 
         if not user_id or not mes or not ano:
-            flash("Informações insuficientes para gerar o HTML (usuário, mês ou ano ausente).", 'warning')
-            return redirect(request.referrer or url_for('main.dashboard'))
+            return jsonify({'error': 'Parâmetros ausentes (usuário, mês ou ano).'}), 400
 
         # Verifica permissão
         if user_id != current_user.id and not current_user.is_admin:
-            flash("Você não tem permissão para gerar este relatório.", 'danger')
-            return redirect(url_for('main.dashboard'))
+             return jsonify({'error': 'Permissão negada.'}), 403
 
         # Busca o relatório completo salvo no banco
         relatorio_salvo = RelatorioMensalCompleto.query.filter_by(
@@ -883,8 +875,7 @@ def gerar_html_sei():
         ).first()
 
         if not relatorio_salvo:
-            flash("É necessário salvar o Relatório Completo antes de gerar o HTML para o SEI.", 'warning')
-            return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
+            return jsonify({'error': 'Relatório completo não encontrado para este período. Salve-o primeiro.'}), 404
 
         # --- Usa a função auxiliar importada ---
         dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
@@ -900,19 +891,18 @@ def gerar_html_sei():
             'data_geracao': relatorio_salvo.updated_at.strftime('%d/%m/%Y'), # Apenas data para SEI
         }
 
-        # Renderiza o novo template HTML SEI
-        return render_template('main/relatorio_sei_html.html', **contexto_completo)
+        # --- Renderiza o template SEI para uma string ---
+        codigo_html_sei_renderizado = render_template('main/relatorio_sei_html.html', **contexto_completo)
+        # ---------------------------------------------
+
+        # --- Retorna o HTML como JSON ---
+        return jsonify({'html_content': codigo_html_sei_renderizado})
+        # --------------------------------
 
     except ValueError as ve:
-        logger.error(f"ValueError ao gerar HTML SEI: {ve}", exc_info=True)
-        flash(f"Erro ao processar dados para gerar HTML: {ve}.", 'danger')
+        logger.error(f"ValueError ao gerar HTML SEI (JSON): {ve}", exc_info=True)
+        return jsonify({'error': f'Erro ao processar dados: {ve}'}), 400
     except Exception as e:
-        logger.error(f"Erro inesperado ao gerar HTML SEI: {e}", exc_info=True)
-        flash('Ocorreu um erro inesperado ao gerar o HTML para o SEI.', 'danger')
-
-    # Redireciona de volta para a página do relatório mensal em caso de erro
-    user_id_fb = request.args.get('user_id', default=current_user.id, type=int)
-    mes_fb = request.args.get('mes', default=date.today().month, type=int)
-    ano_fb = request.args.get('ano', default=date.today().year, type=int)
-    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
-# --- FIM DA NOVA ROTA ---
+        logger.error(f"Erro inesperado ao gerar HTML SEI (JSON): {e}", exc_info=True)
+        return jsonify({'error': 'Erro inesperado no servidor.'}), 500
+# --- FIM DA ROTA MODIFICADA ---

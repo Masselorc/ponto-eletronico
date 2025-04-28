@@ -51,6 +51,35 @@
         padding-bottom: 0.75rem;
         white-space: nowrap;
     }
+
+    /* Estilos para o modal de código SEI */
+    #codigo-sei-modal-body {
+        position: relative;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 25px 15px 15px 15px; /* Aumenta padding superior para botão */
+        border-radius: 5px;
+        max-height: 60vh;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+    #btn-copiar-modal {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10; /* Garante que fique acima do <pre> */
+    }
+    #btn-copiar-modal.copied {
+        background-color: #198754;
+        border-color: #198754;
+        color: white;
+    }
+     #codigo-sei-modal-body pre {
+        margin-bottom: 0; /* Remove margem inferior do pre */
+    }
 </style>
 {% endblock %}
 
@@ -281,21 +310,28 @@
                     <h5 class="mb-0">Relatório Completo com Autoavaliação</h5>
                 </div>
                 <div class="card-body p-4">
-                    {# --- CORREÇÃO: Container para os botões ou mensagem inicial --- #}
+                    {# --- Container para os botões ou mensagem inicial --- #}
                     <div id="relatorio-completo-acoes" class="mb-3">
                         {% if relatorio_completo_salvo %}
                             <p class="text-success"><i class="fas fa-check-circle me-1"></i> Relatório completo com autoavaliação já foi salvo para este mês.</p>
                             <p>Você pode visualizá-lo ou editar as informações salvas.</p>
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                                <a href="{{ url_for('main.visualizar_relatorio_completo', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-primary">
-                                    <i class="fas fa-eye me-2"></i> Visualizar Relatório Completo
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3">
+                                <a href="{{ url_for('main.visualizar_relatorio_completo', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye me-1"></i> Visualizar Relatório Completo
                                 </a>
-                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
                                     <i class="fas fa-edit me-1"></i> Editar Autoavaliação Salva
                                 </button>
+                                {# --- BOTÃO MODIFICADO PARA ABRIR MODAL --- #}
+                                <button type="button" class="btn btn-success btn-sm" id="btn-abrir-modal-sei"
+                                        data-userid="{{ usuario.id }}" data-mes="{{ mes_atual }}" data-ano="{{ ano_atual }}"
+                                        title="Abre uma caixa de texto com o código HTML para copiar">
+                                    <i class="fas fa-code me-1"></i> Obter Código HTML SEI
+                                </button>
+                                {# --- FIM DA MODIFICAÇÃO --- #}
                             </div>
                         {% else %}
-                            <p>Adicione sua autoavaliação para salvar o relatório completo.</p>
+                            <p>Adicione sua autoavaliação para salvar o relatório completo e gerar o código HTML para o SEI.</p>
                             <div class="text-center">
                                 <button class="btn btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
                                     <i class="fas fa-plus-circle me-2"></i>Adicionar Autoavaliação
@@ -306,8 +342,7 @@
                     {# --- FIM DO CONTAINER DE AÇÕES --- #}
 
                     {# Formulário de autoavaliação (sempre renderizado, mas colapsado) #}
-                    {# --- CORREÇÃO: Garantir que o collapse comece fechado --- #}
-                    <div class="collapse mt-3" id="autoavaliacaoCollapse">
+                    <div class="collapse mt-3 {% if relatorio_completo_salvo %}show{% endif %}" id="autoavaliacaoCollapse"> {# Adicionado 'show' se já salvo #}
                         {% if form_completo %}
                             <form method="POST" action="{{ url_for('main.salvar_relatorio_completo') }}" novalidate>
                                 {{ form_completo.hidden_tag() }} {# Token CSRF #}
@@ -364,4 +399,109 @@
         </div> {# Fim col-md-12 #}
     </div> {# Fim row #}
 </div> {# Fim container #}
+
+{# --- ESTRUTURA DO MODAL PARA CÓDIGO SEI --- #}
+<div class="modal fade" id="modalCodigoSEI" tabindex="-1" aria-labelledby="modalCodigoSEILabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"> {# Modal grande e com scroll #}
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCodigoSEILabel">Código HTML para SEI</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="codigo-sei-modal-body">
+             <button id="btn-copiar-modal" class="btn btn-sm btn-outline-primary" title="Copiar Código">
+                 <i class="fas fa-copy"></i> Copiar
+             </button>
+             <pre><code id="codigo-html-modal">Carregando código...</code></pre> {# Área para exibir o código #}
+        </div>
+         <p class="mt-3 small text-muted">
+            <strong>Instruções:</strong> Clique no botão "Copiar", vá para o editor do SEI, clique no botão "Código-Fonte" (ou similar) e cole este código HTML.
+         </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{# --- FIM DO MODAL --- #}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnAbrirModalSei = document.getElementById('btn-abrir-modal-sei');
+    const codigoHtmlModalElement = document.getElementById('codigo-html-modal');
+    const modalCodigoSEI = new bootstrap.Modal(document.getElementById('modalCodigoSEI'));
+    const btnCopiarModal = document.getElementById('btn-copiar-modal');
+
+    if (btnAbrirModalSei && codigoHtmlModalElement && modalCodigoSEI) {
+        btnAbrirModalSei.addEventListener('click', function() {
+            const userId = this.dataset.userid;
+            const mes = this.dataset.mes;
+            const ano = this.dataset.ano;
+            const url = `/gerar-html-sei?user_id=${userId}&mes=${mes}&ano=${ano}`; // Rota que retorna JSON
+
+            // Mostra mensagem de carregamento e abre o modal
+            codigoHtmlModalElement.textContent = 'Carregando código...';
+            modalCodigoSEI.show();
+            if(btnCopiarModal) btnCopiarModal.disabled = true; // Desabilita copiar enquanto carrega
+
+            // Busca o código HTML no servidor
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro ao buscar código HTML: ' + response.statusText);
+                    }
+                    return response.json(); // Espera uma resposta JSON
+                })
+                .then(data => {
+                    if (data.html_content) {
+                        codigoHtmlModalElement.textContent = data.html_content; // Exibe o código recebido
+                        if(btnCopiarModal) btnCopiarModal.disabled = false; // Habilita copiar
+                    } else if (data.error) {
+                         codigoHtmlModalElement.textContent = 'Erro: ' + data.error;
+                         console.error("Erro retornado pelo servidor:", data.error);
+                    } else {
+                        throw new Error('Resposta inválida do servidor.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro na requisição fetch:', error);
+                    codigoHtmlModalElement.textContent = 'Falha ao carregar o código HTML. Verifique o console para detalhes.';
+                    alert('Não foi possível carregar o código HTML. Tente novamente mais tarde.');
+                    modalCodigoSEI.hide(); // Esconde o modal se der erro
+                });
+        });
+    }
+
+    // Funcionalidade de copiar dentro do modal
+    if (btnCopiarModal && codigoHtmlModalElement) {
+        btnCopiarModal.addEventListener('click', function() {
+            const codigoParaCopiar = codigoHtmlModalElement.textContent || codigoHtmlModalElement.innerText;
+            // Evita copiar a mensagem de erro/carregamento
+            if (codigoParaCopiar.startsWith('Carregando') || codigoParaCopiar.startsWith('Erro') || codigoParaCopiar.startsWith('Falha')) {
+                alert('Aguarde o código carregar ou corrija o erro antes de copiar.');
+                return;
+            }
+
+            navigator.clipboard.writeText(codigoParaCopiar).then(function() {
+                btnCopiarModal.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+                btnCopiarModal.classList.add('copied');
+                btnCopiarModal.disabled = true;
+                setTimeout(function() {
+                    btnCopiarModal.innerHTML = '<i class="fas fa-copy"></i> Copiar';
+                    btnCopiarModal.classList.remove('copied');
+                    btnCopiarModal.disabled = false;
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Erro ao copiar o código HTML do modal: ', err);
+                alert('Erro ao copiar o código. Tente manualmente (Ctrl+C).');
+            });
+        });
+    }
+
+});
+</script>
 {% endblock %}
