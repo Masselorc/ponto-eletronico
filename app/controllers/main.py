@@ -19,11 +19,15 @@ logger = logging.getLogger(__name__)
 from app.models.user import User
 from app.models.ponto import Ponto, Atividade
 from app.models.feriado import Feriado
+# Importa todos os forms necessários
 from app.forms.ponto import RegistroPontoForm, EditarPontoForm, RegistroAfastamentoForm, AtividadeForm, MultiploPontoForm
 from app.forms.relatorio import RelatorioCompletoForm
 from app import db
+# Importa a função auxiliar refatorada (se aplicável, senão definir aqui)
+# from .utils import _get_relatorio_mensal_data # Exemplo se refatorado para utils
 
 # --- Função Auxiliar Refatorada para buscar dados do relatório ---
+# (Coloque a definição de _get_relatorio_mensal_data aqui se não estiver em utils)
 def _get_relatorio_mensal_data(user_id, mes, ano, order_desc=False):
     """Busca e calcula os dados necessários para o relatório mensal."""
     usuario = User.query.get(user_id)
@@ -95,6 +99,7 @@ def dashboard():
         if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=True)
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin}
+        # A chave 'registros' já está em dados_relatorio com a ordenação correta
         return render_template('main/dashboard.html', **contexto_template)
     except ValueError as ve: flash(str(ve), 'danger'); return redirect(url_for('main.dashboard'))
     except Exception as e: logger.error(f"Erro dashboard: {e}", exc_info=True); flash('Erro ao carregar dashboard.', 'danger'); return redirect(url_for('main.index'))
@@ -107,7 +112,7 @@ def registrar_ponto():
     form = RegistroPontoForm()
     if request.method == 'GET':
         data_query = request.args.get('data')
-        # --- CORREÇÃO DA SINTAXE APLICADA ---
+        # --- CORREÇÃO DA SINTAXE ---
         if data_query:
             try:
                 form.data.data = date.fromisoformat(data_query)
@@ -282,7 +287,6 @@ def gerar_relatorio_completo_pdf():
         return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
     user_id_fallback = form.user_id.data or current_user.id; mes_fallback = form.mes.data or date.today().month; ano_fallback = form.ano.data or date.today().year
     return redirect(url_for('main.relatorio_mensal', user_id=user_id_fallback, mes=mes_fallback, ano=ano_fallback))
-
 
 # Rotas visualizar_ponto, excluir_ponto, perfil, registrar_multiplo_ponto, registrar_atividade (mantidas)
 @main.route('/visualizar-ponto/<int:ponto_id>')
