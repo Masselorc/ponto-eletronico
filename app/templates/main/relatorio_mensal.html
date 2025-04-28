@@ -1,4 +1,279 @@
-{# ... (início do template) ... #}
+{% extends 'base.html' %}
+
+{% block title %}Relatório Mensal{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilo para a linha de detalhes expansível */
+    .detalhes-row td {
+        background-color: #f8f9fa !important; /* Cor de fundo levemente diferente */
+        padding: 0.75rem 1rem;
+        border-top: 0; /* Remove a borda superior padrão da linha */
+        font-size: 0.85rem; /* Tamanho de fonte menor para detalhes */
+    }
+    .detalhes-row h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        color: #6c757d; /* Cinza */
+    }
+    .detalhes-row p, .detalhes-row ul {
+        margin-bottom: 0.5rem;
+    }
+    .detalhes-row ul {
+        padding-left: 1.2rem; /* Indenta a lista */
+    }
+
+    /* Estilo para tornar a linha principal clicável */
+    .linha-clicavel { cursor: pointer; }
+    .linha-clicavel:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+    /* Ícone de expansão */
+    .expand-icon {
+        display: inline-block; margin-left: 5px; transition: transform 0.2s ease-in-out;
+        font-size: 0.7em; color: #6c757d;
+    }
+    /* Gira a seta quando a linha está expandida (classe 'collapsed' é removida pelo Bootstrap) */
+    tr[data-bs-toggle="collapse"][aria-expanded="true"] .expand-icon { /* Seleciona quando expandido */
+        transform: rotate(90deg);
+    }
+
+    /* Alinhamento vertical */
+    .table.align-middle th, .table.align-middle td { vertical-align: middle; }
+
+    /* Estilo para o cabeçalho da tabela */
+    .table > thead > tr > th {
+        background-color: #f8f9fa; /* Cor de fundo similar a table-light */
+        border-bottom-width: 2px; /* Borda inferior mais pronunciada */
+        border-top: 1px solid #dee2e6; /* Borda superior */
+        border-left: 1px solid #dee2e6; /* Borda esquerda */
+        border-right: 1px solid #dee2e6; /* Borda direita */
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            {# --- Passando 'usuario' do contexto para o título --- #}
+            <h1>Relatório Mensal - {{ nome_mes }} de {{ ano_atual }}</h1>
+            {% if current_user.is_admin and usuario.id != current_user.id %}
+                <p class="lead text-muted">Visualizando relatório de: {{ usuario.name }}</p>
+            {% endif %}
+
+            {# Navegação (sem exportação padrão) #}
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_anterior, ano=ano_anterior) }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-chevron-left"></i> Ant.</a>
+                    <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id) }}" class="btn btn-outline-secondary btn-sm">Atual</a>
+                    <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=proximo_mes, ano=proximo_ano) }}" class="btn btn-outline-primary btn-sm">Próx. <i class="fas fa-chevron-right"></i></a>
+                </div>
+                 {# Botões de exportação padrão removidos #}
+            </div>
+
+            {# Seletor de Usuário para Admin #}
+            {% if current_user.is_admin and usuarios %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body py-2">
+                    <form method="GET" action="{{ url_for('main.relatorio_mensal') }}" class="row gx-2 gy-2 align-items-center">
+                        <input type="hidden" name="mes" value="{{ mes_atual }}">
+                        <input type="hidden" name="ano" value="{{ ano_atual }}">
+                        <label for="user_id_select_report" class="col-auto col-form-label col-form-label-sm">Visualizar Relatório de:</label>
+                        <div class="col flex-grow-1">
+                            <select name="user_id" id="user_id_select_report" class="form-select form-select-sm">
+                                {% for u in usuarios %}<option value="{{ u.id }}" {% if u.id == usuario.id %}selected{% endif %}>{{ u.name }} ({{ u.matricula }})</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-auto"><button type="submit" class="btn btn-primary btn-sm">Visualizar</button></div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            {# Resumo do Mês #}
+            <div class="card mb-4 shadow-sm">
+                 <div class="card-header"><h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Resumo do Mês</h5></div>
+                <div class="card-body">
+                     <div class="row text-center gy-3">
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_uteis }}</div><div class="text-muted small">Dias Úteis</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_trabalhados }}</div><div class="text-muted small">Dias Trabalhados</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ dias_afastamento }}</div><div class="text-muted small">Dias Afastamento</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ "%.2f"|format(horas_trabalhadas) }}h</div><div class="text-muted small">Horas Trabalhadas</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100"><div class="fs-4 fw-bold">{{ "%.2f"|format(carga_horaria_devida) }}h</div><div class="text-muted small">Carga Horária Devida</div></div></div>
+                        <div class="col-6 col-md-4 col-lg-2"><div class="stat-box border rounded p-2 h-100 {% if saldo_horas < 0 %}bg-danger-subtle{% elif saldo_horas > 0 %}bg-success-subtle{% endif %}"><div class="fs-4 fw-bold">{{ "%.2f"|format(saldo_horas) }}h</div><div class="text-muted small">Saldo de Horas</div></div></div>
+                    </div>
+                </div>
+            </div>
+
+            {# Tabela de Registros #}
+            <div class="card shadow-sm">
+                 <div class="card-header"><h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Registros do Mês</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap ps-3">Data</th>
+                                    <th>Dia</th>
+                                    <th class="text-center">Entrada</th>
+                                    <th class="text-center text-nowrap">Início Almoço</th>
+                                    <th class="text-center text-nowrap">Fim Almoço</th>
+                                    <th class="text-center">Saída</th>
+                                    <th class="text-center text-nowrap">Horas Trab.</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">Atividades</th>
+                                    <th class="text-center pe-3">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+                                {# --- Usando date_obj passado no contexto --- #}
+                                {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                                    {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
+                                    {# --------------------------------------- #}
+                                    {% set dia_semana_idx = data_atual.weekday() %}
+                                    {% set dia_semana = dias_semana[dia_semana_idx] %}
+                                    {% set registro = registros_por_data.get(data_atual) %}
+                                    {% set is_feriado = data_atual in feriados_datas %}
+                                    {% set is_fim_semana = dia_semana_idx >= 5 %}
+                                    {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
+                                    {% set tem_detalhes = (registro and (registro.observacoes or lista_atividades or registro.resultados_produtos)) %}
+
+                                    {% set tr_class = [] %}
+                                    {% if is_feriado %}{% set _ = tr_class.append('table-warning') %}
+                                    {% elif is_fim_semana %}{% set _ = tr_class.append('table-light text-muted') %}
+                                    {% elif registro and registro.afastamento %}{% set _ = tr_class.append('table-info') %}
+                                    {% elif registro and registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}{% set _ = tr_class.append('table-success') %}
+                                    {% elif registro and registro.horas_trabalhadas is not none %}{% set _ = tr_class.append('table-warning') %}
+                                    {% elif not registro and not is_fim_semana %}{% set _ = tr_class.append('table-danger') %}
+                                    {% endif %}
+                                    {% if tem_detalhes %}{% set _ = tr_class.append('linha-clicavel') %}{% endif %}
+
+                                    {# --- Linha Principal --- #}
+                                    <tr class="{{ tr_class|join(' ') }}"
+                                        {% if tem_detalhes %}
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#detalhes-{{ dia_num }}"
+                                            aria-expanded="false"
+                                            aria-controls="detalhes-{{ dia_num }}"
+                                            title="Clique para ver detalhes"
+                                        {% endif %}>
+                                        <td class="text-nowrap ps-3">
+                                            {{ data_atual.strftime('%d/%m') }}
+                                            {% if tem_detalhes %}<i class="fas fa-chevron-right expand-icon"></i>{% endif %}
+                                        </td>
+                                        <td>{{ dia_semana }}</td>
+
+                                        {% if is_feriado %}
+                                            <td colspan="5" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center pe-3">-</td>
+                                        {% elif is_fim_semana %}
+                                            <td colspan="5" class="text-center fst-italic">Fim de Semana</td>
+                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center pe-3">-</td>
+                                        {% elif registro %}
+                                            {% if registro.afastamento %}
+                                                <td colspan="5" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
+                                                <td class="text-center">-</td>
+                                                <td class="text-center text-nowrap pe-3">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
+                                                        <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
+                                                    </div>
+                                                     <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
+                                                </td>
+                                            {% else %} {# Dia trabalhado #}
+                                                <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                                {% if registro.saida_almoco and registro.retorno_almoco %}
+                                                    <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') }}</td>
+                                                    <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') }}</td>
+                                                {% elif registro.saida_almoco or registro.retorno_almoco %}
+                                                     <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                                     <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                                {% else %}
+                                                     <td colspan="2" class="text-center text-muted small fst-italic">Sem registro de almoço</td>
+                                                {% endif %}
+                                                <td class="text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                                <td class="text-center fw-bold">
+                                                    {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}<span class="badge bg-success">OK</span>
+                                                    {% elif registro.horas_trabalhadas is not none %}<span class="badge bg-warning text-dark">Parcial</span>
+                                                    {% else %}<span class="badge bg-secondary">Pendente</span>
+                                                    {% endif %}
+                                                </td>
+                                                 <td class="text-center">
+                                                    {% if lista_atividades %}
+                                                        <i class="fas fa-list-check text-success" title="Ver Atividades nos Detalhes"></i>
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-center text-nowrap pe-3">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
+                                                        <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
+                                                    </div>
+                                                    <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
+                                                </td>
+                                            {% endif %}
+                                        {% else %} {# Dia útil sem registro #}
+                                            <td colspan="5" class="text-center fst-italic">Sem Registro</td>
+                                            <td class="text-center"><span class="badge bg-danger">Pendente</span></td>
+                                            <td class="text-center">-</td>
+                                            <td class="text-center text-nowrap pe-3">
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
+                                                    <a href="{{ url_for('main.registrar_afastamento', data=data_atual.isoformat()) }}" class="btn btn-outline-info" title="Registrar Afastamento"><i class="fas fa-user-clock"></i></a>
+                                                </div>
+                                            </td>
+                                        {% endif %}
+                                    </tr>
+                                    {# --- Linha de Detalhes Expansível --- #}
+                                    {% if tem_detalhes %}
+                                    <tr id="detalhes-{{ dia_num }}" class="collapse">
+                                        <td colspan="10" class="detalhes-row">
+                                            {% if lista_atividades %}
+                                                <h6><i class="fas fa-tasks text-muted me-1"></i> Atividades:</h6>
+                                                <ul class="list-unstyled ps-3">
+                                                {% for atv in lista_atividades %}
+                                                    <li><small>{{ atv }}</small></li>
+                                                {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                            {% if registro.resultados_produtos %}
+                                                <h6><i class="fas fa-box-open text-muted me-1"></i> Resultados/Produtos:</h6>
+                                                <p class="ps-3"><small>{{ registro.resultados_produtos }}</small></p>
+                                            {% endif %}
+                                            {% if registro.observacoes %}
+                                                <h6><i class="fas fa-comment-dots text-muted me-1"></i> Observações:</h6>
+                                                <p class="ps-3"><small>{{ registro.observacoes }}</small></p>
+                                            {% endif %}
+                                            <div class="mt-2">
+                                                <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-sm btn-outline-secondary">
+                                                    <i class="fas fa-edit me-1"></i> Editar Registro Completo
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
             {# --- Seção de Autoavaliação / Exportação --- #}
             <div class="card mt-4 mb-5 shadow-sm">
@@ -6,35 +281,34 @@
                     <h5 class="mb-0">Relatório Completo com Autoavaliação</h5>
                 </div>
                 <div class="card-body p-4">
-                    {# --- Lógica Condicional Atualizada --- #}
-                    {% if relatorio_completo_salvo %}
-                        {# Se já existe um relatório salvo, mostra botões de visualizar e editar #}
-                        <p class="text-success"><i class="fas fa-check-circle me-1"></i> Relatório completo com autoavaliação já foi salvo para este mês.</p>
-                        <p>Você pode visualizá-lo ou editar as informações salvas.</p>
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
-                            {# --- CORREÇÃO: Botão aponta para a nova rota de visualização HTML --- #}
-                            <a href="{{ url_for('main.visualizar_relatorio_completo', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-primary"> {# Mudado para primary #}
-                                <i class="fas fa-eye me-2"></i> Visualizar Relatório Completo
-                            </a>
-                            {# Botão Editar que abre o collapse (mantido) #}
-                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
-                                <i class="fas fa-edit me-1"></i> Editar Autoavaliação Salva
-                            </button>
-                        </div>
-                    {% else %}
-                        {# Se não existe, mostra o botão para adicionar/salvar #}
-                        <p>Adicione sua autoavaliação para salvar o relatório completo.</p>
-                        <div class="text-center">
-                            <button class="btn btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
-                                <i class="fas fa-plus-circle me-2"></i>Adicionar Autoavaliação
-                            </button>
-                        </div>
-                    {% endif %}
+                    {# --- CORREÇÃO: Container para os botões ou mensagem inicial --- #}
+                    <div id="relatorio-completo-acoes" class="mb-3">
+                        {% if relatorio_completo_salvo %}
+                            <p class="text-success"><i class="fas fa-check-circle me-1"></i> Relatório completo com autoavaliação já foi salvo para este mês.</p>
+                            <p>Você pode visualizá-lo ou editar as informações salvas.</p>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                <a href="{{ url_for('main.visualizar_relatorio_completo', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-primary">
+                                    <i class="fas fa-eye me-2"></i> Visualizar Relatório Completo
+                                </a>
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
+                                    <i class="fas fa-edit me-1"></i> Editar Autoavaliação Salva
+                                </button>
+                            </div>
+                        {% else %}
+                            <p>Adicione sua autoavaliação para salvar o relatório completo.</p>
+                            <div class="text-center">
+                                <button class="btn btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#autoavaliacaoCollapse" aria-expanded="false" aria-controls="autoavaliacaoCollapse">
+                                    <i class="fas fa-plus-circle me-2"></i>Adicionar Autoavaliação
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {# --- FIM DO CONTAINER DE AÇÕES --- #}
 
-                    {# Formulário de autoavaliação (mantido dentro do collapse) #}
+                    {# Formulário de autoavaliação (sempre renderizado, mas colapsado) #}
+                    {# --- CORREÇÃO: Garantir que o collapse comece fechado --- #}
                     <div class="collapse mt-3" id="autoavaliacaoCollapse">
-                        {# ... (conteúdo do formulário inalterado) ... #}
-                         {% if form_completo %}
+                        {% if form_completo %}
                             <form method="POST" action="{{ url_for('main.salvar_relatorio_completo') }}" novalidate>
                                 {{ form_completo.hidden_tag() }} {# Token CSRF #}
                                 {{ form_completo.user_id() }} {# Mantém campos ocultos #}
