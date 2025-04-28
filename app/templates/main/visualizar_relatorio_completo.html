@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Produtividade Mensal{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos para a visualização e impressão do relatório */
+    body {
+        background-color: #f8f9fa; /* Fundo levemente cinza para a página */
+    }
+    .relatorio-container {
+        max-width: 900px; /* Largura máxima para melhor leitura */
+        margin: 20px auto;
+        background-color: #fff;
+        padding: 30px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .cabecalho-oficial {
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 15px;
+    }
+    .cabecalho-oficial p {
+        margin: 3px 0;
+        font-size: 11pt; /* Tamanho um pouco maior para web */
+        color: #444;
+    }
+    .cabecalho-oficial p:first-child {
+        font-size: 14pt;
+        font-weight: bold;
+        color: #000;
+        margin-bottom: 8px;
+    }
+    .cabecalho-oficial .periodo {
+        font-weight: bold;
+        margin-top: 10px;
+        font-size: 12pt;
+    }
+    .card-relatorio { /* Substitui .card para web */
+        border: 1px solid #e0e0e0;
+        margin-bottom: 20px;
+    }
+    .card-header-relatorio { /* Substitui .card-header */
+        background-color: #f1f3f5; /* Cinza bem claro */
+        color: #343a40;
+        padding: 10px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        font-weight: bold;
+        font-size: 13pt; /* Título de seção maior */
+    }
+    .card-body-relatorio { /* Substitui .card-body */
+        padding: 15px;
+    }
+    .card-body-relatorio p {
+        margin-bottom: 8px;
+        line-height: 1.5;
+         text-align: justify;
+    }
+    .identificacao-section table { width: 100%; }
+    .identificacao-section td { padding: 4px 0; border: none; font-size: 10pt; }
+    .identificacao-section td.label { font-weight: bold; width: 160px; color: #555; vertical-align: top;}
+
+    .resumo-section table, .registros-section table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 9.5pt; /* Tamanho base para tabelas */
+    }
+    .resumo-section th, .resumo-section td,
+    .registros-section th, .registros-section td {
+        border: 1px solid #ccc;
+        padding: 6px 8px;
+        text-align: left;
+        vertical-align: top;
+    }
+    .resumo-section th, .registros-section th {
+        background-color: #e9ecef; /* Cinza claro */
+        font-weight: bold;
+        text-align: center;
+    }
+    .resumo-section td, .registros-section td {
+        background-color: #fff;
+    }
+     .registros-section tr:nth-child(even) td {
+         background-color: #f8f9fa; /* Fundo alternado sutil */
+    }
+
+    /* Larguras e alinhamentos da tabela de registros */
+    .registros-section .col-data { width: 85px; text-align: center; }
+    .registros-section .col-dia { width: 40px; text-align: center; }
+    .registros-section .col-hora { width: 60px; text-align: center; }
+    .registros-section .col-status { width: 70px; text-align: center; }
+    .registros-section .col-detalhes { text-align: left; }
+    .registros-section .col-detalhes strong { font-weight: bold; color: #555; }
+
+    /* Estilos de Status */
+    .status-feriado, .status-fds, .status-afastamento, .status-pendente {
+        font-style: italic;
+        color: #6c757d;
+    }
+    .saldo-horas { font-weight: bold; }
+    .saldo-negativo { color: #dc3545; } /* Vermelho Bootstrap */
+
+    /* Autoavaliação e Declaração */
+    .autoavaliacao-section .card-header-relatorio { font-size: 12pt; }
+    .declaracao-box {
+        border: 1px solid #e0e0e0;
+        padding: 15px;
+        margin-top: 20px;
+        background-color: #f8f9fa;
+    }
+    .declaracao-box .card-header-relatorio { font-size: 12pt; }
+    .declaracao-box .card-body-relatorio p { margin-bottom: 10px; }
+    .checkbox-simulado { font-family: ZapfDingbats, sans-serif; font-size: 12pt; margin-right: 5px; }
+    .assinatura { margin-top: 40px; text-align: center; color: #555; font-size: 10pt; }
+    .assinatura-nome { text-align: center; font-weight: bold; margin-top: 5px; margin-bottom: 5px; font-size: 11pt; }
+    .data-assinatura { text-align: center; color: #555; font-size: 10pt; margin-bottom: 0; }
+
+    /* Estilos específicos para impressão */
+    @media print {
+        body {
+            background-color: #fff; /* Fundo branco para impressão */
+            font-size: 9pt; /* Fonte menor para impressão */
+        }
+        .relatorio-container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+        }
+        .no-print { display: none !important; } /* Esconde botões e navbar */
+        .card-relatorio { border: 1px solid #ccc; page-break-inside: avoid; }
+        .card-header-relatorio { background-color: #f1f3f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } /* Força cor de fundo */
+        table, th, td { border: 1px solid #ccc !important; }
+         tr:nth-child(even) td { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        a { text-decoration: none; color: inherit; } /* Remove sublinhado de links */
+        .saldo-negativo { color: #dc3545 !important; } /* Garante cor */
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+{# Botões de Ação (Voltar e Imprimir) - Fora do container principal para não imprimir #}
+<div class="container mt-3 mb-3 no-print">
+    <div class="d-flex justify-content-between">
+        <a href="{{ url_for('main.relatorio_mensal', user_id=usuario.id, mes=mes_atual, ano=ano_atual) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar para Relatório Mensal
+        </a>
+        <button onclick="window.print();" class="btn btn-primary">
+            <i class="fas fa-print me-1"></i> Imprimir / Salvar PDF
+        </button>
+    </div>
+</div>
+
+{# Container Principal do Relatório #}
+<div class="relatorio-container">
+    {# 1. Cabeçalho Oficial #}
+    <div class="cabecalho-oficial">
+        <p>RELATÓRIO DE PRODUTIVIDADE MENSAL</p>
+        <p>Diretoria de Políticas Penais – DIRPP</p>
+        <p>Secretaria Nacional de Políticas Penais – SENAPPEN</p>
+        <p>Ministério da Justiça e Segurança Pública</p>
+        <p class="periodo">Período: {{ nome_mes }} / {{ ano_atual }}</p>
+    </div>
+
+    {# 2. Identificação do Servidor #}
+    <div class="card-relatorio identificacao-section">
+        <div class="card-header-relatorio">
+            IDENTIFICAÇÃO DO SERVIDOR(A)/COLABORADOR (A) EVENTUAL
+        </div>
+        <div class="card-body-relatorio">
+            {% if usuario %}
+            <table>
+                <tr><td class="label">Nome:</td><td>{{ usuario.name }}</td></tr>
+                <tr><td class="label">Matrícula:</td><td>{{ usuario.matricula }}</td></tr>
+                <tr><td class="label">Cargo:</td><td>{{ usuario.cargo or 'N/A' }}</td></tr>
+                <tr><td class="label">Vínculo:</td><td>{{ usuario.vinculo or 'N/A' }}</td></tr>
+                <tr><td class="label">Unidade/Setor:</td><td>{{ usuario.unidade_setor or 'N/A' }}</td></tr>
+                <tr><td class="label">Chefia Imediata:</td><td>{{ usuario.chefia_imediata or 'N/A' }}</td></tr>
+                <tr><td class="label">UF:</td><td>{{ usuario.uf or 'N/A' }}</td></tr>
+                <tr><td class="label">Telefone:</td><td>{{ usuario.telefone or 'N/A' }}</td></tr>
+                <tr><td class="label">Email:</td><td>{{ usuario.email }}</td></tr>
+            </table>
+            {% else %}
+            <p>Informações do usuário indisponíveis.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Resumo do Mês #}
+    <div class="card-relatorio resumo-section">
+        <div class="card-header-relatorio">
+            RESUMO DO MÊS
+        </div>
+        <div class="card-body-relatorio">
+             <table>
+                 <thead>
+                    <tr>
+                        <th>Dias Úteis</th>
+                        <th>Dias Trabalhados</th>
+                        <th>Dias de Afastamento</th>
+                        <th>Horas Trabalhadas</th>
+                        <th>Carga Horária Devida</th>
+                        <th>Saldo de Horas</th>
+                    </tr>
+                 </thead>
+                 <tbody>
+                    <tr>
+                        <td class="text-center">{{ dias_uteis }}</td>
+                        <td class="text-center">{{ dias_trabalhados }}</td>
+                        <td class="text-center">{{ dias_afastamento }}</td>
+                        <td class="text-center">{{ "%.2f"|format(horas_trabalhadas) }}h</td>
+                        <td class="text-center">{{ "%.2f"|format(carga_horaria_devida) }}h</td>
+                        <td class="text-center saldo-horas {% if saldo_horas < 0 %}saldo-negativo{% endif %}">
+                           {{ "%+.2f"|format(saldo_horas) }}h
+                        </td>
+                    </tr>
+                 </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# 3. Registros Detalhados do Mês #}
+    <div class="card-relatorio registros-section">
+        <div class="card-header-relatorio">
+            REGISTROS MENSAIS
+        </div>
+        <div class="card-body-relatorio">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-data">Data</th>
+                        <th class="col-dia">Dia</th>
+                        <th class="col-hora">Entrada</th>
+                        <th class="col-hora">Saída Almoço</th>
+                        <th class="col-hora">Retorno Almoço</th>
+                        <th class="col-hora">Saída</th>
+                        <th class="col-hora">Horas Trab.</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-detalhes">Atividades / Resultados / Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+                    {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                        {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
+                        {% set dia_semana_idx = data_atual.weekday() %}
+                        {% set registro = registros_por_data.get(data_atual) %}
+                        {% set is_feriado = data_atual in feriados_datas %}
+                        {% set is_fim_semana = dia_semana_idx >= 5 %}
+                        {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
+
+                        {# Só exibe linha se for dia útil, feriado ou tiver registro #}
+                        {% if registro or (not is_fim_semana) %}
+                            <tr>
+                                <td class="col-data">{{ data_atual.strftime('%d/%m/%Y') }}</td>
+                                <td class="col-dia">{{ dias_semana[dia_semana_idx] }}</td>
+
+                                {% if is_feriado %}
+                                    <td colspan="6" class="text-center status-feriado">{{ feriados_dict[data_atual] }}</td>
+                                    <td class="col-status text-center status-feriado">Feriado</td>
+                                    <td class="col-detalhes">-</td>
+                                {% elif is_fim_semana and not registro %}
+                                    {# Oculta FDS sem registro #}
+                                {% elif registro %}
+                                    {% if registro.afastamento %}
+                                        <td colspan="6" class="text-center status-afastamento">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                        <td class="col-status text-center status-afastamento">Afast.</td>
+                                        <td class="col-detalhes">{{ registro.observacoes or '-' }}</td>
+                                    {% else %} {# Dia trabalhado #}
+                                        <td class="col-hora text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                        <td class="col-hora text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                        <td class="col-hora text-center">
+                                            {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
+                                        </td>
+                                        <td class="col-status text-center">
+                                            {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}OK
+                                            {% elif registro.horas_trabalhadas is not none %}Parcial
+                                            {% else %}Pendente
+                                            {% endif %}
+                                        </td>
+                                        <td class="col-detalhes">
+                                            {% if lista_atividades %}<strong>Atividades:</strong> {{ lista_atividades|join('; ') }}<br>{% endif %}
+                                            {% if registro.resultados_produtos %}<strong>Resultados/Produtos:</strong> {{ registro.resultados_produtos }}<br>{% endif %}
+                                            {% if registro.observacoes %}<strong>Observações:</strong> {{ registro.observacoes }}{% endif %}
+                                            {% if not lista_atividades and not registro.resultados_produtos and not registro.observacoes %}-{% endif %}
+                                        </td>
+                                    {% endif %}
+                                {% else %} {# Dia útil sem registro #}
+                                    <td colspan="6" class="text-center status-pendente">Sem Registro</td>
+                                    <td class="col-status text-center status-pendente">Pendente</td>
+                                    <td class="col-detalhes">-</td>
+                                {% endif %}
+                            </tr>
+                        {% endif %} {# Fim do if para exibir linha #}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# 4. Autoavaliação e Declaração #}
+    {% if autoavaliacao_data is defined %} {# Verifica se veio do contexto completo #}
+    <div class="card-relatorio autoavaliacao-section">
+        <div class="card-header-relatorio">AUTOAVALIAÇÃO DO SERVIDOR(A)/COLABORADOR</div>
+        <div class="card-body-relatorio"><p>{{ autoavaliacao_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if dificuldades_data is defined %}
+    <div class="card-relatorio autoavaliacao-section">
+        <div class="card-header-relatorio">DIFICULDADES OU NECESSIDADES OBSERVADAS</div>
+        <div class="card-body-relatorio"><p>{{ dificuldades_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if sugestoes_data is defined %}
+    <div class="card-relatorio autoavaliacao-section">
+        <div class="card-header-relatorio">SUGESTÕES DE MELHORIA</div>
+        <div class="card-body-relatorio"><p>{{ sugestoes_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if declaracao_marcada is defined %}
+    <div class="card-relatorio declaracao-box">
+         <div class="card-header-relatorio">DECLARAÇÃO</div>
+         <div class="card-body-relatorio">
+             <p><span class="checkbox-simulado">{% if declaracao_marcada %}&#x2714;{% else %}&#x2717;{% endif %}</span> Declaro que as informações acima refletem, com veracidade, as atividades desempenhadas por mim durante o período informado.</p>
+             <p class="assinatura">_________________________________________________________</p>
+             <p class="assinatura-nome">{{ usuario.name if usuario else 'Nome Indisponível' }}</p>
+             <p class="data-assinatura">Data: {{ data_geracao }}</p>
+         </div>
+    </div>
+    {% endif %}
+
+</div> {# Fim do relatorio-container #}
+{% endblock %}
