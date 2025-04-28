@@ -11,6 +11,9 @@ import logging
 import shutil
 from datetime import datetime
 import calendar # Importar calendar aqui se migrate_db for movida para cá
+# --- CORREÇÃO: Importar modelo RelatorioMensalCompleto ---
+from app.models.relatorio_completo import RelatorioMensalCompleto
+# -------------------------------------------------------
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -23,15 +26,6 @@ csrf = CSRFProtect()
 # ---------------------------------------------------
 
 # Nota: A função migrate_db foi movida para init_db_production.py
-# Se for necessário executá-la também na inicialização normal da app (não apenas no build),
-# ela precisaria ser definida aqui ou importada. Por agora, vamos assumir
-# que a migração durante o build é suficiente.
-
-# def migrate_db(app):
-#    """Adiciona as colunas necessárias às tabelas se não existirem"""
-#    # ... (código da função migrate_db, adaptado se necessário) ...
-#    pass
-
 
 def ensure_instance_directory(app):
     """Garante que o diretório instance exista e tenha as permissões corretas"""
@@ -64,10 +58,7 @@ def ensure_instance_directory(app):
 def create_app():
     # Cria e configura a aplicação
     app = Flask(__name__, instance_relative_config=True)
-    # Define a chave secreta - ESSENCIAL para CSRF e sessões
-    # Render deve injetar uma chave segura via variável de ambiente
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'uma-chave-secreta-muito-forte-e-dificil-de-adivinhar')
-    # Adiciona configuração para habilitar CSRF (já é True por padrão, mas explícito é bom)
     app.config['WTF_CSRF_ENABLED'] = True
 
     # Configuração de logging
@@ -97,24 +88,26 @@ def create_app():
     # Inicializa extensões
     db.init_app(app)
     login_manager.init_app(app)
-    # --- CORREÇÃO CSRF: Inicializar CSRFProtect ---
     csrf.init_app(app)
-    # ---------------------------------------------
     login_manager.login_view = 'auth.login'
     login_manager.login_message = "Por favor, faça login para acessar esta página."
     login_manager.login_message_category = "warning"
+
+    # Importar modelos ANTES de db.create_all e ANTES de registrar blueprints
+    # Isso garante que o SQLAlchemy conheça os modelos
+    from app.models.user import User
+    from app.models.ponto import Ponto, Atividade
+    from app.models.feriado import Feriado
+    # A importação do RelatorioMensalCompleto já foi feita no topo
 
     with app.app_context():
         # Garante diretório instance
         ensure_instance_directory(app)
         try:
             # Cria tabelas se não existirem
-            # Nota: A migração de colunas agora está no script init_db_production.py
-            # Se precisar que a migração ocorra a cada inicialização,
-            # a lógica de migrate_db() precisaria estar aqui.
             db.create_all()
             app.logger.info("db.create_all() executado (tabelas criadas se não existiam).")
-            # migrate_db(app) # Descomente se a migração for necessária em cada inicialização
+            # A lógica de migração de colunas está em init_db_production.py
         except Exception as e:
             app.logger.error(f"Erro durante a inicialização do banco de dados (create_all): {e}", exc_info=True)
             raise
@@ -124,21 +117,12 @@ def create_app():
     def inject_now():
         return {'datetime': datetime}
 
-    # Importar e registrar blueprints
-    from app.controllers.auth import auth as auth_blueprint
-    app.register_blueprint(auth_blueprint)
-    from app.controllers.main import main as main_blueprint
-    app.register_blueprint(main_blueprint)
-    from app.controllers.admin import admin as admin_blueprint
-    app.register_blueprint(admin_blueprint)
-
-    # Importar modelos
-    from app.models.user import User
-
-    # Configura o user_loader
+    # Configura o user_loader ANTES de registrar os blueprints que usam @login_required
     @login_manager.user_loader
     def load_user(user_id):
         try:
+            # Reimporta User aqui para garantir que está no escopo correto
+            from app.models.user import User
             return User.query.get(int(user_id))
         except (ValueError, TypeError) as e:
              app.logger.error(f"Erro ao carregar usuário - ID inválido '{user_id}': {e}")
@@ -146,6 +130,16 @@ def create_app():
         except Exception as e:
             app.logger.error(f"Erro inesperado ao carregar usuário {user_id}: {e}", exc_info=True)
             return None
+
+    # --- CORREÇÃO: Importar e registrar blueprints no final ---
+    with app.app_context(): # Garante contexto para registro
+        from app.controllers.auth import auth as auth_blueprint
+        app.register_blueprint(auth_blueprint)
+        from app.controllers.main import main as main_blueprint
+        app.register_blueprint(main_blueprint)
+        from app.controllers.admin import admin as admin_blueprint
+        app.register_blueprint(admin_blueprint)
+    # --- FIM DA CORREÇÃO ---
 
     app.logger.info("Aplicação criada e configurada com sucesso.")
     return app
