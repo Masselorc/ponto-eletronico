@@ -22,7 +22,17 @@
         .detalhes-sei strong { font-weight: bold; }
         .assinatura-sei { margin-top: 30px; text-align: center; }
         .assinatura-sei p { margin: 2px 0; }
-        /* Adiciona estilos para status para melhor visualização no HTML bruto */
+        /* Estilos para avaliação da chefia SEI */
+        .avaliacao-chefia-sei { margin-top: 25px; border-top: 1px solid #ccc; padding-top: 15px; }
+        .avaliacao-chefia-sei h2 { border-bottom: none; text-align: center; margin-bottom: 10px; } /* Título centralizado sem linha */
+        .avaliacao-chefia-sei .opcoes-sei p { margin-bottom: 3px; }
+        .avaliacao-chefia-sei .observacoes-sei { margin-top: 10px; }
+        .avaliacao-chefia-sei .observacoes-sei p { font-weight: bold; margin-bottom: 3px; }
+        .avaliacao-chefia-sei .espaco-comentarios-sei { border: 1px dashed #999; min-height: 50px; margin-top: 3px; padding: 5px; }
+        .avaliacao-chefia-sei .assinatura-chefia-sei { margin-top: 25px; text-align: center; }
+        .avaliacao-chefia-sei .assinatura-chefia-sei p { margin: 1px 0; font-size: 9pt; }
+        .avaliacao-chefia-sei .assinatura-chefia-nome-sei { font-weight: bold; font-size: 10pt; margin-top: 3px; }
+        /* Estilos para status para melhor visualização no HTML bruto */
         .status-feriado { font-style: italic; color: #555; }
         .status-afastamento { font-style: italic; color: #444; }
         .status-pendente { font-style: italic; color: #888; }
@@ -168,6 +178,27 @@
         <p>Data: {{ data_geracao }}</p>
     </div>
     {% endif %}
+
+    {# --- NOVA SEÇÃO: AVALIAÇÃO DA CHEFIA (SEI) --- #}
+    <div class="avaliacao-chefia-sei">
+        <h2>AVALIAÇÃO DA CHEFIA IMEDIATA</h2>
+        <div class="opcoes-sei">
+            <p>( &nbsp; ) Aprovado</p>
+            <p>( &nbsp; ) Retornar para complementação</p>
+        </div>
+        <div class="observacoes-sei">
+            <p>Observações da chefia (se houver):</p>
+            <div class="espaco-comentarios-sei">
+                 <p>&nbsp;</p> {# Espaço para comentários #}
+            </div>
+        </div>
+        <div class="assinatura-chefia-sei">
+            <p>_________________________________________________________</p>
+            <p class="assinatura-chefia-nome-sei">Assinatura da chefia imediata</p>
+            {# <p class="assinatura-chefia-nome-sei">{{ usuario.chefia_imediata or 'Nome da Chefia Imediata' }}</p> #}
+        </div>
+    </div>
+    {# --- FIM DA NOVA SEÇÃO (SEI) --- #}
 
 </body>
 </html>

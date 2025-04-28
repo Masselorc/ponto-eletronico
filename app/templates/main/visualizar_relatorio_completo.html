@@ -56,6 +56,23 @@
     .assinatura { margin-top: 40px; text-align: center; color: #555; font-size: 10pt; }
     .assinatura-nome { text-align: center; font-weight: bold; margin-top: 5px; margin-bottom: 5px; font-size: 11pt; }
     .data-assinatura { text-align: center; color: #555; font-size: 10pt; margin-bottom: 0; }
+    /* Estilos para a nova seção de avaliação da chefia */
+    .avaliacao-chefia-section { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
+    .avaliacao-chefia-section .card-header-relatorio { background-color: #e9ecef; } /* Mantém consistência */
+    .avaliacao-chefia-section .opcoes-avaliacao p { margin-bottom: 5px; font-size: 10pt; }
+    .avaliacao-chefia-section .observacoes-chefia { margin-top: 15px; }
+    .avaliacao-chefia-section .observacoes-chefia p { margin-bottom: 5px; font-weight: bold; font-size: 10pt; }
+    .avaliacao-chefia-section .observacoes-chefia .espaco-comentarios {
+        border: 1px dashed #ccc;
+        min-height: 60px; /* Altura mínima para o espaço de comentários */
+        margin-top: 5px;
+        padding: 5px; /* Espaço interno opcional */
+        background-color: #fdfdfd; /* Fundo levemente diferente */
+    }
+    .avaliacao-chefia-section .assinatura-chefia { margin-top: 30px; text-align: center; color: #555; font-size: 10pt; }
+    .avaliacao-chefia-section .assinatura-chefia-linha { margin-top: 5px; }
+    .avaliacao-chefia-section .assinatura-chefia-nome { font-weight: bold; margin-top: 5px; font-size: 10pt; }
+
 
     /* --- ESTILOS DE IMPRESSÃO REFINADOS v3 --- */
     @media print {
@@ -158,6 +175,20 @@
         .assinatura-nome { font-size: 9pt !important;}
         .data-assinatura { font-size: 8pt !important;}
         a { text-decoration: none !important; color: inherit !important; }
+
+        /* Estilos de impressão para avaliação da chefia */
+        .avaliacao-chefia-section {
+            margin-top: 15px !important;
+            padding-top: 10px !important;
+            border-top: 1px solid #aaa !important;
+            page-break-before: auto !important; /* Tenta evitar que comece logo no topo da página */
+        }
+        .avaliacao-chefia-section .card-header-relatorio { font-size: 10pt !important; }
+        .avaliacao-chefia-section .opcoes-avaliacao p { font-size: 8pt !important; margin-bottom: 2px !important; }
+        .avaliacao-chefia-section .observacoes-chefia p { font-size: 8pt !important; margin-bottom: 2px !important; }
+        .avaliacao-chefia-section .observacoes-chefia .espaco-comentarios { min-height: 40px !important; border: 1px dashed #aaa !important; }
+        .avaliacao-chefia-section .assinatura-chefia { margin-top: 15px !important; font-size: 8pt !important; }
+        .avaliacao-chefia-section .assinatura-chefia-nome { font-size: 9pt !important; }
     }
     /* --- FIM DOS ESTILOS DE IMPRESSÃO --- */
 
@@ -258,7 +289,7 @@
                                 {% if is_feriado %}
                                     <td colspan="5" class="status-feriado">{{ feriados_dict[data_atual] }} (Feriado)</td>
                                 {% elif is_fim_semana and not registro %}
-                                    {# Oculta FDS sem registro #}
+                                    <td colspan="5" class="status-fds">Fim de Semana</td> {# Mostra FDS se não tiver registro #}
                                 {% elif registro %}
                                     {% if registro.afastamento %}
                                         <td colspan="5" class="status-afastamento">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }} (Afast.)</td>
@@ -295,9 +326,9 @@
                                 </td>
                             </tr>
                             {% elif registro and not tem_detalhes %} {# Linha vazia se não tem detalhes mas tem registro #}
-                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
+                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none; padding:0;"></td></tr>
                             {% elif not registro and not is_fim_semana and not is_feriado %} {# Linha vazia para dias pendentes #}
-                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none;"></td></tr>
+                             <tr><td colspan="7" class="detalhes-celula" style="height: 10px; border-top: none; padding:0;"></td></tr>
                             {% endif %}
                         {% endif %} {# Fim do if para exibir linha principal #}
                     {% endfor %}
@@ -373,5 +404,34 @@
     </div>
     {% endif %}
 
+    {# --- NOVA SEÇÃO: AVALIAÇÃO DA CHEFIA --- #}
+    <div class="card-relatorio avaliacao-chefia-section">
+        <div class="card-header-relatorio">
+            AVALIAÇÃO DA CHEFIA IMEDIATA
+        </div>
+        <div class="card-body-relatorio">
+            <div class="opcoes-avaliacao">
+                <p>( &nbsp; ) Aprovado</p>
+                <p>( &nbsp; ) Retornar para complementação</p>
+            </div>
+            <div class="observacoes-chefia">
+                <p>Observações da chefia (se houver):</p>
+                <div class="espaco-comentarios">
+                    {# Espaço em branco para comentários manuais #}
+                    <br><br><br>
+                </div>
+            </div>
+            <div class="assinatura-chefia">
+                <p class="assinatura-chefia-linha">_________________________________________________________</p>
+                <p class="assinatura-chefia-nome">Assinatura da chefia imediata</p>
+                {# Você pode querer adicionar o nome da chefia aqui dinamicamente se estiver disponível #}
+                {# <p class="assinatura-chefia-nome">{{ usuario.chefia_imediata or 'Nome da Chefia Imediata' }}</p> #}
+            </div>
+        </div>
+    </div>
+    {# --- FIM DA NOVA SEÇÃO --- #}
+
+
 </div> {# Fim do relatorio-container #}
 {% endblock %}
+
