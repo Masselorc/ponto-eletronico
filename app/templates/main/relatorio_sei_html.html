@@ -22,6 +22,10 @@
         .detalhes-sei strong { font-weight: bold; }
         .assinatura-sei { margin-top: 30px; text-align: center; }
         .assinatura-sei p { margin: 2px 0; }
+        /* Adiciona estilos para status para melhor visualização no HTML bruto */
+        .status-feriado { font-style: italic; color: #555; }
+        .status-afastamento { font-style: italic; color: #444; }
+        .status-pendente { font-style: italic; color: #888; }
     </style>
 </head>
 <body>
@@ -75,18 +79,18 @@
                 {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
                 {% set tem_detalhes = (lista_atividades or (registro and (registro.resultados_produtos or registro.observacoes))) %}
 
-                {% if registro or (not is_fim_semana) %}
+                {% if registro or (not is_fim_semana) %} {# Mostra apenas dias com registro ou dias úteis #}
                     {# Linha Principal #}
                     <tr>
                         <td class="text-center">{{ data_atual.strftime('%d/%m/%Y') }}</td>
                         <td class="text-center">{{ dias_semana[dia_semana_idx] }}</td>
                         {% if is_feriado %}
-                            <td colspan="5" class="text-center"><em>{{ feriados_dict[data_atual] }} (Feriado)</em></td>
+                            <td colspan="5" class="text-center status-feriado"><em>{{ feriados_dict[data_atual] }} (Feriado)</em></td>
                         {% elif is_fim_semana and not registro %}
-                            {# Omitido FDS sem registro #}
+                             <td colspan="5" class="text-center"><em>Fim de Semana</em></td> {# Mostra FDS se não tiver registro #}
                         {% elif registro %}
                             {% if registro.afastamento %}
-                                <td colspan="5" class="text-center"><em>{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }} (Afast.)</em></td>
+                                <td colspan="5" class="text-center status-afastamento"><em>{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }} (Afast.)</em></td>
                             {% else %} {# Dia trabalhado #}
                                 <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
                                 <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
@@ -95,10 +99,10 @@
                                 <td class="text-center">{% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}</td>
                             {% endif %}
                         {% else %} {# Dia útil sem registro #}
-                            <td colspan="5" class="text-center"><em>Sem Registro</em></td>
+                            <td colspan="5" class="text-center status-pendente"><em>Sem Registro</em></td>
                         {% endif %}
                     </tr>
-                    {# Linha de Detalhes #}
+                    {# Linha de Detalhes (apenas se houver detalhes e registro) #}
                     {% if tem_detalhes and registro %}
                     <tr>
                         <td colspan="7" class="detalhes-sei">
@@ -107,10 +111,8 @@
                             {% if registro.observacoes %}<strong>Observações:</strong> {{ registro.observacoes }}{% endif %}
                         </td>
                     </tr>
-                    {% elif registro and not tem_detalhes %} {# Linha vazia para manter padrão #}
-                     <tr><td colspan="7" style="border: none; height: 5px;"></td></tr>
-                    {% elif not registro and not is_fim_semana and not is_feriado %} {# Linha vazia para pendentes #}
-                     <tr><td colspan="7" style="border: none; height: 5px;"></td></tr>
+                    {% elif not is_fim_semana and not is_feriado %} {# Adiciona linha vazia para dias úteis sem registro/detalhes para espaçamento #}
+                     <tr><td colspan="7" style="border: none; height: 5px; padding:0;"></td></tr>
                     {% endif %}
                 {% endif %}
             {% endfor %}
@@ -169,76 +171,3 @@
 
 </body>
 </html>
-```
-
-**3. Nova Rota no Controlador (`app/controllers/main.py`)**
-
-Adicione esta rota ao controlador:
-
-
-```python
-# ... (outras importações e código) ...
-from app.models.relatorio_completo import RelatorioMensalCompleto # Certifique-se que está importado
-
-# ... (código das outras rotas) ...
-
-# --- NOVA ROTA: Gerar HTML SEI ---
-@main.route('/relatorio-sei-html')
-@login_required
-def gerar_html_sei():
-    """Gera uma página HTML simplificada do relatório completo para o SEI."""
-    try:
-        # Tenta obter user_id, mes e ano da URL
-        user_id = request.args.get('user_id', type=int)
-        mes = request.args.get('mes', type=int)
-        ano = request.args.get('ano', type=int)
-
-        if not user_id or not mes or not ano:
-            flash("Informações insuficientes para gerar o HTML (usuário, mês ou ano ausente).", 'warning')
-            return redirect(request.referrer or url_for('main.dashboard'))
-
-        # Verifica permissão
-        if user_id != current_user.id and not current_user.is_admin:
-            flash("Você não tem permissão para gerar este relatório.", 'danger')
-            return redirect(url_for('main.dashboard'))
-
-        # Busca o relatório completo salvo no banco
-        relatorio_salvo = RelatorioMensalCompleto.query.filter_by(
-            user_id=user_id, ano=ano, mes=mes
-        ).first()
-
-        if not relatorio_salvo:
-            flash("É necessário salvar o Relatório Completo antes de gerar o HTML para o SEI.", 'warning')
-            return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
-
-        # Busca os dados base do relatório mensal
-        dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
-
-        # Cria o contexto completo para o template HTML SEI
-        contexto_completo = {
-            **dados_relatorio_base,
-            'autoavaliacao_data': relatorio_salvo.autoavaliacao,
-            'dificuldades_data': relatorio_salvo.dificuldades,
-            'sugestoes_data': relatorio_salvo.sugestoes,
-            'declaracao_marcada': relatorio_salvo.declaracao_marcada,
-            'data_geracao': relatorio_salvo.updated_at.strftime('%d/%m/%Y'), # Apenas data para SEI
-        }
-
-        # Renderiza o novo template HTML SEI
-        return render_template('main/relatorio_sei_html.html', **contexto_completo)
-
-    except ValueError as ve:
-        logger.error(f"ValueError ao gerar HTML SEI: {ve}", exc_info=True)
-        flash(f"Erro ao processar dados para gerar HTML: {ve}.", 'danger')
-    except Exception as e:
-        logger.error(f"Erro inesperado ao gerar HTML SEI: {e}", exc_info=True)
-        flash('Ocorreu um erro inesperado ao gerar o HTML para o SEI.', 'danger')
-
-    # Redireciona de volta para a página do relatório mensal em caso de erro
-    user_id_fb = request.args.get('user_id', default=current_user.id, type=int)
-    mes_fb = request.args.get('mes', default=date.today().month, type=int)
-    ano_fb = request.args.get('ano', default=date.today().year, type=int)
-    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
-# --- FIM DA NOVA ROTA ---
-
-# ... (restante do código do controller) ...
