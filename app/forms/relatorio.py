@@ -35,6 +35,6 @@ class RelatorioCompletoForm(FlaskForm):
     user_id = HiddenField()
     mes = HiddenField()
     ano = HiddenField()
-    # Botão de submit específico para este formulário
-    submit_completo = SubmitField('Gerar PDF Completo com Autoavaliação')
-
+    # --- CORREÇÃO: Renomeado o botão de submit ---
+    submit_salvar = SubmitField('Salvar Relatório Completo')
+    # --- FIM DA CORREÇÃO ---

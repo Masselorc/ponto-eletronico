@@ -9,6 +9,9 @@ import tempfile
 import pandas as pd
 from datetime import datetime, date, timedelta, time
 from sqlalchemy import desc # Importado para ordenação
+# --- CORREÇÃO: Importar novo modelo ---
+from app.models.relatorio_completo import RelatorioMensalCompleto
+# ------------------------------------
 
 # --- Definição do Blueprint 'main' ANTES das importações da app ---
 main = Blueprint('main', __name__)
@@ -432,14 +435,26 @@ def relatorio_mensal():
         # Cria uma instância do formulário de autoavaliação
         form_completo = RelatorioCompletoForm()
 
-        # --- CORREÇÃO: Preencher dados dos campos ocultos no objeto form ---
-        form_completo.user_id.data = str(usuario_ctx.id) # Converte para string
-        form_completo.mes.data = str(mes_req)           # Converte para string
-        form_completo.ano.data = str(ano_req)           # Converte para string
-        # --- FIM DA CORREÇÃO ---
+        # Preenche dados dos campos ocultos no objeto form
+        form_completo.user_id.data = str(usuario_ctx.id)
+        form_completo.mes.data = str(mes_req)
+        form_completo.ano.data = str(ano_req)
+
+        # --- CORREÇÃO: Verifica se já existe um relatório completo salvo ---
+        relatorio_completo_salvo = RelatorioMensalCompleto.query.filter_by(
+            user_id=usuario_ctx.id,
+            ano=ano_req,
+            mes=mes_req
+        ).first()
+        # -----------------------------------------------------------------
 
         # Combina os dados do relatório com a lista de usuários e o form de autoavaliação
-        contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin, 'form_completo': form_completo}
+        contexto_template = {
+            **dados_relatorio,
+            'usuarios': usuarios_admin,
+            'form_completo': form_completo,
+            'relatorio_completo_salvo': relatorio_completo_salvo # Passa o resultado da consulta para o template
+        }
 
         # Renderiza o template do relatório mensal
         return render_template('main/relatorio_mensal.html', **contexto_template)
@@ -547,122 +562,170 @@ def relatorio_mensal_excel():
 
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
-# Rota para gerar PDF completo com autoavaliação (POST)
-@main.route('/gerar-relatorio-completo/pdf', methods=['POST'])
+# --- CORREÇÃO: Renomeada a rota e alterada a lógica para SALVAR ---
+@main.route('/salvar-relatorio-completo', methods=['POST'])
 @login_required
-def gerar_relatorio_completo_pdf():
-    """Gera e envia o relatório PDF completo incluindo a autoavaliação."""
+def salvar_relatorio_completo():
+    """Salva os dados da autoavaliação no banco de dados."""
     form = RelatorioCompletoForm()
+    user_id_fb = current_user.id
+    mes_fb = date.today().month
+    ano_fb = date.today().year
 
-    # Valida o formulário de autoavaliação (inclui CSRF)
+    # Tenta obter os dados do formulário para o redirect em caso de erro
+    try:
+        user_id_fb = int(form.user_id.data) if form.user_id.data else current_user.id
+        mes_fb = int(form.mes.data) if form.mes.data else date.today().month
+        ano_fb = int(form.ano.data) if form.ano.data else date.today().year
+    except ValueError:
+        pass # Usa os fallbacks se a conversão falhar
+
     if form.validate_on_submit():
         try:
-            # Validar e converter com fallback
             user_id_str = form.user_id.data
             mes_str = form.mes.data
             ano_str = form.ano.data
 
-            # Verifica se algum dos campos ocultos está vazio
             if not user_id_str or not mes_str or not ano_str:
-                logger.error(f"Dados ausentes no formulário de PDF completo: user_id='{user_id_str}', mes='{mes_str}', ano='{ano_str}'")
+                logger.error(f"Dados ausentes no formulário ao salvar: user_id='{user_id_str}', mes='{mes_str}', ano='{ano_str}'")
                 flash("Erro ao processar dados do formulário (ID, mês ou ano ausente). Tente novamente.", 'danger')
-                # Tenta redirecionar para a página correta, mesmo com erro
-                user_id_fb = current_user.id
-                mes_fb = date.today().month
-                ano_fb = date.today().year
-                try:
-                    # Tenta usar os dados do form mesmo que inválidos para o redirect
-                    user_id_fb = int(user_id_str) if user_id_str else current_user.id
-                    mes_fb = int(mes_str) if mes_str else date.today().month
-                    ano_fb = int(ano_str) if ano_str else date.today().year
-                except ValueError:
-                    pass # Mantém os fallbacks se a conversão falhar
                 return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
 
-            # Tenta a conversão para int APÓS garantir que não são vazios
             user_id = int(user_id_str)
             mes = int(mes_str)
             ano = int(ano_str)
 
-            # Obtém os dados dos campos de texto da autoavaliação
-            autoavaliacao_data = form.autoavaliacao.data
-            dificuldades_data = form.dificuldades.data
-            sugestoes_data = form.sugestoes.data
-            declaracao_marcada = form.declaracao.data
+            # Verifica se o usuário logado é o dono do relatório ou admin
+            if user_id != current_user.id and not current_user.is_admin:
+                 flash("Você não tem permissão para salvar este relatório.", 'danger')
+                 return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
 
-            # Busca os dados base do relatório mensal
-            dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
+            # Verifica se já existe um relatório salvo para este período/usuário
+            relatorio_existente = RelatorioMensalCompleto.query.filter_by(
+                user_id=user_id, ano=ano, mes=mes
+            ).first()
 
-            # Cria o contexto completo para o PDF, incluindo os dados da autoavaliação
-            contexto_completo = {
-                **dados_relatorio_base, # Inclui todos os dados base
-                'autoavaliacao_data': autoavaliacao_data,
-                'dificuldades_data': dificuldades_data,
-                'sugestoes_data': sugestoes_data,
-                'declaracao_marcada': declaracao_marcada,
-                'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-                'titulo': f'Relatório de Ponto e Autoavaliação - {dados_relatorio_base["nome_mes"]}/{ano}'
-            }
-
-            # Importa e chama a função de geração de PDF, passando o contexto completo
-            from app.utils.export import generate_pdf
-            pdf_rel_path = generate_pdf(user_id, mes, ano, context_completo=contexto_completo)
-
-            if pdf_rel_path:
-                pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
-                if os.path.exists(pdf_abs_path):
-                    usuario_alvo = dados_relatorio_base['usuario']
-                    nome_mes_str = dados_relatorio_base['nome_mes'].lower()
-                    download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
-                    # Envia o arquivo PDF completo para o usuário
-                    return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
-                else:
-                    logger.error(f"Arquivo PDF completo não encontrado: {pdf_abs_path}")
-                    flash('Erro interno: Arquivo PDF completo gerado não foi encontrado.', 'danger')
+            if relatorio_existente:
+                # Atualiza o relatório existente
+                relatorio_existente.autoavaliacao = form.autoavaliacao.data
+                relatorio_existente.dificuldades = form.dificuldades.data
+                relatorio_existente.sugestoes = form.sugestoes.data
+                relatorio_existente.declaracao_marcada = form.declaracao.data
+                relatorio_existente.updated_at = datetime.utcnow() # Atualiza timestamp
+                flash_msg = 'Relatório completo atualizado com sucesso!'
             else:
-                flash('Erro ao gerar o relatório completo em PDF.', 'danger')
+                # Cria um novo registro
+                novo_relatorio = RelatorioMensalCompleto(
+                    user_id=user_id,
+                    ano=ano,
+                    mes=mes,
+                    autoavaliacao=form.autoavaliacao.data,
+                    dificuldades=form.dificuldades.data,
+                    sugestoes=form.sugestoes.data,
+                    declaracao_marcada=form.declaracao.data
+                )
+                db.session.add(novo_relatorio)
+                flash_msg = 'Relatório completo salvo com sucesso!'
+
+            db.session.commit() # Salva as alterações no banco
+            flash(flash_msg, 'success')
+            # Redireciona de volta para a página do relatório
+            return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
+
         except ValueError as ve:
-            # Captura o erro específico de conversão int() ou erro do _get_relatorio_mensal_data
-            logger.error(f"ValueError ao gerar PDF completo: {ve}", exc_info=True) # Log com traceback
-            flash(f"Erro ao processar dados do relatório: {ve}. Verifique os valores.", 'danger') # Mensagem mais informativa para o usuário
+            db.session.rollback()
+            logger.error(f"ValueError ao salvar relatório completo: {ve}", exc_info=True)
+            flash(f"Erro ao processar dados do relatório: {ve}. Verifique os valores.", 'danger')
         except Exception as e:
-            # Captura qualquer outro erro inesperado
-            logger.error(f"Erro inesperado ao gerar PDF completo: {e}", exc_info=True)
-            flash('Ocorreu um erro inesperado ao gerar o PDF completo.', 'danger')
+            db.session.rollback()
+            logger.error(f"Erro inesperado ao salvar relatório completo: {e}", exc_info=True)
+            flash('Ocorreu um erro inesperado ao salvar o relatório completo.', 'danger')
     else:
-        # Se a validação do formulário de autoavaliação falhar (CSRF ou outros validadores)
-        user_id_fb = form.user_id.data or current_user.id
-        mes_fb = form.mes.data or date.today().month
-        ano_fb = form.ano.data or date.today().year
-        # Mostra os erros de validação para o usuário
+        # Se a validação do formulário falhar
         for field, errors in form.errors.items():
             for error in errors:
                 label = getattr(getattr(form, field, None), 'label', None)
                 field_name = label.text if label else field
                 flash(f"Erro no campo '{field_name}': {error}", 'danger')
-        # Tenta converter IDs para o redirect, com fallback
-        try: user_id_fb = int(user_id_fb) if user_id_fb else current_user.id
-        except ValueError: user_id_fb = current_user.id
-        try: mes_fb = int(mes_fb) if mes_fb else date.today().month
-        except ValueError: mes_fb = date.today().month
-        try: ano_fb = int(ano_fb) if ano_fb else date.today().year
-        except ValueError: ano_fb = date.today().year
-        # Redireciona de volta para a página do relatório
-        return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
 
-    # Fallback redirect em caso de erro não tratado ou fluxo inesperado
-    user_id_fallback = form.user_id.data or current_user.id
-    mes_fallback = form.mes.data or date.today().month
-    ano_fallback = form.ano.data or date.today().year
-    # Tenta converter para int para o redirect, mas não quebra se falhar
-    try: user_id_fallback = int(user_id_fallback) if user_id_fallback else current_user.id
-    except ValueError: user_id_fallback = current_user.id
-    try: mes_fallback = int(mes_fallback) if mes_fallback else date.today().month
-    except ValueError: mes_fallback = date.today().month
-    try: ano_fallback = int(ano_fallback) if ano_fallback else date.today().year
-    except ValueError: ano_fallback = date.today().year
+    # Redireciona de volta para a página do relatório em caso de erro de validação ou exceção
+    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
+# --- FIM DA ROTA DE SALVAR ---
 
-    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fallback, mes=mes_fallback, ano=ano_fallback))
+# --- NOVA ROTA: Exportar PDF Completo ---
+@main.route('/exportar-relatorio-completo/pdf')
+@login_required
+def exportar_relatorio_completo_pdf():
+    """Gera e envia o PDF do relatório completo que foi previamente salvo."""
+    try:
+        # Tenta obter user_id, mes e ano da URL
+        user_id = request.args.get('user_id', type=int)
+        mes = request.args.get('mes', type=int)
+        ano = request.args.get('ano', type=int)
+
+        if not user_id or not mes or not ano:
+            flash("Informações insuficientes para exportar o relatório (usuário, mês ou ano ausente).", 'warning')
+            return redirect(request.referrer or url_for('main.dashboard'))
+
+        # Verifica permissão (usuário só pode exportar o seu, admin pode qualquer um)
+        if user_id != current_user.id and not current_user.is_admin:
+            flash("Você não tem permissão para exportar este relatório.", 'danger')
+            return redirect(url_for('main.dashboard'))
+
+        # Busca o relatório completo salvo no banco
+        relatorio_salvo = RelatorioMensalCompleto.query.filter_by(
+            user_id=user_id, ano=ano, mes=mes
+        ).first()
+
+        if not relatorio_salvo:
+            flash("Nenhum relatório completo salvo encontrado para este período.", 'warning')
+            return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
+
+        # Busca os dados base do relatório mensal
+        dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
+
+        # Cria o contexto completo para o PDF, combinando dados base e dados salvos
+        contexto_completo = {
+            **dados_relatorio_base,
+            'autoavaliacao_data': relatorio_salvo.autoavaliacao,
+            'dificuldades_data': relatorio_salvo.dificuldades,
+            'sugestoes_data': relatorio_salvo.sugestoes,
+            'declaracao_marcada': relatorio_salvo.declaracao_marcada,
+            'data_geracao': relatorio_salvo.updated_at.strftime('%d/%m/%Y %H:%M:%S'), # Usa data da última atualização
+            'titulo': f'Relatório de Ponto e Autoavaliação - {dados_relatorio_base["nome_mes"]}/{ano}'
+        }
+
+        # Gera o PDF
+        from app.utils.export import generate_pdf
+        pdf_rel_path = generate_pdf(user_id, mes, ano, context_completo=contexto_completo)
+
+        if pdf_rel_path:
+            pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
+            if os.path.exists(pdf_abs_path):
+                usuario_alvo = dados_relatorio_base['usuario']
+                nome_mes_str = dados_relatorio_base['nome_mes'].lower()
+                download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                # Envia o arquivo
+                return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
+            else:
+                logger.error(f"Arquivo PDF completo (export) não encontrado: {pdf_abs_path}")
+                flash('Erro interno: Arquivo PDF gerado não foi encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar o relatório completo em PDF para exportação.', 'danger')
+
+    except ValueError as ve:
+        logger.error(f"ValueError ao exportar PDF completo: {ve}", exc_info=True)
+        flash(f"Erro ao processar dados para exportação: {ve}.", 'danger')
+    except Exception as e:
+        logger.error(f"Erro inesperado ao exportar PDF completo: {e}", exc_info=True)
+        flash('Ocorreu um erro inesperado ao exportar o relatório completo.', 'danger')
+
+    # Redireciona de volta para a página do relatório em caso de erro
+    user_id_fb = request.args.get('user_id', default=current_user.id, type=int)
+    mes_fb = request.args.get('mes', default=date.today().month, type=int)
+    ano_fb = request.args.get('ano', default=date.today().year, type=int)
+    return redirect(url_for('main.relatorio_mensal', user_id=user_id_fb, mes=mes_fb, ano=ano_fb))
+# --- FIM DA NOVA ROTA ---
 
 
 # Rotas visualizar_ponto, excluir_ponto, perfil, registrar_multiplo_ponto, registrar_atividade (mantidas)
@@ -886,3 +949,4 @@ def registrar_atividade(ponto_id):
             form.descricao.data = atividade_existente.descricao
 
     return render_template('main/registrar_atividade.html', ponto=ponto, form=form, title="Registrar/Editar Atividade")
+
