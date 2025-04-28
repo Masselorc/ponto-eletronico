@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from flask_wtf import FlaskForm
-# --- Adicionado FileField e FileAllowed ---
-from flask_wtf.file import FileField, FileAllowed
-# -----------------------------------------
+# --- CORREÇÃO: Adicionado FileRequired à importação ---
+from flask_wtf.file import FileField, FileAllowed, FileRequired
+# -----------------------------------------------------
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, DateField, TextAreaField, SelectField, HiddenField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError
 from app.models.user import User
@@ -45,17 +45,15 @@ class NovoUsuarioForm(FlaskForm):
     name = StringField('Nome Completo', validators=[DataRequired(), Length(min=3, max=100)])
     email = StringField('Email', validators=[DataRequired(), Email(), unique_email])
     matricula = StringField('Matrícula', validators=[DataRequired(), Length(min=3, max=20), unique_matricula])
-    # --- CORREÇÃO: Alterado para SelectField ---
     vinculo = SelectField('Vínculo', choices=VINCULO_CHOICES, validators=[DataRequired("Selecione um vínculo.")])
-    # -----------------------------------------
     unidade_setor = StringField('Unidade/Setor (DIRPP)', validators=[DataRequired(), Length(max=150)])
     chefia_imediata = StringField('Chefia Imediata', validators=[DataRequired(), Length(max=100)])
-    # --- NOVO CAMPO: Foto (Obrigatória na criação) ---
+    # --- Usa FileRequired importado ---
     foto = FileField('Foto do Usuário', validators=[
         FileRequired(message='A foto é obrigatória para novos usuários.'),
         FileAllowed(['jpg', 'jpeg', 'png'], 'Apenas imagens JPG, JPEG ou PNG são permitidas!')
     ])
-    # ------------------------------------------------
+    # ---------------------------------
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmar Senha', validators=[DataRequired(), EqualTo('password', message='As senhas devem ser iguais.')])
     is_admin = BooleanField('Administrador')
@@ -68,17 +66,15 @@ class EditarUsuarioForm(FlaskForm):
     name = StringField('Nome Completo', validators=[DataRequired(), Length(min=3, max=100)])
     email = StringField('Email', validators=[DataRequired(), Email(), unique_email])
     matricula = StringField('Matrícula', validators=[DataRequired(), Length(min=3, max=20), unique_matricula])
-    # --- CORREÇÃO: Alterado para SelectField ---
     vinculo = SelectField('Vínculo', choices=VINCULO_CHOICES, validators=[DataRequired("Selecione um vínculo.")])
-    # -----------------------------------------
     unidade_setor = StringField('Unidade/Setor (DIRPP)', validators=[DataRequired(), Length(max=150)])
     chefia_imediata = StringField('Chefia Imediata', validators=[DataRequired(), Length(max=100)])
-    # --- NOVO CAMPO: Foto (Opcional na edição) ---
+    # --- Usa FileAllowed importado ---
     foto = FileField('Alterar Foto (opcional)', validators=[
-        Optional(), # Torna o campo opcional
+        Optional(),
         FileAllowed(['jpg', 'jpeg', 'png'], 'Apenas imagens JPG, JPEG ou PNG são permitidas!')
     ])
-    # -------------------------------------------
+    # --------------------------------
     password = PasswordField('Nova Senha (deixe em branco para não alterar)', validators=[Optional(), Length(min=6)])
     confirm_password = PasswordField('Confirmar Nova Senha', validators=[EqualTo('password', message='As senhas devem ser iguais.')])
     is_admin = BooleanField('Administrador')
@@ -102,3 +98,4 @@ class DeleteForm(FlaskForm):
     """Formulário vazio usado apenas para gerar o token CSRF
        em botões/links de exclusão."""
     pass
+
