@@ -44,32 +44,26 @@ def ensure_column_exists(app, table_name, column_name, column_definition):
         try:
             print(f"  - Verificando coluna '{column_name}' na tabela '{table_name}'...")
             with db.engine.connect() as connection:
-                trans = None # Inicializa transação como None
+                trans = None
                 try:
-                    # Verificar se a tabela existe primeiro
                     result_table = connection.execute(db.text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"))
                     if not result_table.fetchone():
                         print(f"  - Tabela '{table_name}' não encontrada. Será criada por db.create_all().")
                         return
-
-                    # Verificar colunas da tabela
                     result_columns = connection.execute(db.text(f"PRAGMA table_info({table_name})"))
                     columns = [column[1] for column in result_columns.fetchall()]
-
                     if column_name not in columns:
                         print(f"  - Coluna '{column_name}' não encontrada. Adicionando...")
-                        # Inicia transação ANTES do ALTER TABLE
                         trans = connection.begin()
                         connection.execute(db.text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"))
-                        trans.commit() # Commit da transação
+                        trans.commit()
                         print(f"  - Coluna '{column_name}' adicionada com sucesso!")
                     else:
                         print(f"  - Coluna '{column_name}' já existe.")
                 except Exception as alter_err:
-                    if trans: # Faz rollback se a transação foi iniciada
-                        trans.rollback()
+                    if trans: trans.rollback()
                     print(f"  - ERRO ao executar ALTER TABLE para '{column_name}': {alter_err}")
-                    raise # Relança o erro para ser capturado pelo bloco externo
+                    raise
         except Exception as e:
             print(f"  - ERRO ao verificar/adicionar coluna '{column_name}' na tabela '{table_name}': {e}")
             print(traceback.format_exc())
@@ -78,19 +72,15 @@ def ensure_column_exists(app, table_name, column_name, column_definition):
 def init_production_db():
     """Inicializa o banco de dados em ambiente de produção."""
     try:
-        # ... (cabeçalho e prints mantidos) ...
         print("\n" + "="*80); print("INICIALIZAÇÃO DO BANCO DE DADOS DE PRODUÇÃO"); print("="*80)
         print(f"Data e hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"); print(f"Python version: {sys.version}"); print(f"Diretório atual: {os.getcwd()}"); print("-"*80 + "\n")
-
         print("[1/6] Criando aplicação Flask...")
         app = create_app()
-
         with app.app_context():
             try:
                 print("[2/6] Garantindo que todas as tabelas existam (db.create_all)...")
                 db.create_all()
                 print("[2/6] db.create_all() concluído.")
-
                 print("[3/6] Verificando/Adicionando colunas de migração necessárias...")
                 ensure_column_exists(app, 'users', 'is_active_db', 'BOOLEAN NOT NULL DEFAULT 1')
                 ensure_column_exists(app, 'pontos', 'afastamento', 'BOOLEAN DEFAULT 0')
@@ -101,8 +91,7 @@ def init_production_db():
                 # ---------------------------------------------
                 ensure_column_exists(app, 'atividades', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
                 print("[3/6] Verificação/Adição de colunas concluída.")
-
-                # ... (restante da lógica de criação de admin, demo, feriados mantida) ...
+                # ... (restante da lógica mantida) ...
                 print("[4/6] Verificando se já existe um usuário administrador...")
                 admin = User.query.filter_by(is_admin=True).first()
                 if not admin:

@@ -22,9 +22,7 @@
         </div>
         <div class="card-body">
             <form method="POST" id="formMultiploPonto">
-                {# --- CORREÇÃO: Usar form.hidden_tag() para incluir CSRF --- #}
-                {{ form.hidden_tag() }}
-                {# ---------------------------------------------------------- #}
+                {{ form.hidden_tag() }} {# CSRF Token via form minimalista #}
                 <div id="pontos-container">
                     {# Linha inicial de ponto #}
                     <div class="ponto-row mb-3 p-3 border rounded bg-light">
@@ -50,10 +48,20 @@
                                 <label for="saida-0" class="form-label">Saída</label>
                                 <input type="time" class="form-control form-control-sm" id="saida-0" name="saidas[]">
                             </div>
-                            <div class="col-md-12 mt-2">
+                            {# --- NOVOS CAMPOS ADICIONADOS À LINHA INICIAL --- #}
+                            <div class="col-md-4 mt-2">
                                 <label for="atividades-0" class="form-label">Atividades Realizadas</label>
                                 <textarea class="form-control form-control-sm" id="atividades-0" name="atividades[]" rows="1"></textarea>
                             </div>
+                            <div class="col-md-4 mt-2">
+                                <label for="resultados_produtos-0" class="form-label">Resultados/Produtos Gerados</label>
+                                <textarea class="form-control form-control-sm" id="resultados_produtos-0" name="resultados_produtos[]" rows="1"></textarea>
+                            </div>
+                            <div class="col-md-4 mt-2">
+                                <label for="observacoes-0" class="form-label">Observações</label>
+                                <textarea class="form-control form-control-sm" id="observacoes-0" name="observacoes[]" rows="1"></textarea>
+                            </div>
+                             {# -------------------------------------------- #}
                         </div>
                     </div>
                     {# Fim da linha inicial #}
@@ -72,20 +80,24 @@
                          <i class="fas fa-save"></i> Registrar Todos os Pontos Informados
                     </button>
                 </div>
-            </form> {# Fim do form #}
+            </form>
         </div>
     </div>
 </div>
 
-{# Script mantido como na versão anterior #}
+{# --- CORREÇÃO: Script JS atualizado para incluir novos campos --- #}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        let pontoIndex = 0;
+        let pontoIndex = 0; // Índice para os IDs dos novos campos
+
         document.getElementById('addPonto').addEventListener('click', function() {
-            pontoIndex++;
+            pontoIndex++; // Incrementa o índice para garantir IDs únicos
+
             const container = document.getElementById('pontos-container');
             const novoPontoRow = document.createElement('div');
-            novoPontoRow.className = 'ponto-row mb-3 p-3 border rounded bg-light';
+            novoPontoRow.className = 'ponto-row mb-3 p-3 border rounded bg-light'; // Mesma classe da linha inicial
+
+            // Template HTML para a nova linha de registro (incluindo novos campos)
             novoPontoRow.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
                      <h6 class="font-weight-bold text-secondary">Registro ${pontoIndex + 1}</h6>
@@ -99,23 +111,32 @@
                     <div class="col-md-2"><label for="saida-almoco-${pontoIndex}" class="form-label">Saída Almoço</label><input type="time" class="form-control form-control-sm" id="saida-almoco-${pontoIndex}" name="saidas_almoco[]"></div>
                     <div class="col-md-2"><label for="retorno-almoco-${pontoIndex}" class="form-label">Retorno Almoço</label><input type="time" class="form-control form-control-sm" id="retorno-almoco-${pontoIndex}" name="retornos_almoco[]"></div>
                     <div class="col-md-2"><label for="saida-${pontoIndex}" class="form-label">Saída</label><input type="time" class="form-control form-control-sm" id="saida-${pontoIndex}" name="saidas[]"></div>
-                    <div class="col-md-12 mt-2"><label for="atividades-${pontoIndex}" class="form-label">Atividades Realizadas</label><textarea class="form-control form-control-sm" id="atividades-${pontoIndex}" name="atividades[]" rows="1"></textarea></div>
+                    <div class="col-md-4 mt-2"><label for="atividades-${pontoIndex}" class="form-label">Atividades Realizadas</label><textarea class="form-control form-control-sm" id="atividades-${pontoIndex}" name="atividades[]" rows="1"></textarea></div>
+                    <div class="col-md-4 mt-2"><label for="resultados_produtos-${pontoIndex}" class="form-label">Resultados/Produtos Gerados</label><textarea class="form-control form-control-sm" id="resultados_produtos-${pontoIndex}" name="resultados_produtos[]" rows="1"></textarea></div>
+                    <div class="col-md-4 mt-2"><label for="observacoes-${pontoIndex}" class="form-label">Observações</label><textarea class="form-control form-control-sm" id="observacoes-${pontoIndex}" name="observacoes[]" rows="1"></textarea></div>
                 </div>
             `;
+
             container.appendChild(novoPontoRow);
+
+            // Adicionar evento para o botão de remover da nova linha
             novoPontoRow.querySelector('.remove-ponto').addEventListener('click', function() {
                 novoPontoRow.remove();
+                // Reajustar índices ou títulos se necessário (opcional)
             });
         });
+
+        // Validação básica do formulário no submit (opcional, mas recomendado)
         document.getElementById('formMultiploPonto').addEventListener('submit', function(e) {
             const dataInputs = document.querySelectorAll('input[name="datas[]"]');
             let hasValidData = false;
             for (const input of dataInputs) { if (input.value) { hasValidData = true; break; } }
             if (!hasValidData) {
-                e.preventDefault();
+                e.preventDefault(); // Impede o envio do formulário
                 alert('Por favor, preencha a data para pelo menos um registro.');
             }
         });
     });
 </script>
+{# ----------------------------------------------------------------- #}
 {% endblock %}

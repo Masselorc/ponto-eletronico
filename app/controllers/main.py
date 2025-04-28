@@ -61,7 +61,7 @@ def dashboard():
                  if registro_dia and registro_dia.afastamento: dias_afastamento += 1
                  else: dias_uteis += 1
         for r in registros:
-            if not r.afastamento and r.horas_trabalhadas is not none: dias_trabalhados += 1; horas_trabalhadas += r.horas_trabalhadas
+            if not r.afastamento and r.horas_trabalhadas is not None: dias_trabalhados += 1; horas_trabalhadas += r.horas_trabalhadas
         carga_horaria_devida = dias_uteis * 8.0; saldo_horas = horas_trabalhadas - carga_horaria_devida; media_diaria = horas_trabalhadas / dias_trabalhados if dias_trabalhados > 0 else 0.0
         nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']; nome_mes = nomes_meses[mes_req]
         mes_anterior, ano_anterior = (12, ano_req - 1) if mes_req == 1 else (mes_req - 1, ano_req); proximo_mes, proximo_ano = (1, ano_req + 1) if mes_req == 12 else (mes_req + 1, ano_req)
@@ -179,7 +179,6 @@ def editar_ponto(ponto_id): # Assinatura corrigida
             flash('Erro ao atualizar.', 'danger')
     return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
-# ... (Restante das rotas mantidas como antes) ...
 @main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
 def registrar_afastamento():
@@ -202,6 +201,7 @@ def registrar_ferias(): flash('Use "Registrar Afastamento".', 'info'); return re
 @main.route('/calendario')
 @login_required
 def calendario():
+    # ... (código mantido) ...
     usuario_ctx, usuarios_admin = get_usuario_contexto(); hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
     try:
         if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
@@ -265,7 +265,7 @@ def relatorio_mensal():
 @main.route('/relatorio-mensal/pdf')
 @login_required
 def relatorio_mensal_pdf():
-    # ... (código mantido com correção de if/else) ...
+    # ... (código mantido) ...
     user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
@@ -284,7 +284,7 @@ def relatorio_mensal_pdf():
 @main.route('/relatorio-mensal/excel')
 @login_required
 def relatorio_mensal_excel():
-    # ... (código mantido com correção de if/else) ...
+    # ... (código mantido) ...
     user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
@@ -335,11 +335,22 @@ def registrar_multiplo_ponto():
     form = MultiploPontoForm() # Usa o form minimalista para CSRF
     if form.validate_on_submit(): # Valida CSRF e processa POST
         try:
-            # ... (lógica de processamento mantida) ...
-            datas_str = request.form.getlist('datas[]'); entradas_str = request.form.getlist('entradas[]'); saidas_almoco_str = request.form.getlist('saidas_almoco[]'); retornos_almoco_str = request.form.getlist('retornos_almoco[]'); saidas_str = request.form.getlist('saidas[]'); atividades_desc = request.form.getlist('atividades[]')
-            registros_criados, registros_ignorados = 0, 0; datas_processadas = set()
+            datas_str = request.form.getlist('datas[]')
+            entradas_str = request.form.getlist('entradas[]')
+            saidas_almoco_str = request.form.getlist('saidas_almoco[]')
+            retornos_almoco_str = request.form.getlist('retornos_almoco[]')
+            saidas_str = request.form.getlist('saidas[]')
+            atividades_desc = request.form.getlist('atividades[]')
+            # --- LER NOVOS CAMPOS ---
+            resultados_produtos_desc = request.form.getlist('resultados_produtos[]')
+            observacoes_desc = request.form.getlist('observacoes[]')
+            # -------------------------
+
+            registros_criados, registros_ignorados = 0, 0
+            datas_processadas = set()
+
             for i in range(len(datas_str)):
-                data_str = datas_str[i];
+                data_str = datas_str[i]
                 if not data_str: continue
                 try: data = date.fromisoformat(data_str)
                 except ValueError: flash(f'Data inválida: {data_str}', 'warning'); continue
@@ -347,19 +358,42 @@ def registrar_multiplo_ponto():
                 datas_processadas.add(data)
                 registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data).first()
                 if registro_existente: flash(f'Registro {data.strftime("%d/%m/%Y")} já existe.', 'info'); registros_ignorados += 1; continue
-                entrada_str = entradas_str[i] if i < len(entradas_str) else None; saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None; retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None; saida_str_i = saidas_str[i] if i < len(saidas_str) else None; atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None
+
+                entrada_str = entradas_str[i] if i < len(entradas_str) else None
+                saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None
+                retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None
+                saida_str_i = saidas_str[i] if i < len(saidas_str) else None
+                atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None
+                # --- OBTER DADOS DOS NOVOS CAMPOS ---
+                resultado_desc_i = resultados_produtos_desc[i].strip() if i < len(resultados_produtos_desc) and resultados_produtos_desc[i] else None
+                observacao_i = observacoes_desc[i].strip() if i < len(observacoes_desc) and observacoes_desc[i] else None
+                # -----------------------------------
+
                 try:
-                    entrada_t = time.fromisoformat(entrada_str) if entrada_str else None; saida_almoco_t = time.fromisoformat(saida_almoco_str_i) if saida_almoco_str_i else None; retorno_almoco_t = time.fromisoformat(retorno_almoco_str_i) if retorno_almoco_str_i else None; saida_t = time.fromisoformat(saida_str_i) if saida_str_i else None
+                    entrada_t = time.fromisoformat(entrada_str) if entrada_str else None
+                    saida_almoco_t = time.fromisoformat(saida_almoco_str_i) if saida_almoco_str_i else None
+                    retorno_almoco_t = time.fromisoformat(retorno_almoco_str_i) if retorno_almoco_str_i else None
+                    saida_t = time.fromisoformat(saida_str_i) if saida_str_i else None
                 except ValueError: flash(f'Hora inválida {data.strftime("%d/%m/%Y")}.', 'warning'); continue
+
                 horas_calculadas = calcular_horas(data, entrada_t, saida_t, saida_almoco_t, retorno_almoco_t)
-                # Assume que 'resultados_produtos' não é coletado neste form
-                novo_registro = Ponto(user_id=current_user.id, data=data, entrada=entrada_t, saida_almoco=saida_almoco_t, retorno_almoco=retorno_almoco_t, saida=saida_t, horas_trabalhadas=horas_calculadas, afastamento=False, tipo_afastamento=None)
+                novo_registro = Ponto(
+                    user_id=current_user.id, data=data, entrada=entrada_t,
+                    saida_almoco=saida_almoco_t, retorno_almoco=retorno_almoco_t,
+                    saida=saida_t, horas_trabalhadas=horas_calculadas,
+                    afastamento=False, tipo_afastamento=None,
+                    # --- SALVAR NOVOS CAMPOS ---
+                    resultados_produtos=resultado_desc_i,
+                    observacoes=observacao_i
+                    # -------------------------
+                )
                 db.session.add(novo_registro)
                 try:
                     db.session.flush()
                     if atividade_desc_i: db.session.add(Atividade(ponto_id=novo_registro.id, descricao=atividade_desc_i))
                     db.session.commit(); registros_criados += 1
                 except Exception as commit_err: db.session.rollback(); logger.error(f"Erro salvar reg/atv {data}: {commit_err}", exc_info=True); flash(f'Erro ao salvar {data.strftime("%d/%m/%Y")}.', 'danger')
+
             # Mensagens de feedback
             if registros_criados > 0 and registros_ignorados == 0: flash(f'{registros_criados} registro(s) criado(s)!', 'success')
             elif registros_criados > 0 and registros_ignorados > 0: flash(f'{registros_criados} criado(s). {registros_ignorados} ignorado(s).', 'warning')

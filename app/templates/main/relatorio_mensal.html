@@ -159,30 +159,30 @@
 
                                         {# --- Lógica reestruturada para colspan e alinhamento --- #}
                                         {% if is_feriado %}
-                                            {# Colspan 7 (Entrada -> Atividades) #}
-                                            <td colspan="7" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
-                                            {# Células restantes para Status e Ações #}
-                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td>
-                                            <td class="text-center">-</td>
+                                            {# Colspan 6 (Entrada -> Horas Trab.) #}
+                                            <td colspan="6" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                            <td class="text-center"><span class="badge bg-warning-subtle text-dark">Feriado</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
+                                            <td class="text-center">-</td> {# Ações #}
                                         {% elif is_fim_semana %}
-                                            {# Colspan 7 (Entrada -> Atividades) #}
-                                            <td colspan="7" class="text-center fst-italic">Fim de Semana</td>
-                                            {# Células restantes para Status e Ações #}
-                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td>
-                                            <td class="text-center">-</td>
+                                            {# Colspan 6 (Entrada -> Horas Trab.) #}
+                                            <td colspan="6" class="text-center fst-italic">Fim de Semana</td>
+                                            <td class="text-center"><span class="badge bg-light text-secondary">FDS</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
+                                            <td class="text-center">-</td> {# Ações #}
                                         {% elif registro %}
                                             {% if registro.afastamento %}
-                                                {# Colspan 7 (Entrada -> Atividades) #}
-                                                <td colspan="7" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
-                                                {# Células restantes para Status e Ações #}
-                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td>
+                                                {# Colspan 6 (Entrada -> Horas Trab.) #}
+                                                <td colspan="6" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                                <td class="text-center"><span class="badge bg-info text-dark">Afast.</span></td> {# Status #}
+                                                <td class="text-center">-</td> {# Atividades #}
                                                 <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                     <div class="btn-group btn-group-sm">
                                                         <a href="{{ url_for('main.visualizar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-info" title="Visualizar"><i class="fas fa-eye"></i></a>
                                                         <a href="{{ url_for('main.editar_ponto', ponto_id=registro.id) }}" class="btn btn-outline-primary" title="Editar"><i class="fas fa-edit"></i></a>
                                                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excluirModal{{ registro.id }}" title="Excluir"><i class="fas fa-trash"></i></button>
                                                     </div>
-                                                    <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
+                                                     <div class="modal fade" id="excluirModal{{ registro.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Exclusão</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Excluir registro de {{ data_atual.strftime('%d/%m/%Y') }}?</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><form action="{{ url_for('main.excluir_ponto', ponto_id=registro.id) }}" method="POST" style="display: inline;">{{ csrf_token() }}<button type="submit" class="btn btn-danger">Excluir</button></form></div></div></div></div>
                                                 </td>
                                             {% else %} {# Dia trabalhado #}
                                                 <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
@@ -218,10 +218,11 @@
                                                 </td>
                                             {% endif %}
                                         {% else %} {# Dia útil sem registro #}
-                                            {# --- CORREÇÃO Colspan: 7 colunas (Entrada -> Atividades) --- #}
-                                            <td colspan="7" class="text-center fst-italic">Sem Registro</td>
-                                            {# ------------------------------------------------------- #}
+                                            {# --- CORREÇÃO Colspan: 6 colunas (Entrada -> Horas Trab) --- #}
+                                            <td colspan="6" class="text-center fst-italic">Sem Registro</td>
+                                            {# --------------------------------------------------------- #}
                                             <td class="text-center"><span class="badge bg-danger">Pendente</span></td> {# Status #}
+                                            <td class="text-center">-</td> {# Atividades #}
                                             <td class="text-center text-nowrap pe-3"> {# Ações #}
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{{ url_for('main.registrar_ponto', data=data_atual.isoformat()) }}" class="btn btn-outline-success" title="Registrar Ponto"><i class="fas fa-plus"></i></a>
