@@ -58,27 +58,56 @@ def _get_relatorio_mensal_data(user_id, mes, ano, order_desc=False):
 
 # Função calcular_horas (mantida)
 def calcular_horas(data_ref, entrada, saida, saida_almoco=None, retorno_almoco=None):
-    # ... (código mantido) ...
-    if not entrada or not saida: return None
+    """Calcula as horas trabalhadas com base nos horários fornecidos."""
+    if not entrada or not saida:
+        return None # Retorna None se entrada ou saída estiverem faltando
     try:
-        entrada_dt = datetime.combine(data_ref, entrada); saida_dt = datetime.combine(data_ref, saida)
-        if saida_dt < entrada_dt: saida_dt += timedelta(days=1)
-        diff_total = saida_dt - entrada_dt; horas_trabalhadas = diff_total.total_seconds() / 3600
+        # Combina a data de referência com os horários para criar objetos datetime
+        entrada_dt = datetime.combine(data_ref, entrada)
+        saida_dt = datetime.combine(data_ref, saida)
+
+        # Se a saída for no dia seguinte (ex: trabalho noturno)
+        if saida_dt < entrada_dt:
+            saida_dt += timedelta(days=1)
+
+        # Calcula a diferença total
+        diff_total = saida_dt - entrada_dt
+        horas_trabalhadas = diff_total.total_seconds() / 3600 # Converte para horas
+
+        # Se houver registro de almoço, subtrai a duração do almoço
         if saida_almoco and retorno_almoco:
-            saida_almoco_dt = datetime.combine(data_ref, saida_almoco); retorno_almoco_dt = datetime.combine(data_ref, retorno_almoco)
-            if retorno_almoco_dt < saida_almoco_dt: retorno_almoco_dt += timedelta(days=1)
-            diff_almoco = retorno_almoco_dt - saida_almoco_dt; horas_trabalhadas -= diff_almoco.total_seconds() / 3600
+            saida_almoco_dt = datetime.combine(data_ref, saida_almoco)
+            retorno_almoco_dt = datetime.combine(data_ref, retorno_almoco)
+
+            # Se o retorno do almoço for no dia seguinte
+            if retorno_almoco_dt < saida_almoco_dt:
+                retorno_almoco_dt += timedelta(days=1)
+
+            diff_almoco = retorno_almoco_dt - saida_almoco_dt
+            horas_trabalhadas -= diff_almoco.total_seconds() / 3600
+
+        # Garante que as horas não sejam negativas
         return max(0, horas_trabalhadas)
-    except Exception as e: logger.error(f"Erro calc horas {data_ref}: {e}", exc_info=True); return None
+    except Exception as e:
+        # Loga o erro se ocorrer algum problema no cálculo
+        logger.error(f"Erro ao calcular horas para data {data_ref}: {e}", exc_info=True)
+        return None # Retorna None em caso de erro
 
 # Função get_usuario_contexto (mantida)
 def get_usuario_contexto():
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_selecionado = current_user
+    """Obtém o usuário a ser exibido (atual ou selecionado pelo admin)."""
+    user_id_req = request.args.get('user_id', type=int) # Pega user_id da URL
+    usuario_selecionado = current_user # Por padrão, é o usuário logado
+
+    # Se o usuário logado for admin e um user_id foi passado na URL
     if current_user.is_admin and user_id_req:
-        usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_selecionado = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+        usuario_req = User.query.get(user_id_req) # Busca o usuário solicitado
+        if usuario_req:
+            usuario_selecionado = usuario_req # Define como usuário selecionado
+        else:
+            flash(f"Usuário com ID {user_id_req} não encontrado.", "warning")
+
+    # Busca todos os usuários para o seletor do admin
     usuarios_para_admin = User.query.order_by(User.name).all() if current_user.is_admin else None
     return usuario_selecionado, usuarios_para_admin
 
@@ -86,23 +115,46 @@ def get_usuario_contexto():
 @main.route('/')
 @login_required
 def index():
+    """Redireciona para o dashboard."""
     return redirect(url_for('main.dashboard'))
 
 # Rota dashboard (mantida)
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    # ... (código mantido) ...
+    """Exibe o dashboard principal com resumo mensal e últimos registros."""
     try:
+        # Obtém o usuário do contexto (pode ser o logado ou um selecionado pelo admin)
         usuario_ctx, usuarios_admin = get_usuario_contexto()
-        hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
-        if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
+
+        # Obtém mês e ano da URL ou usa o mês/ano atual
+        hoje = date.today()
+        mes_req = request.args.get('mes', default=hoje.month, type=int)
+        ano_req = request.args.get('ano', default=hoje.year, type=int)
+
+        # Valida o mês
+        if not (1 <= mes_req <= 12):
+            mes_req = hoje.month
+            flash('Mês inválido selecionado.', 'warning')
+
+        # Busca os dados do relatório para o usuário e período selecionados
+        # 'order_desc=True' para mostrar os mais recentes primeiro no dashboard
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=True)
+
+        # Combina os dados do relatório com a lista de usuários (para o seletor do admin)
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin}
-        # A chave 'registros' já está em dados_relatorio com a ordenação correta
+
+        # Renderiza o template do dashboard passando o contexto
         return render_template('main/dashboard.html', **contexto_template)
-    except ValueError as ve: flash(str(ve), 'danger'); return redirect(url_for('main.dashboard'))
-    except Exception as e: logger.error(f"Erro dashboard: {e}", exc_info=True); flash('Erro ao carregar dashboard.', 'danger'); return redirect(url_for('main.index'))
+    except ValueError as ve:
+        # Erro ao buscar usuário ou mês inválido
+        flash(str(ve), 'danger')
+        return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        # Qualquer outro erro inesperado
+        logger.error(f"Erro ao carregar dashboard: {e}", exc_info=True)
+        flash('Ocorreu um erro ao carregar o dashboard.', 'danger')
+        return redirect(url_for('main.index')) # Redireciona para uma página segura
 
 # Rota registrar_ponto
 @main.route('/registrar-ponto', methods=['GET', 'POST'])
@@ -110,275 +162,681 @@ def dashboard():
 def registrar_ponto():
     """Registra um novo ponto para um dia específico."""
     form = RegistroPontoForm()
+
+    # Se for um GET, verifica se uma data foi passada na URL para preencher o form
     if request.method == 'GET':
         data_query = request.args.get('data')
         # --- CORREÇÃO DA SINTAXE ---
         if data_query:
             try:
+                # Tenta converter a data da URL e preencher o campo do formulário
                 form.data.data = date.fromisoformat(data_query)
             except ValueError:
+                # Se a data na URL for inválida, mostra um aviso
                 flash('Data na URL inválida.', 'warning')
         # --- FIM DA CORREÇÃO ---
 
+    # Se o formulário for enviado (POST) e for válido
     if form.validate_on_submit():
         try:
             data_selecionada = form.data.data
+            # Verifica se já existe um registro para este usuário nesta data
             registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).first()
-            if registro_existente: flash(f'Já existe um registro para {data_selecionada.strftime("%d/%m/%Y")}. Você pode editá-lo.', 'danger'); return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
-            horas_calculadas = calcular_horas(data_selecionada, form.entrada.data, form.saida.data, form.saida_almoco.data, form.retorno_almoco.data)
-            novo_registro = Ponto(user_id=current_user.id, data=data_selecionada, entrada=form.entrada.data, saida_almoco=form.saida_almoco.data, retorno_almoco=form.retorno_almoco.data, saida=form.saida.data, horas_trabalhadas=horas_calculadas, observacoes=form.observacoes.data, resultados_produtos=form.resultados_produtos.data, afastamento=False, tipo_afastamento=None)
-            db.session.add(novo_registro); db.session.flush()
-            if form.atividades.data and form.atividades.data.strip(): db.session.add(Atividade(ponto_id=novo_registro.id, descricao=form.atividades.data.strip()))
-            db.session.commit(); flash('Registro de ponto criado com sucesso!', 'success'); return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro reg ponto: {e}", exc_info=True); flash('Erro ao registrar.', 'danger')
+            if registro_existente:
+                flash(f'Já existe um registro para {data_selecionada.strftime("%d/%m/%Y")}. Você pode editá-lo.', 'danger')
+                return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+
+            # Calcula as horas trabalhadas
+            horas_calculadas = calcular_horas(
+                data_selecionada,
+                form.entrada.data,
+                form.saida.data,
+                form.saida_almoco.data,
+                form.retorno_almoco.data
+            )
+
+            # Cria o novo objeto Ponto
+            novo_registro = Ponto(
+                user_id=current_user.id,
+                data=data_selecionada,
+                entrada=form.entrada.data,
+                saida_almoco=form.saida_almoco.data,
+                retorno_almoco=form.retorno_almoco.data,
+                saida=form.saida.data,
+                horas_trabalhadas=horas_calculadas,
+                observacoes=form.observacoes.data,
+                resultados_produtos=form.resultados_produtos.data,
+                afastamento=False, # Novo registro não é afastamento por padrão
+                tipo_afastamento=None
+            )
+            db.session.add(novo_registro)
+            db.session.flush() # Garante que o novo_registro tenha um ID
+
+            # Adiciona atividades se foram preenchidas
+            if form.atividades.data and form.atividades.data.strip():
+                db.session.add(Atividade(ponto_id=novo_registro.id, descricao=form.atividades.data.strip()))
+
+            db.session.commit() # Salva no banco
+            flash('Registro de ponto criado com sucesso!', 'success')
+            # Redireciona para o dashboard do mês do registro
+            return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
+        except Exception as e:
+            db.session.rollback() # Desfaz alterações em caso de erro
+            logger.error(f"Erro ao registrar ponto: {e}", exc_info=True)
+            flash('Ocorreu um erro ao registrar o ponto.', 'danger')
+
+    # Renderiza o template para GET ou se a validação falhar
     return render_template('main/registrar_ponto.html', form=form, title="Registrar Ponto")
 
 # Rota editar_ponto (mantida)
 @main.route('/editar-ponto/<int:ponto_id>', methods=['GET', 'POST'])
 @login_required
 def editar_ponto(ponto_id):
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id)
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    form = EditarPontoForm(obj=registro); atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+    """Edita um registro de ponto existente."""
+    registro = Ponto.query.get_or_404(ponto_id) # Busca o registro ou retorna 404
+
+    # Verifica permissão: usuário só pode editar seus próprios pontos (ou admin pode editar qualquer um)
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para editar este registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    form = EditarPontoForm(obj=registro) # Cria o form preenchendo com dados do registro
+    atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+
+    # Se for GET, preenche o campo de atividades se existir
     if request.method == 'GET':
-        if atividade_existente and not form.atividades.data: form.atividades.data = atividade_existente.descricao
+        if atividade_existente and not form.atividades.data:
+            form.atividades.data = atividade_existente.descricao
+
+    # Se o formulário for enviado e válido
     if form.validate_on_submit():
         try:
-            data_selecionada = form.data.data; is_afastamento = form.afastamento.data; tipo_afastamento = form.tipo_afastamento.data if is_afastamento else None
-            registro.data = data_selecionada; registro.afastamento = is_afastamento; registro.tipo_afastamento = tipo_afastamento; registro.observacoes = form.observacoes.data; registro.resultados_produtos = form.resultados_produtos.data
-            if is_afastamento: registro.entrada, registro.saida_almoco, registro.retorno_almoco, registro.saida, registro.horas_trabalhadas = None, None, None, None, None
-            else: registro.entrada=form.entrada.data; registro.saida_almoco=form.saida_almoco.data; registro.retorno_almoco=form.retorno_almoco.data; registro.saida=form.saida.data; registro.horas_trabalhadas = calcular_horas(data_selecionada, form.entrada.data, form.saida.data, form.saida_almoco.data, form.retorno_almoco.data)
+            data_selecionada = form.data.data
+            is_afastamento = form.afastamento.data
+            tipo_afastamento = form.tipo_afastamento.data if is_afastamento else None
+
+            # Atualiza os dados básicos do registro
+            registro.data = data_selecionada
+            registro.afastamento = is_afastamento
+            registro.tipo_afastamento = tipo_afastamento
+            registro.observacoes = form.observacoes.data
+            registro.resultados_produtos = form.resultados_produtos.data
+
+            # Se for afastamento, limpa os horários
+            if is_afastamento:
+                registro.entrada, registro.saida_almoco, registro.retorno_almoco, registro.saida, registro.horas_trabalhadas = None, None, None, None, None
+            else:
+                # Se não for afastamento, atualiza os horários e recalcula as horas
+                registro.entrada=form.entrada.data
+                registro.saida_almoco=form.saida_almoco.data
+                registro.retorno_almoco=form.retorno_almoco.data
+                registro.saida=form.saida.data
+                registro.horas_trabalhadas = calcular_horas(
+                    data_selecionada, form.entrada.data, form.saida.data,
+                    form.saida_almoco.data, form.retorno_almoco.data
+                )
+
+            # Atualiza ou cria/remove a atividade
             descricao_atividade = form.atividades.data.strip() if form.atividades.data else None
             if descricao_atividade:
-                if atividade_existente: atividade_existente.descricao = descricao_atividade
-                else: db.session.add(Atividade(ponto_id=ponto_id, descricao=descricao_atividade))
-            elif atividade_existente: db.session.delete(atividade_existente)
-            db.session.commit(); flash('Registro atualizado!', 'success'); return redirect(url_for('main.dashboard', mes=registro.data.month, ano=registro.data.year))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro edit ponto {ponto_id}: {e}", exc_info=True); flash('Erro ao atualizar.', 'danger')
+                if atividade_existente:
+                    atividade_existente.descricao = descricao_atividade # Atualiza
+                else:
+                    db.session.add(Atividade(ponto_id=ponto_id, descricao=descricao_atividade)) # Cria
+            elif atividade_existente:
+                db.session.delete(atividade_existente) # Remove se o campo ficou vazio
+
+            db.session.commit() # Salva as alterações
+            flash('Registro atualizado com sucesso!', 'success')
+            return redirect(url_for('main.dashboard', mes=registro.data.month, ano=registro.data.year))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro ao editar ponto {ponto_id}: {e}", exc_info=True)
+            flash('Ocorreu um erro ao atualizar o registro.', 'danger')
+
+    # Renderiza o template para GET ou se a validação falhar
     return render_template('main/editar_ponto.html', form=form, registro=registro, title="Editar Registro")
 
 # Rota registrar_afastamento (mantida)
 @main.route('/registrar-afastamento', methods=['GET', 'POST'])
 @login_required
 def registrar_afastamento():
-    # ... (código mantido) ...
-    form = RegistroAfastamentoForm();
-    if request.method == 'GET': data_query = request.args.get('data');
-    if data_query: try: form.data.data = date.fromisoformat(data_query); except ValueError: flash('Data URL inválida.', 'warning')
+    """Registra um dia como afastamento (férias, licença, etc.)."""
+    form = RegistroAfastamentoForm()
+
+    # Preenche data da URL se existir
+    if request.method == 'GET':
+        data_query = request.args.get('data')
+        if data_query:
+            try:
+                form.data.data = date.fromisoformat(data_query)
+            except ValueError:
+                flash('Data na URL inválida.', 'warning')
+
     if form.validate_on_submit():
         try:
-            data_selecionada = form.data.data; tipo_afastamento = form.tipo_afastamento.data; registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).first()
-            if registro_existente: flash(f'Registro para {data_selecionada.strftime("%d/%m/%Y")} já existe.', 'danger'); return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
-            novo_afastamento = Ponto(user_id=current_user.id, data=data_selecionada, afastamento=True, tipo_afastamento=tipo_afastamento, entrada=None, saida_almoco=None, retorno_almoco=None, saida=None, horas_trabalhadas=None, observacoes=None, resultados_produtos=None)
-            db.session.add(novo_afastamento); db.session.commit(); flash('Afastamento registrado!', 'success'); return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro reg afastamento: {e}", exc_info=True); flash('Erro ao registrar.', 'danger')
+            data_selecionada = form.data.data
+            tipo_afastamento = form.tipo_afastamento.data
+
+            # Verifica se já existe registro para o dia
+            registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data_selecionada).first()
+            if registro_existente:
+                flash(f'Já existe um registro para {data_selecionada.strftime("%d/%m/%Y")}. Você pode editá-lo.', 'danger')
+                return redirect(url_for('main.editar_ponto', ponto_id=registro_existente.id))
+
+            # Cria um novo registro de ponto marcado como afastamento
+            novo_afastamento = Ponto(
+                user_id=current_user.id,
+                data=data_selecionada,
+                afastamento=True, # Marca como afastamento
+                tipo_afastamento=tipo_afastamento,
+                # Horários e outros campos ficam como None
+                entrada=None, saida_almoco=None, retorno_almoco=None, saida=None,
+                horas_trabalhadas=None, observacoes=None, resultados_produtos=None
+            )
+            db.session.add(novo_afastamento)
+            db.session.commit()
+            flash('Afastamento registrado com sucesso!', 'success')
+            return redirect(url_for('main.dashboard', mes=data_selecionada.month, ano=data_selecionada.year))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro ao registrar afastamento: {e}", exc_info=True)
+            flash('Ocorreu um erro ao registrar o afastamento.', 'danger')
+
     return render_template('main/registrar_afastamento.html', form=form, title="Registrar Afastamento")
 
-# Rota registrar_ferias (mantida)
+# Rota registrar_ferias (mantida - redireciona para afastamento)
 @main.route('/registrar-ferias', methods=['GET', 'POST'])
 @login_required
 def registrar_ferias():
-     flash('Use "Registrar Afastamento".', 'info'); return redirect(url_for('main.registrar_afastamento', **request.args))
+     """Rota antiga para férias, agora redireciona para registrar_afastamento."""
+     flash('Use a opção "Registrar Afastamento" para registrar férias.', 'info')
+     # Mantém os parâmetros da URL (como 'data') ao redirecionar
+     return redirect(url_for('main.registrar_afastamento', **request.args))
 
 # Rota do Calendário (mantida)
 @main.route('/calendario')
 @login_required
 def calendario():
-    # ... (código mantido) ...
+    """Exibe o calendário mensal com os registros de ponto."""
     try:
+        # Obtém usuário e período
         usuario_ctx, usuarios_admin = get_usuario_contexto()
-        hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
-        if not (1 <= mes_req <= 12): mes_req = hoje.month; flash('Mês inválido.', 'warning')
+        hoje = date.today()
+        mes_req = request.args.get('mes', default=hoje.month, type=int)
+        ano_req = request.args.get('ano', default=hoje.year, type=int)
+        if not (1 <= mes_req <= 12):
+            mes_req = hoje.month
+            flash('Mês inválido.', 'warning')
+
+        # Busca os dados do relatório para o período
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req)
-        cal = calendar.Calendar(firstweekday=6); semanas_mes = cal.monthdayscalendar(ano_req, mes_req); calendario_data = []
+
+        # Gera a estrutura do calendário usando a biblioteca calendar
+        cal = calendar.Calendar(firstweekday=6) # Começa no Domingo (6)
+        semanas_mes = cal.monthdayscalendar(ano_req, mes_req)
+        calendario_data = [] # Lista para armazenar os dados formatados para o template
+
+        # Itera sobre as semanas e dias gerados pela biblioteca calendar
         for semana in semanas_mes:
             semana_data = []
             for dia in semana:
-                dia_info = {'dia': dia, 'data': None, 'is_mes_atual': False, 'registro': None, 'feriado': None, 'is_hoje': False, 'is_fim_semana': False}
-                if dia != 0: data_atual = date(ano_req, mes_req, dia); dia_info.update({'data': data_atual, 'is_mes_atual': True, 'registro': dados_relatorio['registros_por_data'].get(data_atual), 'feriado': dados_relatorio['feriados_dict'].get(data_atual), 'is_hoje': (data_atual == hoje), 'is_fim_semana': (data_atual.weekday() >= 5)})
-                semana_data.append(dia_info)
-            calendario_data.append(semana_data)
+                # Cria um dicionário com informações padrão para cada célula do calendário
+                dia_info = {
+                    'dia': dia, # Número do dia (0 se for de outro mês)
+                    'data': None, # Objeto date (será preenchido se for do mês atual)
+                    'is_mes_atual': False, # Flag para indicar se o dia pertence ao mês atual
+                    'registro': None, # Objeto Ponto (se houver registro)
+                    'feriado': None, # Descrição do feriado (se houver)
+                    'is_hoje': False, # Flag para o dia atual
+                    'is_fim_semana': False # Flag para sábado/domingo
+                }
+                # Se o dia não for 0 (pertence ao mês atual)
+                if dia != 0:
+                    data_atual = date(ano_req, mes_req, dia)
+                    # Atualiza o dicionário com informações específicas do dia
+                    dia_info.update({
+                        'data': data_atual,
+                        'is_mes_atual': True,
+                        'registro': dados_relatorio['registros_por_data'].get(data_atual), # Pega o registro (ou None)
+                        'feriado': dados_relatorio['feriados_dict'].get(data_atual), # Pega o feriado (ou None)
+                        'is_hoje': (data_atual == hoje),
+                        'is_fim_semana': (data_atual.weekday() >= 5) # 5=Sábado, 6=Domingo
+                    })
+                semana_data.append(dia_info) # Adiciona info do dia à semana
+            calendario_data.append(semana_data) # Adiciona semana ao calendário
+
+        # Combina os dados do relatório com a estrutura do calendário e a lista de usuários
         contexto_template = {**dados_relatorio, 'calendario_data': calendario_data, 'usuarios': usuarios_admin}
+
+        # Renderiza o template do calendário
         return render_template('main/calendario.html', **contexto_template)
-    except Exception as e: logger.error(f"Erro calendário: {e}", exc_info=True); flash('Erro ao carregar calendário.', 'danger'); return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        logger.error(f"Erro ao carregar calendário: {e}", exc_info=True)
+        flash('Ocorreu um erro ao carregar o calendário.', 'danger')
+        return redirect(url_for('main.dashboard'))
 
 # Rota para o Relatório Mensal detalhado (GET) (mantida)
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
-    # ... (código mantido) ...
+    """Exibe o relatório mensal detalhado com opção de exportação e autoavaliação."""
     try:
+        # Obtém usuário e período
         usuario_ctx, usuarios_admin = get_usuario_contexto()
-        hoje = date.today(); mes_req = request.args.get('mes', default=hoje.month, type=int); ano_req = request.args.get('ano', default=hoje.year, type=int)
+        hoje = date.today()
+        mes_req = request.args.get('mes', default=hoje.month, type=int)
+        ano_req = request.args.get('ano', default=hoje.year, type=int)
+
+        # Busca os dados do relatório (ordenados por data ascendente para a tabela)
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=False)
+
+        # Cria uma instância do formulário de autoavaliação (para gerar o PDF completo)
         form_completo = RelatorioCompletoForm()
+
+        # Combina os dados do relatório com a lista de usuários e o form de autoavaliação
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin, 'form_completo': form_completo}
+
+        # Renderiza o template do relatório mensal
         return render_template('main/relatorio_mensal.html', **contexto_template)
-    except ValueError as ve: flash(str(ve), 'danger'); return redirect(url_for('main.dashboard'))
-    except Exception as e: logger.error(f"Erro ao gerar relatório mensal: {e}", exc_info=True); flash('Erro ao gerar o relatório mensal.', 'danger'); return redirect(url_for('main.dashboard'))
+    except ValueError as ve:
+        flash(str(ve), 'danger')
+        return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        logger.error(f"Erro ao gerar relatório mensal: {e}", exc_info=True)
+        flash('Erro ao gerar o relatório mensal.', 'danger')
+        return redirect(url_for('main.dashboard'))
 
 # Rota para exportar o relatório mensal padrão em PDF (mantida)
 @main.route('/relatorio-mensal/pdf')
 @login_required
 def relatorio_mensal_pdf():
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
+    """Gera e envia o relatório mensal padrão em formato PDF."""
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user # Usuário padrão é o logado
+
+    # Se admin e user_id especificado, busca o usuário alvo
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_alvo = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+
+    # Obtém mês e ano
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
+
     try:
-        from app.utils.export import generate_pdf; pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
+        # Importa a função de geração de PDF (dentro do try para evitar erro se a importação falhar)
+        from app.utils.export import generate_pdf
+        # Gera o PDF padrão (sem contexto completo)
+        pdf_rel_path = generate_pdf(usuario_alvo.id, mes, ano)
+
         if pdf_rel_path:
+            # Constrói o caminho absoluto para o arquivo PDF gerado
             pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
-            if os.path.exists(pdf_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
-            else: logger.error(f"Arquivo PDF não encontrado: {pdf_abs_path}"); flash('Erro interno: Arquivo PDF gerado não foi encontrado.', 'danger')
-        else: flash('Erro ao gerar o relatório em PDF.', 'danger')
-    except Exception as e: logger.error(f"Erro ao gerar/enviar PDF: {e}", exc_info=True); flash('Ocorreu um erro inesperado ao gerar o PDF.', 'danger')
+            if os.path.exists(pdf_abs_path):
+                # Define o nome do arquivo para download
+                nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                # Envia o arquivo PDF para o usuário
+                return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
+            else:
+                logger.error(f"Arquivo PDF não encontrado após geração: {pdf_abs_path}")
+                flash('Erro interno: Arquivo PDF gerado não foi encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar o relatório em PDF.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro ao gerar/enviar PDF: {e}", exc_info=True)
+        flash('Ocorreu um erro inesperado ao gerar o PDF.', 'danger')
+
+    # Redireciona de volta para a página anterior ou para o relatório mensal
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
 # Rota para exportar o relatório mensal em Excel (mantida)
 @main.route('/relatorio-mensal/excel')
 @login_required
 def relatorio_mensal_excel():
-    # ... (código mantido) ...
-    user_id_req = request.args.get('user_id', type=int); usuario_alvo = current_user
+    """Gera e envia o relatório mensal em formato Excel."""
+    user_id_req = request.args.get('user_id', type=int)
+    usuario_alvo = current_user
+
     if current_user.is_admin and user_id_req:
         usuario_req = User.query.get(user_id_req)
-        if usuario_req: usuario_alvo = usuario_req
-        else: flash(f"Usuário ID {user_id_req} não encontrado.", "warning"); return redirect(request.referrer or url_for('main.dashboard'))
-    hoje = date.today(); mes = request.args.get('mes', default=hoje.month, type=int); ano = request.args.get('ano', default=hoje.year, type=int)
+        if usuario_req:
+            usuario_alvo = usuario_req
+        else:
+            flash(f"Usuário ID {user_id_req} não encontrado.", "warning")
+            return redirect(request.referrer or url_for('main.dashboard'))
+
+    hoje = date.today()
+    mes = request.args.get('mes', default=hoje.month, type=int)
+    ano = request.args.get('ano', default=hoje.year, type=int)
+
     try:
-        from app.utils.export import generate_excel; excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
-        if excel_rel_path: excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path);
-        if os.path.exists(excel_abs_path): nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower(); download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"; return send_file(excel_abs_path, as_attachment=True, download_name=download_name, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        else: logger.error(f"Excel não encontrado: {excel_abs_path}"); flash('Erro: Excel não encontrado.', 'danger')
-        else: flash('Erro ao gerar Excel.', 'danger')
-    except Exception as e: logger.error(f"Erro gerar/enviar Excel: {e}", exc_info=True); flash('Erro inesperado ao gerar Excel.', 'danger')
+        from app.utils.export import generate_excel
+        excel_rel_path = generate_excel(usuario_alvo.id, mes, ano)
+
+        if excel_rel_path:
+            excel_abs_path = os.path.join(current_app.static_folder, excel_rel_path)
+            if os.path.exists(excel_abs_path):
+                nome_mes_str = datetime(ano, mes, 1).strftime('%B').lower()
+                download_name = f"relatorio_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.xlsx"
+                # Envia o arquivo Excel
+                return send_file(
+                    excel_abs_path,
+                    as_attachment=True,
+                    download_name=download_name,
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+            else:
+                logger.error(f"Arquivo Excel não encontrado após geração: {excel_abs_path}")
+                flash('Erro interno: Arquivo Excel gerado não foi encontrado.', 'danger')
+        else:
+            flash('Erro ao gerar o relatório em Excel.', 'danger')
+    except Exception as e:
+        logger.error(f"Erro ao gerar/enviar Excel: {e}", exc_info=True)
+        flash('Ocorreu um erro inesperado ao gerar o Excel.', 'danger')
+
     return redirect(request.referrer or url_for('main.relatorio_mensal', user_id=usuario_alvo.id, mes=mes, ano=ano))
 
 # Rota para gerar PDF completo com autoavaliação (POST) (mantida)
 @main.route('/gerar-relatorio-completo/pdf', methods=['POST'])
 @login_required
 def gerar_relatorio_completo_pdf():
-    # ... (código mantido) ...
+    """Gera e envia o relatório PDF completo incluindo a autoavaliação."""
     form = RelatorioCompletoForm()
+
+    # Valida o formulário de autoavaliação
     if form.validate_on_submit():
         try:
-            user_id = int(form.user_id.data); mes = int(form.mes.data); ano = int(form.ano.data)
-            autoavaliacao_data = form.autoavaliacao.data; dificuldades_data = form.dificuldades.data; sugestoes_data = form.sugestoes.data; declaracao_marcada = form.declaracao.data
+            # Obtém dados do formulário
+            user_id = int(form.user_id.data)
+            mes = int(form.mes.data)
+            ano = int(form.ano.data)
+            autoavaliacao_data = form.autoavaliacao.data
+            dificuldades_data = form.dificuldades.data
+            sugestoes_data = form.sugestoes.data
+            declaracao_marcada = form.declaracao.data
+
+            # Busca os dados base do relatório mensal
             dados_relatorio_base = _get_relatorio_mensal_data(user_id, mes, ano)
-            contexto_completo = {**dados_relatorio_base, 'autoavaliacao_data': autoavaliacao_data, 'dificuldades_data': dificuldades_data, 'sugestoes_data': sugestoes_data, 'declaracao_marcada': declaracao_marcada, 'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S'), 'titulo': f'Relatório de Ponto e Autoavaliação - {dados_relatorio_base["nome_mes"]}/{ano}'}
+
+            # Cria o contexto completo para o PDF, incluindo os dados da autoavaliação
+            contexto_completo = {
+                **dados_relatorio_base, # Inclui todos os dados base
+                'autoavaliacao_data': autoavaliacao_data,
+                'dificuldades_data': dificuldades_data,
+                'sugestoes_data': sugestoes_data,
+                'declaracao_marcada': declaracao_marcada,
+                'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+                'titulo': f'Relatório de Ponto e Autoavaliação - {dados_relatorio_base["nome_mes"]}/{ano}'
+            }
+
+            # Importa e chama a função de geração de PDF, passando o contexto completo
             from app.utils.export import generate_pdf
             pdf_rel_path = generate_pdf(user_id, mes, ano, context_completo=contexto_completo)
+
             if pdf_rel_path:
                 pdf_abs_path = os.path.join(current_app.static_folder, pdf_rel_path)
-                if os.path.exists(pdf_abs_path): usuario_alvo = dados_relatorio_base['usuario']; nome_mes_str = dados_relatorio_base['nome_mes'].lower(); download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"; return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
-                else: logger.error(f"Arquivo PDF completo não encontrado: {pdf_abs_path}"); flash('Erro interno: Arquivo PDF completo gerado não foi encontrado.', 'danger')
-            else: flash('Erro ao gerar o relatório completo em PDF.', 'danger')
-        except ValueError as ve: flash(f"Erro ao buscar dados para o relatório: {ve}", 'danger')
-        except Exception as e: logger.error(f"Erro ao gerar PDF completo: {e}", exc_info=True); flash('Ocorreu um erro inesperado ao gerar o PDF completo.', 'danger')
+                if os.path.exists(pdf_abs_path):
+                    usuario_alvo = dados_relatorio_base['usuario']
+                    nome_mes_str = dados_relatorio_base['nome_mes'].lower()
+                    download_name = f"relatorio_completo_{usuario_alvo.matricula}_{nome_mes_str}_{ano}.pdf"
+                    return send_file(pdf_abs_path, as_attachment=True, download_name=download_name)
+                else:
+                    logger.error(f"Arquivo PDF completo não encontrado: {pdf_abs_path}")
+                    flash('Erro interno: Arquivo PDF completo gerado não foi encontrado.', 'danger')
+            else:
+                flash('Erro ao gerar o relatório completo em PDF.', 'danger')
+        except ValueError as ve:
+            # Erro se usuário não for encontrado em _get_relatorio_mensal_data
+            flash(f"Erro ao buscar dados para o relatório: {ve}", 'danger')
+        except Exception as e:
+            logger.error(f"Erro ao gerar PDF completo: {e}", exc_info=True)
+            flash('Ocorreu um erro inesperado ao gerar o PDF completo.', 'danger')
     else:
-        user_id = form.user_id.data or current_user.id; mes = form.mes.data or date.today().month; ano = form.ano.data or date.today().year
+        # Se a validação do formulário de autoavaliação falhar
+        user_id = form.user_id.data or current_user.id
+        mes = form.mes.data or date.today().month
+        ano = form.ano.data or date.today().year
+        # Mostra os erros de validação para o usuário
         for field, errors in form.errors.items():
-            for error in errors: flash(f"Erro no campo '{getattr(form, field).label.text}': {error}", 'danger')
+            for error in errors:
+                # Tenta obter o label do campo para uma mensagem mais amigável
+                label = getattr(getattr(form, field, None), 'label', None)
+                field_name = label.text if label else field
+                flash(f"Erro no campo '{field_name}': {error}", 'danger')
+        # Redireciona de volta para a página do relatório
         return redirect(url_for('main.relatorio_mensal', user_id=user_id, mes=mes, ano=ano))
-    user_id_fallback = form.user_id.data or current_user.id; mes_fallback = form.mes.data or date.today().month; ano_fallback = form.ano.data or date.today().year
+
+    # Fallback: redireciona para o relatório se algo der errado antes do redirect
+    user_id_fallback = form.user_id.data or current_user.id
+    mes_fallback = form.mes.data or date.today().month
+    ano_fallback = form.ano.data or date.today().year
     return redirect(url_for('main.relatorio_mensal', user_id=user_id_fallback, mes=mes_fallback, ano=ano_fallback))
 
 # Rotas visualizar_ponto, excluir_ponto, perfil, registrar_multiplo_ponto, registrar_atividade (mantidas)
 @main.route('/visualizar-ponto/<int:ponto_id>')
 @login_required
 def visualizar_ponto(ponto_id):
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id);
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all(); usuario_dono = User.query.get(registro.user_id)
-    if not usuario_dono: flash('Usuário não encontrado.', 'danger'); return redirect(url_for('main.dashboard'))
+    """Exibe os detalhes de um registro de ponto específico."""
+    registro = Ponto.query.get_or_404(ponto_id)
+
+    # Verifica permissão
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para visualizar este registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    # Busca atividades e o usuário dono do ponto
+    atividades = Atividade.query.filter_by(ponto_id=ponto_id).all()
+    usuario_dono = User.query.get(registro.user_id)
+    if not usuario_dono:
+        flash('Usuário associado a este ponto não encontrado.', 'danger')
+        return redirect(url_for('main.dashboard')) # Ou para admin.listar_usuarios
+
     return render_template('main/visualizar_ponto.html', registro=registro, atividades=atividades, usuario=usuario_dono, title="Visualizar Registro")
 
 @main.route('/excluir-ponto/<int:ponto_id>', methods=['POST'])
 @login_required
 def excluir_ponto(ponto_id):
-    # ... (código mantido) ...
-    registro = Ponto.query.get_or_404(ponto_id); data_registro = registro.data
-    if registro.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    try: db.session.delete(registro); db.session.commit(); flash('Registro excluído!', 'success')
-    except Exception as e: db.session.rollback(); logger.error(f"Erro excluir ponto {ponto_id}: {e}", exc_info=True); flash('Erro ao excluir.', 'danger')
+    """Exclui um registro de ponto."""
+    registro = Ponto.query.get_or_404(ponto_id)
+    data_registro = registro.data # Guarda a data para redirecionar
+
+    # Verifica permissão
+    if registro.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para excluir este registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    try:
+        # Exclui o registro e suas atividades associadas (devido ao cascade)
+        db.session.delete(registro)
+        db.session.commit()
+        flash('Registro de ponto excluído com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erro ao excluir ponto {ponto_id}: {e}", exc_info=True)
+        flash('Ocorreu um erro ao excluir o registro.', 'danger')
+
+    # Redireciona para o dashboard do mês do registro excluído
     return redirect(url_for('main.dashboard', mes=data_registro.month, ano=data_registro.year))
 
 @main.route('/perfil')
 @login_required
 def perfil():
-    # ... (código mantido) ...
-    usuario_atualizado = User.query.get(current_user.id);
-    if not usuario_atualizado: flash('Erro ao carregar perfil.', 'danger'); return redirect(url_for('main.dashboard'))
+    """Exibe a página de perfil do usuário logado."""
+    # Busca o usuário novamente para garantir dados atualizados
+    usuario_atualizado = User.query.get(current_user.id)
+    if not usuario_atualizado:
+        flash('Erro ao carregar dados do perfil.', 'danger')
+        return redirect(url_for('main.dashboard'))
     return render_template('main/perfil.html', usuario=usuario_atualizado, title="Meu Perfil")
 
 @main.route('/registrar-multiplo-ponto', methods=['GET', 'POST'])
 @login_required
 def registrar_multiplo_ponto():
-    # ... (código mantido com validação de almoço) ...
-    form = MultiploPontoForm()
-    if form.validate_on_submit():
+    """Permite registrar pontos para múltiplos dias de uma vez."""
+    form = MultiploPontoForm() # Form vazio, usado apenas para CSRF token
+
+    if form.validate_on_submit(): # Valida o CSRF token
         try:
-            datas_str = request.form.getlist('datas[]'); entradas_str = request.form.getlist('entradas[]'); saidas_almoco_str = request.form.getlist('saidas_almoco[]'); retornos_almoco_str = request.form.getlist('retornos_almoco[]'); saidas_str = request.form.getlist('saidas[]'); atividades_desc = request.form.getlist('atividades[]'); resultados_produtos_desc = request.form.getlist('resultados_produtos[]'); observacoes_desc = request.form.getlist('observacoes[]')
-            registros_criados, registros_ignorados, registros_erro_almoco = 0, 0, 0; datas_processadas = set()
+            # Obtém as listas de dados do formulário (enviados pelo JS)
+            datas_str = request.form.getlist('datas[]')
+            entradas_str = request.form.getlist('entradas[]')
+            saidas_almoco_str = request.form.getlist('saidas_almoco[]')
+            retornos_almoco_str = request.form.getlist('retornos_almoco[]')
+            saidas_str = request.form.getlist('saidas[]')
+            atividades_desc = request.form.getlist('atividades[]')
+            resultados_produtos_desc = request.form.getlist('resultados_produtos[]')
+            observacoes_desc = request.form.getlist('observacoes[]')
+
+            registros_criados, registros_ignorados, registros_erro_almoco = 0, 0, 0
+            datas_processadas = set() # Para evitar processar a mesma data duas vezes
+
+            # Itera sobre as datas enviadas
             for i in range(len(datas_str)):
-                data_str = datas_str[i];
-                if not data_str: continue
-                try: data = date.fromisoformat(data_str)
-                except ValueError: flash(f'Formato de data inválido ignorado: {data_str}', 'warning'); continue
-                if data in datas_processadas: continue
-                datas_processadas.add(data); registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data).first()
-                if registro_existente: flash(f'Registro para {data.strftime("%d/%m/%Y")} já existe e foi ignorado.', 'info'); registros_ignorados += 1; continue
-                entrada_str = entradas_str[i] if i < len(entradas_str) else None; saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None; retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None; saida_str_i = saidas_str[i] if i < len(saidas_str) else None; atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None; resultado_desc_i = resultados_produtos_desc[i].strip() if i < len(resultados_produtos_desc) and resultados_produtos_desc[i] else None; observacao_i = observacoes_desc[i].strip() if i < len(observacoes_desc) and observacoes_desc[i] else None
-                try: entrada_t = time.fromisoformat(entrada_str) if entrada_str else None; saida_almoco_t = time.fromisoformat(saida_almoco_str_i) if saida_almoco_str_i else None; retorno_almoco_t = time.fromisoformat(retorno_almoco_str_i) if retorno_almoco_str_i else None; saida_t = time.fromisoformat(saida_str_i) if saida_str_i else None
-                except ValueError: flash(f'Formato de hora inválido para {data.strftime("%d/%m/%Y")}. Registro ignorado.', 'warning'); registros_erro_almoco += 1; continue
+                data_str = datas_str[i]
+                if not data_str: continue # Pula se a data estiver vazia
+
+                try:
+                    data = date.fromisoformat(data_str) # Converte string para date
+                except ValueError:
+                    flash(f'Formato de data inválido ignorado: {data_str}', 'warning')
+                    continue
+
+                if data in datas_processadas: continue # Pula se já processou esta data
+                datas_processadas.add(data)
+
+                # Verifica se já existe registro para o dia
+                registro_existente = Ponto.query.filter_by(user_id=current_user.id, data=data).first()
+                if registro_existente:
+                    flash(f'Registro para {data.strftime("%d/%m/%Y")} já existe e foi ignorado.', 'info')
+                    registros_ignorados += 1
+                    continue
+
+                # Obtém os dados correspondentes para esta data (cuidado com índices)
+                entrada_str = entradas_str[i] if i < len(entradas_str) else None
+                saida_almoco_str_i = saidas_almoco_str[i] if i < len(saidas_almoco_str) else None
+                retorno_almoco_str_i = retornos_almoco_str[i] if i < len(retornos_almoco_str) else None
+                saida_str_i = saidas_str[i] if i < len(saidas_str) else None
+                atividade_desc_i = atividades_desc[i].strip() if i < len(atividades_desc) and atividades_desc[i] else None
+                resultado_desc_i = resultados_produtos_desc[i].strip() if i < len(resultados_produtos_desc) and resultados_produtos_desc[i] else None
+                observacao_i = observacoes_desc[i].strip() if i < len(observacoes_desc) and observacoes_desc[i] else None
+
+                try:
+                    # Converte strings de hora para objetos time
+                    entrada_t = time.fromisoformat(entrada_str) if entrada_str else None
+                    saida_almoco_t = time.fromisoformat(saida_almoco_str_i) if saida_almoco_str_i else None
+                    retorno_almoco_t = time.fromisoformat(retorno_almoco_str_i) if retorno_almoco_str_i else None
+                    saida_t = time.fromisoformat(saida_str_i) if saida_str_i else None
+                except ValueError:
+                    flash(f'Formato de hora inválido para {data.strftime("%d/%m/%Y")}. Registro ignorado.', 'warning')
+                    registros_erro_almoco += 1
+                    continue
+
+                # Validação do almoço (se entrada e saída foram preenchidas)
                 if entrada_t and saida_t:
-                    if not saida_almoco_t or not retorno_almoco_t: flash(f'Erro na data {data.strftime("%d/%m/%Y")}: Horários de almoço obrigatórios para dias trabalhados. Registro ignorado.', 'warning'); registros_erro_almoco += 1; continue
+                    if not saida_almoco_t or not retorno_almoco_t:
+                        flash(f'Erro na data {data.strftime("%d/%m/%Y")}: Horários de almoço obrigatórios para dias trabalhados. Registro ignorado.', 'warning')
+                        registros_erro_almoco += 1
+                        continue
                     try:
-                        saida_almoco_dt = datetime.combine(data, saida_almoco_t); retorno_almoco_dt = datetime.combine(data, retorno_almoco_t)
-                        if retorno_almoco_dt <= saida_almoco_dt: retorno_almoco_dt += timedelta(days=1)
+                        # Verifica duração mínima do almoço (1 hora)
+                        saida_almoco_dt = datetime.combine(data, saida_almoco_t)
+                        retorno_almoco_dt = datetime.combine(data, retorno_almoco_t)
+                        if retorno_almoco_dt <= saida_almoco_dt:
+                            retorno_almoco_dt += timedelta(days=1)
                         duracao_almoco = retorno_almoco_dt - saida_almoco_dt
-                        if duracao_almoco.total_seconds() < 3600: flash(f'Erro na data {data.strftime("%d/%m/%Y")}: Intervalo de almoço deve ser de no mínimo 1 hora. Registro ignorado.', 'warning'); registros_erro_almoco += 1; continue
-                    except (TypeError, ValueError): flash(f'Erro ao calcular duração do almoço para {data.strftime("%d/%m/%Y")}. Registro ignorado.', 'warning'); registros_erro_almoco += 1; continue
+                        if duracao_almoco.total_seconds() < 3600:
+                            flash(f'Erro na data {data.strftime("%d/%m/%Y")}: Intervalo de almoço deve ser de no mínimo 1 hora. Registro ignorado.', 'warning')
+                            registros_erro_almoco += 1
+                            continue
+                    except (TypeError, ValueError):
+                        flash(f'Erro ao calcular duração do almoço para {data.strftime("%d/%m/%Y")}. Registro ignorado.', 'warning')
+                        registros_erro_almoco += 1
+                        continue
+
+                # Calcula horas e cria o novo registro
                 horas_calculadas = calcular_horas(data, entrada_t, saida_t, saida_almoco_t, retorno_almoco_t)
-                novo_registro = Ponto(user_id=current_user.id, data=data, entrada=entrada_t, saida_almoco=saida_almoco_t, retorno_almoco=retorno_almoco_t, saida=saida_t, horas_trabalhadas=horas_calculadas, afastamento=False, tipo_afastamento=None, resultados_produtos=resultado_desc_i, observacoes=observacao_i)
+                novo_registro = Ponto(
+                    user_id=current_user.id, data=data, entrada=entrada_t,
+                    saida_almoco=saida_almoco_t, retorno_almoco=retorno_almoco_t, saida=saida_t,
+                    horas_trabalhadas=horas_calculadas, afastamento=False, tipo_afastamento=None,
+                    resultados_produtos=resultado_desc_i, observacoes=observacao_i
+                )
                 db.session.add(novo_registro)
-                try: db.session.flush();
-                    if atividade_desc_i: db.session.add(Atividade(ponto_id=novo_registro.id, descricao=atividade_desc_i))
-                    db.session.commit(); registros_criados += 1
-                except Exception as commit_err: db.session.rollback(); logger.error(f"Erro ao salvar registro/atividade para {data}: {commit_err}", exc_info=True); flash(f'Erro ao salvar registro para {data.strftime("%d/%m/%Y")}.', 'danger')
-            msg_parts = [];
+
+                try:
+                    db.session.flush() # Garante ID para a atividade
+                    if atividade_desc_i:
+                        db.session.add(Atividade(ponto_id=novo_registro.id, descricao=atividade_desc_i))
+                    db.session.commit() # Salva registro e atividade
+                    registros_criados += 1
+                except Exception as commit_err:
+                    db.session.rollback()
+                    logger.error(f"Erro ao salvar registro/atividade para {data}: {commit_err}", exc_info=True)
+                    flash(f'Erro ao salvar registro para {data.strftime("%d/%m/%Y")}.', 'danger')
+
+            # Monta mensagem final para o usuário
+            msg_parts = []
             if registros_criados > 0: msg_parts.append(f'{registros_criados} registro(s) criado(s)')
             if registros_ignorados > 0: msg_parts.append(f'{registros_ignorados} data(s) ignorada(s) por já existir registro')
             if registros_erro_almoco > 0: msg_parts.append(f'{registros_erro_almoco} registro(s) ignorado(s) por erro nos dados de almoço')
+
             if not msg_parts:
                  if len(datas_processadas) == 0: flash('Nenhuma data válida foi informada para registro.', 'warning')
                  else: flash('Nenhum novo registro criado (datas já possuíam registro ou tiveram erro).', 'info')
-            else: final_msg = ". ".join(msg_parts) + "."; category = 'success' if registros_criados > 0 and registros_erro_almoco == 0 else 'warning'; flash(final_msg, category)
+            else:
+                final_msg = ". ".join(msg_parts) + "."
+                category = 'success' if registros_criados > 0 and registros_erro_almoco == 0 else 'warning'
+                flash(final_msg, category)
+
             return redirect(url_for('main.dashboard'))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro inesperado ao processar múltiplos pontos: {e}", exc_info=True); flash('Ocorreu um erro inesperado ao processar os registros. Tente novamente.', 'danger'); return redirect(url_for('main.registrar_multiplo_ponto'))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro inesperado ao processar múltiplos pontos: {e}", exc_info=True)
+            flash('Ocorreu um erro inesperado ao processar os registros. Tente novamente.', 'danger')
+            return redirect(url_for('main.registrar_multiplo_ponto'))
+
+    # Renderiza a página para GET
     return render_template('main/registrar_multiplo_ponto.html', form=form, title="Registrar Múltiplos Pontos")
 
 @main.route('/ponto/<int:ponto_id>/atividade', methods=['GET', 'POST'])
 @login_required
 def registrar_atividade(ponto_id):
-    # ... (código mantido) ...
+    """Registra ou edita a atividade de um registro de ponto específico."""
     ponto = Ponto.query.get_or_404(ponto_id)
-    if ponto.user_id != current_user.id and not current_user.is_admin: flash('Permissão negada.', 'danger'); return redirect(url_for('main.dashboard'))
-    form = AtividadeForm(); atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+
+    # Verifica permissão
+    if ponto.user_id != current_user.id and not current_user.is_admin:
+        flash('Você não tem permissão para editar atividades deste registro.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    form = AtividadeForm()
+    atividade_existente = Atividade.query.filter_by(ponto_id=ponto_id).first()
+
     if form.validate_on_submit():
         try:
             descricao = form.descricao.data.strip()
-            if atividade_existente: atividade_existente.descricao = descricao
-            else: nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao); db.session.add(nova_atividade)
-            db.session.commit(); flash('Atividade salva!', 'success'); return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
-        except Exception as e: db.session.rollback(); logger.error(f"Erro salvar atividade {ponto_id}: {e}", exc_info=True); flash('Erro ao salvar atividade.', 'danger')
+            if atividade_existente:
+                atividade_existente.descricao = descricao # Atualiza
+            else:
+                nova_atividade = Atividade(ponto_id=ponto_id, descricao=descricao) # Cria
+                db.session.add(nova_atividade)
+            db.session.commit()
+            flash('Atividade salva com sucesso!', 'success')
+            return redirect(url_for('main.visualizar_ponto', ponto_id=ponto_id))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Erro ao salvar atividade para ponto {ponto_id}: {e}", exc_info=True)
+            flash('Ocorreu um erro ao salvar a atividade.', 'danger')
     elif request.method == 'GET':
-        if atividade_existente: form.descricao.data = atividade_existente.descricao
-    return render_template('main/registrar_atividade.html', ponto=ponto, form=form, title="Registrar/Editar Atividade")
+        # Preenche o form com a descrição existente se for GET
+        if atividade_existente:
+            form.descricao.data = atividade_existente.descricao
 
+    return render_template('main/registrar_atividade.html', ponto=ponto, form=form, title="Registrar/Editar Atividade")
