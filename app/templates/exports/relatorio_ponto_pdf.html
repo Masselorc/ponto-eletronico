@@ -2,56 +2,81 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ titulo }}</title>
+    <title>{{ titulo }}</title> {# Usa o título passado no contexto #}
+    {# Estilos CSS são definidos em export.py e injetados aqui #}
 </head>
 <body>
     <div class="header">
         <h1>{{ titulo }}</h1>
-        <p>Usuário: {{ usuario.name }} ({{ usuario.matricula }})</p>
-        <p>Vínculo: {{ usuario.vinculo }}</p>
+        {# --- Verifica se 'usuario' existe no contexto --- #}
+        {% if usuario %}
+            <p>Usuário: {{ usuario.name }} ({{ usuario.matricula }})</p>
+            <p>Vínculo: {{ usuario.vinculo or 'N/A' }}</p>
+            {# --- Adiciona novos campos do usuário --- #}
+            <p>Unidade/Setor: {{ usuario.unidade_setor or 'N/A' }}</p>
+            <p>Chefia Imediata: {{ usuario.chefia_imediata or 'N/A' }}</p>
+            {# ------------------------------------- #}
+        {% else %}
+            <p>Usuário: Informação Indisponível</p>
+        {% endif %}
         <p>Gerado em: {{ data_geracao }}</p>
     </div>
 
+    {# --- Resumo do Mês --- #}
     <div class="card">
         <div class="card-header">
             <h2>Resumo do Mês</h2>
         </div>
         <div class="card-body">
+            {# Tabela de Dias #}
             <table>
-                <tr>
-                    <th>Dias Úteis</th>
-                    <th>Dias Trabalhados</th>
-                    <th>Dias de Afastamento</th>
-                    <th>Dias Pendentes</th>
-                </tr>
-                <tr>
-                    <td class="text-center">{{ dias_uteis }}</td>
-                    <td class="text-center">{{ dias_trabalhados }}</td>
-                    <td class="text-center">{{ dias_afastamento }}</td>
-                    <td class="text-center">{{ dias_uteis - dias_trabalhados - dias_afastamento }}</td>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>Dias Úteis</th>
+                        <th>Dias Trabalhados</th>
+                        <th>Dias de Afastamento</th>
+                        {# Calculando dias pendentes (Dias úteis - trabalhados - afastamento) #}
+                        {% set dias_pendentes = dias_uteis - dias_trabalhados - dias_afastamento %}
+                        <th>Dias Pendentes</th>
+                    </tr>
+                 </thead>
+                 <tbody>
+                    <tr>
+                        <td class="text-center">{{ dias_uteis }}</td>
+                        <td class="text-center">{{ dias_trabalhados }}</td>
+                        <td class="text-center">{{ dias_afastamento }}</td>
+                        <td class="text-center">{{ dias_pendentes if dias_pendentes >= 0 else 0 }}</td>
+                    </tr>
+                </tbody>
             </table>
-
+            {# Tabela de Horas #}
             <table>
-                <tr>
-                    <th>Horas Trabalhadas</th>
-                    <th>Carga Horária Devida</th>
-                    <th>Saldo de Horas</th>
-                </tr>
-                <tr>
-                    <td class="text-center">{{ "%.1f"|format(horas_trabalhadas) }}</td>
-                    <td class="text-center">{{ "%.1f"|format(carga_horaria_devida) }}</td>
-                    <td class="text-center">
-                        <span class="badge {% if saldo_horas >= 0 %}badge-success{% else %}badge-danger{% endif %}">
-                            {{ "%.1f"|format(saldo_horas) }}
-                        </span>
-                    </td>
-                </tr>
+                 <thead>
+                    <tr>
+                        <th>Horas Trabalhadas</th>
+                        <th>Carga Horária Devida</th>
+                        <th>Saldo de Horas</th>
+                        <th>Média Diária (dias trab.)</th>
+                    </tr>
+                 </thead>
+                 <tbody>
+                    <tr>
+                        <td class="text-center">{{ "%.2f"|format(horas_trabalhadas) }}h</td>
+                        <td class="text-center">{{ "%.2f"|format(carga_horaria_devida) }}h</td>
+                        <td class="text-center">
+                            {# Aplica classe de cor ao saldo #}
+                            <span class="badge {% if saldo_horas >= 0 %}badge-success{% else %}badge-danger{% endif %} fw-bold">
+                                {{ "%+.2f"|format(saldo_horas) }}h
+                            </span>
+                        </td>
+                         <td class="text-center">{{ "%.2f"|format(media_diaria) }}h</td>
+                    </tr>
+                 </tbody>
             </table>
         </div>
     </div>
 
+    {# --- Registros Detalhados --- #}
     <div class="card">
         <div class="card-header">
             <h2>Registros Detalhados</h2>
@@ -61,63 +86,120 @@
                 <thead>
                     <tr>
                         <th>Data</th>
-                        <th>Tipo</th>
+                        <th>Dia</th>
                         <th>Entrada</th>
                         <th>Saída Almoço</th>
                         <th>Retorno Almoço</th>
                         <th>Saída</th>
-                        <th>Horas</th>
+                        <th>Horas Trab.</th>
+                        <th>Status</th>
+                        <th>Observações</th> {# Adicionada coluna Observações #}
+                        <th>Resultados/Produtos</th> {# Adicionada coluna Resultados #}
+                        <th>Atividades</th> {# Adicionada coluna Atividades #}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for registro in registros %}
-                    <tr>
-                        <td>{{ registro.data.strftime('%d/%m/%Y') }}</td>
-                        <td>
-                            {% if registro.afastamento %}
-                                {% if registro.tipo_afastamento == "ferias" %}
-                                    <span class="badge badge-info">Férias</span>
-                                {% elif registro.tipo_afastamento == "licenca_medica" %}
-                                    <span class="badge badge-warning">Licença Médica</span>
-                                {% elif registro.tipo_afastamento == "licenca_maternidade" %}
-                                    <span class="badge badge-warning">Licença Maternidade</span>
-                                {% elif registro.tipo_afastamento == "abono" %}
-                                    <span class="badge badge-info">Abono</span>
-                                {% else %}
-                                    <span class="badge badge-info">Afastamento</span>
+                    {% set dias_semana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+                    {% for dia_num in range(1, ultimo_dia.day + 1) %}
+                        {% set data_atual = date_obj(ano_atual, mes_atual, dia_num) %}
+                        {% set dia_semana_idx = data_atual.weekday() %}
+                        {% set registro = registros_por_data.get(data_atual) %}
+                        {% set is_feriado = data_atual in feriados_datas %}
+                        {% set is_fim_semana = dia_semana_idx >= 5 %}
+                        {% set lista_atividades = atividades_por_ponto.get(registro.id, []) if registro else [] %}
+
+                        {# Só exibe linha se for dia útil, feriado ou tiver registro #}
+                        {% if registro or (not is_fim_semana) %}
+                            <tr>
+                                <td>{{ data_atual.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ dias_semana[dia_semana_idx] }}</td>
+
+                                {% if is_feriado %}
+                                    <td colspan="6" class="text-center fst-italic">{{ feriados_dict[data_atual] }}</td>
+                                    <td class="text-center"><span class="badge badge-warning">Feriado</span></td>
+                                    <td>-</td> {# Observações #}
+                                    <td>-</td> {# Resultados #}
+                                    <td>-</td> {# Atividades #}
+                                {% elif is_fim_semana and not registro %}
+                                    {# Não mostra FDS se não houver registro nele #}
+                                {% elif registro %}
+                                    {% if registro.afastamento %}
+                                        <td colspan="6" class="text-center fst-italic">{{ registro.tipo_afastamento|default('Afastamento', true)|capitalize }}</td>
+                                        <td class="text-center"><span class="badge badge-info">Afast.</span></td>
+                                        <td>{{ registro.observacoes or '-' }}</td>
+                                        <td>{{ registro.resultados_produtos or '-' }}</td>
+                                        <td>-</td> {# Atividades não se aplicam a afastamento #}
+                                    {% else %} {# Dia trabalhado #}
+                                        <td class="text-center">{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
+                                        <td class="text-center">{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
+                                        <td class="text-center">{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
+                                        <td class="text-center">{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
+                                        <td class="text-center fw-bold">
+                                            {% if registro.horas_trabalhadas is not none %}{{ "%.2f"|format(registro.horas_trabalhadas) }}h{% else %} - {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if registro.horas_trabalhadas is not none and registro.horas_trabalhadas >= 8 %}<span class="badge badge-success">OK</span>
+                                            {% elif registro.horas_trabalhadas is not none %}<span class="badge badge-warning">Parcial</span>
+                                            {% else %}<span class="badge badge-secondary">Pendente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ registro.observacoes or '-' }}</td>
+                                        <td>{{ registro.resultados_produtos or '-' }}</td>
+                                        <td>{{ lista_atividades|join('; ') if lista_atividades else '-' }}</td>
+                                    {% endif %}
+                                {% else %} {# Dia útil sem registro #}
+                                    <td colspan="6" class="text-center fst-italic">Sem Registro</td>
+                                    <td class="text-center"><span class="badge badge-danger">Pendente</span></td>
+                                    <td>-</td> {# Observações #}
+                                    <td>-</td> {# Resultados #}
+                                    <td>-</td> {# Atividades #}
                                 {% endif %}
-                            {% else %}
-                                <span class="badge badge-success">Trabalho</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ registro.entrada.strftime('%H:%M') if registro.entrada else '-' }}</td>
-                        <td>{{ registro.saida_almoco.strftime('%H:%M') if registro.saida_almoco else '-' }}</td>
-                        <td>{{ registro.retorno_almoco.strftime('%H:%M') if registro.retorno_almoco else '-' }}</td>
-                        <td>{{ registro.saida.strftime('%H:%M') if registro.saida else '-' }}</td>
-                        <td class="text-center">
-                            {% if registro.afastamento %}
-                                -
-                            {% else %}
-                                {{ "%.1f"|format(registro.horas_trabalhadas) if registro.horas_trabalhadas else '0.0' }}
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% if registro.observacoes %}
-                    <tr>
-                        <td colspan="7" class="text-muted">
-                            <strong>Observações:</strong> {{ registro.observacoes }}
-                        </td>
-                    </tr>
-                    {% endif %}
+                            </tr>
+                        {% endif %} {# Fim do if para exibir linha #}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
+    {# --- Seção de Autoavaliação (Adicionada) --- #}
+    {% if autoavaliacao_data is defined and autoavaliacao_data %} {# Verifica se a variável existe e não é vazia #}
+    <div class="card autoavaliacao-section">
+        <div class="card-header"><h2>AUTOAVALIAÇÃO DO SERVIDOR(A)/COLABORADOR</h2></div>
+        <div class="card-body"><p>{{ autoavaliacao_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if dificuldades_data is defined and dificuldades_data %}
+    <div class="card autoavaliacao-section">
+        <div class="card-header"><h2>DIFICULDADES OU NECESSIDADES OBSERVADAS</h2></div>
+        <div class="card-body"><p>{{ dificuldades_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if sugestoes_data is defined and sugestoes_data %}
+    <div class="card autoavaliacao-section">
+        <div class="card-header"><h2>SUGESTÕES DE MELHORIA</h2></div>
+        <div class="card-body"><p>{{ sugestoes_data }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if declaracao_marcada is defined and declaracao_marcada %}
+    <div class="card declaracao-box">
+         <div class="card-header"><h2>DECLARAÇÃO</h2></div>
+         <div class="card-body">
+             {# Simula o checkbox marcado #}
+             <p><span style="font-family: ZapfDingbats, sans-serif; font-size: 12pt;">&#x2714;</span> Declaro que as informações acima refletem, com veracidade, as atividades desempenhadas por mim durante o período informado.</p>
+             <p><strong>DATA:</strong> {{ data_geracao }}</p> {# Usa a data de geração padrão do relatório #}
+         </div>
+    </div>
+    {% endif %}
+    {# --- Fim da Seção de Autoavaliação --- #}
+
+
     <div class="footer">
         <p>Sistema de Ponto Eletrônico - SENAPPEN</p>
-        <p>Este documento foi gerado automaticamente e não requer assinatura.</p>
+        <p>Este documento foi gerado automaticamente.</p>
     </div>
 </body>
 </html>
