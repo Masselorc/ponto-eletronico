@@ -179,13 +179,13 @@
     </div>
     {% endif %}
 
-    {# --- NOVA SEÇÃO: AVALIAÇÃO DA CHEFIA (SEI) --- #}
+    {# --- SEÇÃO DE AVALIAÇÃO DA CHEFIA (SEI) --- #}
     <div class="avaliacao-chefia-sei">
         <h2>AVALIAÇÃO DA CHEFIA IMEDIATA</h2>
         <div class="opcoes-sei">
-            {# --- CORREÇÃO: Adicionado X em Aprovado --- #}
+            {# --- GARANTIDO QUE O X ESTEJA AQUI --- #}
             <p>( X ) Aprovado</p>
-            {# ----------------------------------------- #}
+            {# ------------------------------------ #}
             <p>( &nbsp; ) Retornar para complementação</p>
         </div>
         <div class="observacoes-sei">
@@ -196,7 +196,9 @@
         </div>
         <div class="assinatura-chefia-sei">
             <p>_________________________________________________________</p>
+            {# --- GARANTIDO QUE A VARIÁVEL ESTEJA CORRETA --- #}
             <p class="assinatura-chefia-nome-sei">{{ usuario.chefia_imediata or 'Assinatura da Chefia Imediata' }}</p>
+            {# ----------------------------------------------- #}
         </div>
     </div>
     {# --- FIM DA NOVA SEÇÃO (SEI) --- #}
