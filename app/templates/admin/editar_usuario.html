@@ -7,120 +7,130 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h1>Editar Usuário</h1>
-            <p class="lead">Editando informações de: <strong>{{ usuario.name }}</strong></p> {# Destaca nome #}
+            <p class="lead">Editando informações de: <strong>{{ usuario.name }}</strong></p>
         </div>
         <div class="col-md-4 text-end">
-            {# Link para visualizar o usuário que está sendo editado #}
             <a href="{{ url_for('admin.visualizar_usuario', usuario_id=usuario.id) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Voltar para Visualização
             </a>
         </div>
     </div>
 
-    <div class="card shadow-sm"> {# Adicionado shadow #}
-        <div class="card-header bg-warning text-dark"> {# Mudado para bg-warning #}
+    <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
             <h2 class="h5 mb-0"><i class="fas fa-user-edit me-2"></i>Formulário de Edição</h2>
         </div>
-        <div class="card-body p-4"> {# Adicionado padding #}
-            {# Aponta para a rota correta de edição #}
-            <form method="POST" action="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" novalidate>
+        <div class="card-body p-4">
+             {# --- Adicionado enctype para upload de arquivo --- #}
+            <form method="POST" action="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" enctype="multipart/form-data" novalidate>
+            {# ------------------------------------------------- #}
                 {{ form.csrf_token }}
-                {{ form.user_id() }} {# Renderiza o campo oculto user_id #}
+                {{ form.user_id() }}
 
+                {# Linha 1: Nome e Email #}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         {{ form.name.label(class="form-label") }}
                         {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
-                        {% if form.name.errors %}
-                        <div class="invalid-feedback">{% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {% if form.name.errors %}<div class="invalid-feedback">{% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
                     <div class="col-md-6">
                         {{ form.email.label(class="form-label") }}
                         {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
-                        {% if form.email.errors %}
-                        <div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {% if form.email.errors %}<div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
                 </div>
 
+                {# Linha 2: Matrícula e Vínculo #}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         {{ form.matricula.label(class="form-label") }}
                         {{ form.matricula(class="form-control" + (" is-invalid" if form.matricula.errors else "")) }}
-                        {% if form.matricula.errors %}
-                        <div class="invalid-feedback">{% for error in form.matricula.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {% if form.matricula.errors %}<div class="invalid-feedback">{% for error in form.matricula.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
                     <div class="col-md-6">
                         {{ form.vinculo.label(class="form-label") }}
-                        {{ form.vinculo(class="form-control" + (" is-invalid" if form.vinculo.errors else "")) }}
-                        {% if form.vinculo.errors %}
-                        <div class="invalid-feedback">{% for error in form.vinculo.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {# --- CORREÇÃO: Renderiza como select --- #}
+                        {{ form.vinculo(class="form-select" + (" is-invalid" if form.vinculo.errors else "")) }}
+                        {# -------------------------------------- #}
+                        {% if form.vinculo.errors %}<div class="invalid-feedback">{% for error in form.vinculo.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
                 </div>
 
-                {# --- NOVOS CAMPOS ADICIONADOS --- #}
+                {# Linha 3: Unidade/Setor e Chefia #}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         {{ form.unidade_setor.label(class="form-label") }}
                         {{ form.unidade_setor(class="form-control" + (" is-invalid" if form.unidade_setor.errors else "")) }}
-                        {% if form.unidade_setor.errors %}
-                            <div class="invalid-feedback">{% for error in form.unidade_setor.errors %}{{ error }}{% endfor %}</div>
-                        {% endif %}
+                        {% if form.unidade_setor.errors %}<div class="invalid-feedback">{% for error in form.unidade_setor.errors %}{{ error }}{% endfor %}</div>{% endif %}
                     </div>
                     <div class="col-md-6">
                         {{ form.chefia_imediata.label(class="form-label") }}
                         {{ form.chefia_imediata(class="form-control" + (" is-invalid" if form.chefia_imediata.errors else "")) }}
-                        {% if form.chefia_imediata.errors %}
-                            <div class="invalid-feedback">{% for error in form.chefia_imediata.errors %}{{ error }}{% endfor %}</div>
-                        {% endif %}
+                        {% if form.chefia_imediata.errors %}<div class="invalid-feedback">{% for error in form.chefia_imediata.errors %}{{ error }}{% endfor %}</div>{% endif %}
                     </div>
                 </div>
-                {# --------------------------------- #}
 
+                 {# --- NOVO CAMPO: Foto --- #}
+                 <div class="row mb-3 align-items-center">
+                     <div class="col-md-6">
+                         {{ form.foto.label(class="form-label") }}
+                         {{ form.foto(class="form-control" + (" is-invalid" if form.foto.errors else "")) }}
+                         {% if form.foto.errors %}
+                             <div class="invalid-feedback">{% for error in form.foto.errors %}{{ error }}{% endfor %}</div>
+                         {% endif %}
+                          <small class="form-text text-muted">Envie uma nova foto apenas se desejar alterar a atual (JPG/PNG).</small>
+                     </div>
+                     {# Exibe a foto atual #}
+                     <div class="col-md-6 text-center">
+                         <label class="form-label">Foto Atual:</label><br>
+                         {% if foto_atual %}
+                             <img src="{{ url_for('static', filename=foto_atual) }}"
+                                  alt="Foto Atual" class="img-thumbnail"
+                                  style="max-width: 100px; max-height: 100px; object-fit: cover;"
+                                  onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/default_avatar.png') }}'; this.alt='Foto padrão';">
+                         {% else %}
+                             <span class="text-muted">Sem foto</span>
+                         {% endif %}
+                     </div>
+                 </div>
+                 {# ----------------------- #}
+
+                {# Linha Senha #}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         {{ form.password.label(class="form-label") }}
                         {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
-                        {% if form.password.errors %}
-                        <div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {% if form.password.errors %}<div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                          <small class="form-text text-muted">Deixe em branco para manter a senha atual.</small>
                     </div>
                     <div class="col-md-6">
                         {{ form.confirm_password.label(class="form-label") }}
                         {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
-                        {% if form.confirm_password.errors %}
-                        <div class="invalid-feedback">{% for error in form.confirm_password.errors %}<span>{{ error }}</span>{% endfor %}</div>
-                        {% endif %}
+                        {% if form.confirm_password.errors %}<div class="invalid-feedback">{% for error in form.confirm_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
                 </div>
 
+                {# Linha Admin/Ativo #}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             {{ form.is_admin(class="form-check-input", id="is_admin", role="switch") }}
                             {{ form.is_admin.label(class="form-check-label", for="is_admin") }}
                         </div>
-                         {% if form.is_admin.errors %}
-                            <div class="text-danger small mt-1">{% for error in form.is_admin.errors %}{{ error }}{% endfor %}</div>
-                         {% endif %}
+                         {% if form.is_admin.errors %}<div class="text-danger small mt-1">{% for error in form.is_admin.errors %}{{ error }}{% endfor %}</div>{% endif %}
                     </div>
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             {{ form.is_active(class="form-check-input", id="is_active", role="switch") }}
                             {{ form.is_active.label(class="form-check-label", for="is_active") }}
                         </div>
-                         {% if form.is_active.errors %}
-                            <div class="text-danger small mt-1">{% for error in form.is_active.errors %}{{ error }}{% endfor %}</div>
-                         {% endif %}
+                         {% if form.is_active.errors %}<div class="text-danger small mt-1">{% for error in form.is_active.errors %}{{ error }}{% endfor %}</div>{% endif %}
                     </div>
                 </div>
 
-                <div class="d-grid gap-2 mt-4"> {# Adicionado espaçamento #}
-                    {{ form.submit(class="btn btn-warning") }} {# Botão de submit do form #}
+                <div class="d-grid gap-2 mt-4">
+                    {{ form.submit(class="btn btn-warning") }}
                 </div>
             </form>
         </div>
