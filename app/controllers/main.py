@@ -414,7 +414,7 @@ def calendario():
         flash('Ocorreu um erro ao carregar o calendário.', 'danger')
         return redirect(url_for('main.dashboard'))
 
-# Rota para o Relatório Mensal detalhado (GET) (mantida)
+# Rota para o Relatório Mensal detalhado (GET)
 @main.route('/relatorio-mensal')
 @login_required
 def relatorio_mensal():
@@ -429,8 +429,14 @@ def relatorio_mensal():
         # Busca os dados do relatório (ordenados por data ascendente para a tabela)
         dados_relatorio = _get_relatorio_mensal_data(usuario_ctx.id, mes_req, ano_req, order_desc=False)
 
-        # Cria uma instância do formulário de autoavaliação (para gerar o PDF completo)
+        # Cria uma instância do formulário de autoavaliação
         form_completo = RelatorioCompletoForm()
+
+        # --- CORREÇÃO: Preencher dados dos campos ocultos no objeto form ---
+        form_completo.user_id.data = str(usuario_ctx.id) # Converte para string
+        form_completo.mes.data = str(mes_req)           # Converte para string
+        form_completo.ano.data = str(ano_req)           # Converte para string
+        # --- FIM DA CORREÇÃO ---
 
         # Combina os dados do relatório com a lista de usuários e o form de autoavaliação
         contexto_template = {**dados_relatorio, 'usuarios': usuarios_admin, 'form_completo': form_completo}
@@ -551,7 +557,7 @@ def gerar_relatorio_completo_pdf():
     # Valida o formulário de autoavaliação (inclui CSRF)
     if form.validate_on_submit():
         try:
-            # --- CORREÇÃO: Validar e converter com fallback ---
+            # Validar e converter com fallback
             user_id_str = form.user_id.data
             mes_str = form.mes.data
             ano_str = form.ano.data
@@ -577,7 +583,6 @@ def gerar_relatorio_completo_pdf():
             user_id = int(user_id_str)
             mes = int(mes_str)
             ano = int(ano_str)
-            # --- FIM DA CORREÇÃO ---
 
             # Obtém os dados dos campos de texto da autoavaliação
             autoavaliacao_data = form.autoavaliacao.data
