@@ -3,28 +3,16 @@ services:
   - type: web
     name: ponto-eletronico
     env: python
-    # --- REMOVIDO: python init_db_production.py ---
     buildCommand: pip install -r requirements.txt
-    # --------------------------------------------
-    # --- COMANDO DE START (Pode precisar de ajuste para migração) ---
-    startCommand: flask db upgrade && gunicorn wsgi:app # Exemplo com Flask-Migrate (executa antes do gunicorn)
-    # Ou apenas: gunicorn wsgi:app (e rodar migrações manualmente via Shell)
-    # ----------------------------------------------------------------
+    startCommand: gunicorn wsgi:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      # --- REMOVIDO DATABASE_URL (Vamos definir no __init__.py) ---
-      # - key: DATABASE_URL
-      #   value: sqlite:///instance/ponto_eletronico.db
-      # ---------------------------------------------------------
-      - key: DEBUG # Manter DEBUG=False em produção
+      - key: DATABASE_URI
+        value: sqlite:///instance/ponto_eletronico.db
+      - key: DEBUG
         value: false
-      # --- ADICIONAR FLASK_APP para comandos flask ---
-      - key: FLASK_APP
-        value: wsgi:app # Ou o ponto de entrada correto para seus comandos flask
-      # ---------------------------------------------
     disk:
       name: sqlite-data
       mountPath: /opt/render/project/src/instance
       sizeGB: 1
-
