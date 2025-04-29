@@ -192,24 +192,28 @@ def registrar_multiplo_ponto():
                 horas_calc = calcular_horas(data_obj, entrada_t, saida_t, saida_almoco_t, retorno_almoco_t)
                 # ---------------------------------------
 
+                # --- CORREÇÃO INÍCIO ---
+                # 1. Guarda o texto da atividade em uma variável separada
+                texto_atividade = atividades_list[i].strip() if atividades_list[i] else None
+
+                # 2. Cria o objeto Ponto SEM o argumento atividades_texto
                 novo_registro = Ponto(
                     user_id=current_user.id, data=data_obj,
                     entrada=entrada_t, saida_almoco=saida_almoco_t,
                     retorno_almoco=retorno_almoco_t, saida=saida_t,
                     horas_trabalhadas=horas_calc,
-                    atividades_texto=atividades_list[i].strip() if atividades_list[i] else None, # Campo temporário
                     resultados_produtos=resultados_list[i].strip() if resultados_list[i] else None,
                     observacoes=observacoes_list[i].strip() if observacoes_list[i] else None,
                     afastamento=False
                 )
                 db.session.add(novo_registro)
-                db.session.flush() # Para obter o ID
+                db.session.flush() # Para obter o ID do novo_registro
 
-                # Adiciona atividade se existir
-                if hasattr(novo_registro, 'atividades_texto') and novo_registro.atividades_texto:
-                    nova_atividade = Atividade(ponto_id=novo_registro.id, descricao=novo_registro.atividades_texto)
+                # 3. Adiciona a Atividade separadamente usando a variável
+                if texto_atividade:
+                    nova_atividade = Atividade(ponto_id=novo_registro.id, descricao=texto_atividade)
                     db.session.add(nova_atividade)
-                    delattr(novo_registro, 'atividades_texto') # Remove atributo temporário
+                # --- CORREÇÃO FIM ---
 
                 registros_adicionados += 1
 
